@@ -12,14 +12,18 @@
 """
 
 import random
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Any, get_type_hints
 
 import pytest
+import pytest_asyncio
 from pydantic import AfterValidator, BaseModel, Field, ValidationError
 from pydantic.config import JsonDict
 from random_generator import generate_random_value_for_type
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
 
@@ -377,6 +381,32 @@ _ROUNDTRIP = [
     (FeedUpdates, _make_feed, "update_feed", frozenset(), frozenset()),
 ]
 _ROUNDTRIP_IDS = ["media", "library", "schedule", "metadata", "feed"]
+
+
+@pytest_asyncio.fixture
+async def repo(tmp_path: Path) -> AsyncGenerator[Repository]:
+    """纯 repo 文件库 (FK ON), 不经 app lifespan.
+
+    api/conftest 的 repo 来自 app runtime, 其 lifespan 启动的 FeedService 会
+    并发 poll 测试新建的 Feed -- next_fetch_at 随机生成的是历史时刻, 立即到期,
+    拉取失败后时间列被覆盖为当前时间, 与 DB 往返断言竞态 (全套件 -n auto 负载下
+    必现). 序列化保真与后台服务无关, 此测试使用无后台服务的独立引擎.
+    """
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'repo.db'}", connect_args={"timeout": 5})
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=OFF")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    yield Repository(engine)
+    await engine.dispose()
 
 
 class TestRepoRoundTrip:

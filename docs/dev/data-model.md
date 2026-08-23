@@ -1,6 +1,6 @@
 # 数据模型
 
-> 提交: `ef3e512`
+> 提交: `b4dc2c6`
 >
 > 表结构、字段类型、便捷属性都在 `src/amane/db/models.py`. 本文只解释**为什么**这么建模、所有权关系、生命周期与已知陷阱.
 
@@ -68,7 +68,7 @@
 **安全性如何保证** (无运行时反射):
 
 1. repo update 方法**显式逐字段赋值** (`if "x" in updates: obj.x = updates["x"]`), 不用 `setattr`. 字段名拼写与类型兼容性由静态类型检查保证 —— TypedDict 与 DB 列若漂移会直接编译期报错.
-2. req model 由 DB 模型派生, 故 req↔DB 的字段/类型兼容性由 `create_partial_model` 的构造保证, 只需验证该函数正确 (`tests/api/test_schema_repo_compat.py`).
+2. req model 由 DB 模型派生, 故 req↔DB 的字段/类型兼容性由 `create_partial_model` 的构造保证, 只需验证该函数正确 (`tests/api/test_schema_repo_compat.py`). 该文件 `TestRepoRoundTrip` 用独立文件库, 不经 api/conftest 的 `repo` (源自 app lifespan): lifespan 启动的 `FeedService` 会并发 poll 测试新建的 Feed, 其随机 `next_fetch_at` 是历史时刻 (立即到期), 拉取失败后时间列被覆盖为当前时间 — 与 DB 往返断言竞态. 序列化保真与后台服务无关, 必须隔离.
 3. 端点把窄的 req `model_dump` 结果传入宽的 repo 方法; 二者同源派生, 转换天然安全. 唯一运行时缝隙 (req 键须 ⊆ TypedDict 键, 否则多余键被 repo 静默丢弃) 由字段纪律测试兜底.
 
 PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写入; **显式 `null`** 仅当源列本就可空时表示清空. 源列非 Optional (如 `Library.patterns: list[str]`) 时显式 `null` 由 `create_partial_model` 拒绝 (422). 空 glob 的合法写入是 `[]`.
