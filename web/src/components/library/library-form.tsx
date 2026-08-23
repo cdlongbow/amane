@@ -92,7 +92,7 @@ export function emptyLibraryForm(schema?: PathTemplateSchemaResponse | null): Li
     patterns: "",
     move_mode: "move",
     write_nfo: true,
-    copy_resources: [...DOWNLOADABLE_RESOURCES],
+    copy_resources: DOWNLOADABLE_RESOURCES.filter((r) => r !== "trailer"),
     trailer_pattern: "(?i)trailer",
     video_template: schema?.video_default ?? "{studio}/{number}/{number}.{ext}",
     cd_suffix_template: schema?.cd_suffix_default ?? "-CD{cd}",

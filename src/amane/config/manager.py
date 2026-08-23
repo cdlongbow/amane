@@ -51,11 +51,10 @@ _SITES_WITH_API_TOKEN: list[Any] = [SiteName.THEPORNDB]
 #: 各内容类型默认有序路由 (资格真值 + 该类型默认字段优先级).
 _DEFAULT_CONTENT_ROUTES: dict[ContentType, list[SiteName]] = {
     ContentType.CENSORED: [
-        SiteName.JAVDB,
         SiteName.DMM,
+        SiteName.JAVDB,
         SiteName.JAVBUS,
         SiteName.OFFICIAL,
-        SiteName.R18DEV,
     ],
     ContentType.UNCENSORED: [
         SiteName.JAVDB,
@@ -259,7 +258,8 @@ class ScrapingConfig(BaseModel):
     """刮削行为配置."""
 
     download_resources: list[DownloadableResource] = Field(
-        default_factory=lambda: list(DownloadableResource), description="刮削时自动下载到 Resource 目录的资源类型"
+        default_factory=lambda: [r for r in DownloadableResource if r != DownloadableResource.trailer],
+        description="刮削时自动下载到 Resource 目录的资源类型",
     )
     crop_poster: bool = True
 

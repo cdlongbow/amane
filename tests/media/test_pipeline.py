@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 
 from amane.config import HotSettings
+from amane.enums import DownloadableResource
 from amane.media import ResourceStore, materialize_images
 from amane.media import pipeline as pipeline_mod
 
@@ -95,13 +96,15 @@ async def test_no_poster_source_crops_from_thumb(resource_store: ResourceStore, 
 @pytest.mark.asyncio
 async def test_trailer_downloaded_external_url(resource_store: ResourceStore, tmp_path: Path):
     client = FakeClient({"https://s/t.jpg": (800, 538)})
+    settings = HotSettings()
+    settings.scraping.download_resources.append(DownloadableResource.trailer)
     out = await materialize_images(
         [],
         ["https://s/t.jpg"],
         ["https://s/trailer.mp4"],
         resource_store,
         cast("WebClient", client),
-        HotSettings(),
+        settings,
         tmp_path,
     )
     assert out.trailer_urls == ["https://s/trailer.mp4"]
@@ -208,13 +211,15 @@ async def test_poster_reordered_when_first_url_dead(resource_store: ResourceStor
 async def test_thumb_trailer_reordered_when_first_dead(resource_store: ResourceStore, tmp_path: Path):
     """thumb/trailer 首位 URL 下载失败 → 成功者前置."""
     client = FakeClient(sizes={"https://s/live.jpg": (800, 538)}, fail={"https://s/dead.jpg", "https://s/dead.mp4"})
+    settings = HotSettings()
+    settings.scraping.download_resources.append(DownloadableResource.trailer)
     out = await materialize_images(
         [],
         ["https://s/dead.jpg", "https://s/live.jpg"],
         ["https://s/dead.mp4", "https://s/trailer.mp4"],
         resource_store,
         cast("WebClient", client),
-        HotSettings(),
+        settings,
         tmp_path,
     )
     assert out.thumb_urls == ["https://s/live.jpg", "https://s/dead.jpg"]

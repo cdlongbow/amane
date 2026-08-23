@@ -101,7 +101,6 @@ class TestScrapingDownloadResources:
             DownloadableResource.thumb,
             DownloadableResource.poster,
             DownloadableResource.extrafanart,
-            DownloadableResource.trailer,
         ]
 
     @pytest.mark.parametrize(

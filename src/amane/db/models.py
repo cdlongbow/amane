@@ -334,7 +334,8 @@ class Library(SQLModel, table=True):
     write_nfo: bool = Field(default=True)
     """整理时是否写入 NFO."""
     copy_resources: list[DownloadableResource] = Field(
-        default_factory=lambda: list(DownloadableResource), sa_column=Column(JSON, nullable=False)
+        default_factory=lambda: [r for r in DownloadableResource if r != DownloadableResource.trailer],
+        sa_column=Column(JSON, nullable=False),
     )
     """整理时复制到库路径的附属资源类型."""
     trailer_pattern: TrailerPattern = Field(default=DEFAULT_TRAILER_PATTERN, sa_column=Column(String, nullable=False))

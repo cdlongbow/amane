@@ -151,7 +151,7 @@ class TestLibrary:
         assert lib.move_mode == MoveMode.MOVE
         assert lib.video_template == "/out/{studio}/{number}/{number}.{ext}"
         assert lib.write_nfo is True
-        assert lib.copy_resources == list(DownloadableResource)
+        assert lib.copy_resources == [r for r in DownloadableResource if r != DownloadableResource.trailer]
         assert lib.trailer_pattern == "(?i)trailer"
         assert lib.automation == LibraryAutomation.SCRAPE
 
