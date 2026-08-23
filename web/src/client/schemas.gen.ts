@@ -1966,8 +1966,7 @@ export const HotSettingsSchema = {
                 download_resources: [
                     'thumb',
                     'poster',
-                    'extrafanart',
-                    'trailer'
+                    'extrafanart'
                 ],
                 crop_poster: true,
                 poster_ratio: 0.7,
@@ -1981,11 +1980,10 @@ export const HotSettingsSchema = {
                         'javbus'
                     ],
                     censored: [
-                        'javdb',
                         'dmm',
+                        'javdb',
                         'javbus',
-                        'official',
-                        'r18dev'
+                        'official'
                     ],
                     chinese: [
                         'iqqtv',
