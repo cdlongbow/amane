@@ -1,0 +1,636 @@
+{
+  "title": "Settings",
+  "sections": {
+    "configuration": "Configuration",
+    "watchPaths": "Watch Paths"
+  },
+  "tabs": {
+    "scraping": "Movie Scraping",
+    "actor_scraping": "Actor Scraping",
+    "agent": "Agent",
+    "network": "Network",
+    "worker": "Task Engine",
+    "watcher": "File Monitoring",
+    "logging": "Logging",
+    "sr": "Super Resolution",
+    "llm": "LLM Translation"
+  },
+  "config": {
+    "loadError": "Failed to load configuration"
+  },
+  "fields": {
+    "scraping": {
+      "download_resources": {
+        "label": "Download on scrape",
+        "description": "Cover/poster/stills are still downloaded when opening a movie's detail page, even if not selected here",
+        "options": {
+          "thumb": "Cover",
+          "poster": "Poster",
+          "extrafanart": "Stills",
+          "trailer": "Trailer"
+        },
+        "$": {
+          "options": {
+            "thumb": "Cover",
+            "poster": "Poster",
+            "extrafanart": "Stills",
+            "trailer": "Trailer"
+          }
+        }
+      },
+      "crop_poster": {
+        "label": "Crop Poster",
+        "description": "Auto-crop poster from the cover image"
+      },
+      "poster_crop_skip_ratio": {
+        "label": "Poster Crop Skip Ratio",
+        "description": "Skip cropping from cover when the poster candidate's height already reaches this fraction of the cover height"
+      },
+      "poster_ratio": {
+        "label": "Poster Crop Ratio",
+        "description": "Width-to-height ratio for cropping the poster from the cover"
+      },
+      "jpeg_quality": {
+        "label": "JPEG Quality",
+        "description": "Image save quality (1-100), higher means larger file size"
+      },
+      "field_priority": {
+        "label": "Field Priority",
+        "description": "Override priority for specific fields",
+        "options": {
+          "title": "Title",
+          "actors": "Actors",
+          "tags": "Tags",
+          "release": "Release Date",
+          "runtime": "Runtime",
+          "directors": "Directors",
+          "series": "Series",
+          "studio": "Studio",
+          "publisher": "Publisher",
+          "plot": "Plot",
+          "poster_urls": "Poster",
+          "thumb_urls": "Cover",
+          "trailer_urls": "Trailer",
+          "extrafanart": "Stills",
+          "score": "Score"
+        },
+        "$": {
+          "options": {
+            "airav": "airav",
+            "avsox": "avsox",
+            "dahlia": "dahlia",
+            "dmm": "dmm",
+            "faleno": "faleno",
+            "fc2": "fc2",
+            "fc2club": "fc2club",
+            "fc2ppvdb": "fc2ppvdb",
+            "freejavbt": "freejavbt",
+            "getchu": "getchu",
+            "gfriends": "gfriends",
+            "giga": "giga",
+            "iqqtv": "iqqtv",
+            "jav321": "jav321",
+            "javbus": "javbus",
+            "javdb": "javdb",
+            "javlibrary": "javlibrary",
+            "kin8": "kin8",
+            "mgstage": "mgstage",
+            "minnano": "minnano",
+            "official": "official",
+            "prestige": "prestige",
+            "r18dev": "r18dev",
+            "theporndb": "theporndb",
+            "wikipedia": "wikipedia",
+            "xcity": "xcity"
+          },
+          "$": {
+            "options": {
+              "airav": "airav",
+              "avsox": "avsox",
+              "dahlia": "dahlia",
+              "dmm": "dmm",
+              "faleno": "faleno",
+              "fc2": "fc2",
+              "fc2club": "fc2club",
+              "fc2ppvdb": "fc2ppvdb",
+              "freejavbt": "freejavbt",
+              "getchu": "getchu",
+              "gfriends": "gfriends",
+              "giga": "giga",
+              "iqqtv": "iqqtv",
+              "jav321": "jav321",
+              "javbus": "javbus",
+              "javdb": "javdb",
+              "javlibrary": "javlibrary",
+              "kin8": "kin8",
+              "mgstage": "mgstage",
+              "minnano": "minnano",
+              "official": "official",
+              "prestige": "prestige",
+              "r18dev": "r18dev",
+              "theporndb": "theporndb",
+              "wikipedia": "wikipedia",
+              "xcity": "xcity"
+            }
+          }
+        }
+      },
+      "field_language": {
+        "label": "Field Language",
+        "options": {
+          "title": "Title",
+          "actors": "Actors",
+          "tags": "Tags",
+          "release": "Release Date",
+          "runtime": "Runtime",
+          "directors": "Directors",
+          "series": "Series",
+          "studio": "Studio",
+          "publisher": "Publisher",
+          "plot": "Plot",
+          "poster_urls": "Poster",
+          "thumb_urls": "Cover",
+          "trailer_urls": "Trailer",
+          "extrafanart": "Stills",
+          "score": "Score"
+        },
+        "$": {
+          "options": {
+            "zh_cn": "Simplified Chinese",
+            "zh_tw": "Traditional Chinese",
+            "jp": "Japanese",
+            "en": "English"
+          }
+        }
+      },
+      "site_config": {
+        "label": "Site Configuration",
+        "description": "Per-source site settings",
+        "options": {
+          "airav": "airav",
+          "avsox": "avsox",
+          "dahlia": "dahlia",
+          "dmm": "dmm",
+          "faleno": "faleno",
+          "fc2": "fc2",
+          "fc2club": "fc2club",
+          "fc2ppvdb": "fc2ppvdb",
+          "freejavbt": "freejavbt",
+          "getchu": "getchu",
+          "gfriends": "gfriends",
+          "giga": "giga",
+          "iqqtv": "iqqtv",
+          "jav321": "jav321",
+          "javbus": "javbus",
+          "javdb": "javdb",
+          "javlibrary": "javlibrary",
+          "kin8": "kin8",
+          "mgstage": "mgstage",
+          "minnano": "minnano",
+          "official": "official",
+          "prestige": "prestige",
+          "r18dev": "r18dev",
+          "theporndb": "theporndb",
+          "wikipedia": "wikipedia",
+          "xcity": "xcity"
+        },
+        "$": {
+          "base_url": {
+            "label": "Custom Domain",
+            "description": "Override the default domain for this site"
+          },
+          "use_proxy": {
+            "label": "Use Proxy",
+            "description": "Route requests through the configured proxy"
+          },
+          "use_browser": {
+            "label": "Use Browser",
+            "description": "Use headless browser for scraping (slower but bypasses anti-bot)"
+          },
+          "cookie": {
+            "label": "Cookie",
+            "description": "Custom cookie string for authentication"
+          },
+          "api_token": {
+            "label": "API Token",
+            "description": "API access token"
+          },
+          "official_routes": {
+            "label": "Manufacturer Routes",
+            "description": "Map title prefixes to manufacturers",
+            "$": {
+              "options": {
+                "attackers": "Attackers",
+                "befree": "BeFree",
+                "bi": "Bi",
+                "bibian": "Bibian",
+                "das": "DAS",
+                "ebody": "E-BODY",
+                "fitch": "Fitch",
+                "hajime_kikaku": "Hajime Kikaku",
+                "honnaka": "Honnaka",
+                "hunter": "Hunter",
+                "idea_pocket": "IdeaPocket",
+                "kawaii": "kawaii",
+                "kirakira": "kira☆kira",
+                "madonna": "Madonna",
+                "miman": "Miman",
+                "mko_labo": "MKO Labo",
+                "moodyz": "MOODYZ",
+                "muku": "Muku",
+                "mvg": "MVG",
+                "nanpa_japan": "Nanpa Japan",
+                "oppai": "OPPAI",
+                "opera": "OPERA",
+                "premium_beauty": "PREMIUM",
+                "rookie": "ROOKIE",
+                "s1": "S1",
+                "tameikegoro": "Tameike Goro",
+                "tosatsu": "Tosatsu",
+                "v": "V",
+                "wanz_factory": "WANZ Factory"
+              }
+            }
+          },
+          "rate_limit": {
+            "label": "Rate Limit",
+            "description": "Per-site rate limit override"
+          }
+        }
+      },
+      "content_routes": {
+        "label": "Type Routes",
+        "description": "Sources and default priority for each content type",
+        "options": {
+          "censored": "Censored",
+          "uncensored": "Uncensored",
+          "chinese": "Chinese",
+          "western": "Western",
+          "fc2": "FC2",
+          "amateur": "Amateur",
+          "hentai": "Hentai"
+        },
+        "$": {
+          "options": {
+            "airav": "airav",
+            "avsox": "avsox",
+            "dahlia": "dahlia",
+            "dmm": "dmm",
+            "faleno": "faleno",
+            "fc2": "fc2",
+            "fc2club": "fc2club",
+            "fc2ppvdb": "fc2ppvdb",
+            "freejavbt": "freejavbt",
+            "getchu": "getchu",
+            "gfriends": "gfriends",
+            "giga": "giga",
+            "iqqtv": "iqqtv",
+            "jav321": "jav321",
+            "javbus": "javbus",
+            "javdb": "javdb",
+            "javlibrary": "javlibrary",
+            "kin8": "kin8",
+            "mgstage": "mgstage",
+            "minnano": "minnano",
+            "official": "official",
+            "prestige": "prestige",
+            "r18dev": "r18dev",
+            "theporndb": "theporndb",
+            "wikipedia": "wikipedia",
+            "xcity": "xcity"
+          },
+          "$": {
+            "options": {
+              "airav": "airav",
+              "avsox": "avsox",
+              "dahlia": "dahlia",
+              "dmm": "dmm",
+              "faleno": "faleno",
+              "fc2": "fc2",
+              "fc2club": "fc2club",
+              "fc2ppvdb": "fc2ppvdb",
+              "freejavbt": "freejavbt",
+              "getchu": "getchu",
+              "gfriends": "gfriends",
+              "giga": "giga",
+              "iqqtv": "iqqtv",
+              "jav321": "jav321",
+              "javbus": "javbus",
+              "javdb": "javdb",
+              "javlibrary": "javlibrary",
+              "kin8": "kin8",
+              "mgstage": "mgstage",
+              "minnano": "minnano",
+              "official": "official",
+              "prestige": "prestige",
+              "r18dev": "r18dev",
+              "theporndb": "theporndb",
+              "wikipedia": "wikipedia",
+              "xcity": "xcity"
+            }
+          }
+        }
+      }
+    },
+    "network": {
+      "proxy": {
+        "label": "Proxy",
+        "description": "HTTP/SOCKS5 proxy address (e.g. socks5://127.0.0.1:1080)"
+      },
+      "timeout": {
+        "label": "Request Timeout",
+        "description": "Default HTTP request timeout (seconds)"
+      },
+      "max_retries": {
+        "label": "Max Retries",
+        "description": "Maximum retry attempts on request failure"
+      },
+      "max_clients": {
+        "label": "Max Connections",
+        "description": "Connection pool maximum size"
+      },
+      "browser_timeout": {
+        "label": "Browser Timeout",
+        "description": "Headless browser page navigation timeout (milliseconds)"
+      },
+      "chunked_threshold": {
+        "label": "Chunked Threshold",
+        "description": "File size threshold to enable chunked download (bytes)"
+      },
+      "chunk_size": {
+        "label": "Chunk Size",
+        "description": "Size of each download chunk (bytes)"
+      },
+      "concurrency": {
+        "label": "Download Concurrency",
+        "description": "Maximum parallel chunk downloads"
+      },
+      "rate_limits": {
+        "label": "Rate Limits",
+        "description": "Per-domain rate limit overrides. Key is hostname (e.g. javdb.com). Takes priority over per-site settings."
+      },
+      "default_rate_limit": {
+        "label": "Default Rate Limit",
+        "description": "Default request rate (req/s) for domains without a specific override. Lower priority than per-domain and per-site settings."
+      }
+    },
+    "worker": {
+      "concurrency": {
+        "label": "Concurrency",
+        "description": "Maximum number of tasks to run at once"
+      },
+      "poll_interval": {
+        "label": "Poll Interval",
+        "description": "Task queue check interval (seconds)"
+      },
+      "shutdown_timeout": {
+        "label": "Shutdown Timeout",
+        "description": "Maximum time to wait for active tasks on shutdown (seconds)"
+      }
+    },
+    "watcher": {
+      "use_polling": {
+        "label": "Polling Mode",
+        "description": "Use polling instead of inotify (for network filesystems)"
+      },
+      "debounce_seconds": {
+        "label": "Debounce Window",
+        "description": "Wait time after a file change before processing (seconds)"
+      },
+      "media_extensions": {
+        "label": "Media Extensions",
+        "description": "File extensions whitelist for media file monitoring and scanning"
+      }
+    },
+    "sr": {
+      "enabled": {
+        "label": "Upscale on scrape",
+        "description": "If disabled, you can still upscale in the background with a scheduled task"
+      },
+      "max_dim_threshold": {
+        "label": "SR Dimension Threshold",
+        "description": "Only upscale when the image's long side is below this value"
+      },
+      "max_bytes_threshold": {
+        "label": "SR File Size Threshold (bytes)",
+        "description": "Only upscale when the image file is smaller than this"
+      },
+      "preset": {
+        "label": "Preset",
+        "description": "Choose the upscaler and scale",
+        "options": {
+          "realesr-photo-4x": "Real-ESRGAN-photo-4x",
+          "waifu-photo-2x": "waifu2x-photo-2x"
+        }
+      },
+      "output_format": {
+        "label": "Output Format",
+        "description": "Output image format after super-resolution",
+        "options": {
+          "jpg": "JPEG",
+          "png": "PNG",
+          "webp": "WebP"
+        }
+      },
+      "tta": {
+        "label": "Enable TTA (test-time augmentation)",
+        "description": "Slightly better quality but 8x slower"
+      }
+    },
+    "logging": {
+      "level": {
+        "label": "Level",
+        "options": {
+          "DEBUG": "Debug",
+          "INFO": "Info",
+          "WARNING": "Warning",
+          "ERROR": "Error",
+          "CRITICAL": "Critical"
+        }
+      },
+      "debug_capture": {
+        "label": "Debug Capture",
+        "description": "Capture raw responses for all tasks; when off, only failed tasks are captured"
+      }
+    },
+    "llm": {
+      "enabled": {
+        "label": "Enable LLM Translation",
+        "description": "Translate metadata text fields with an LLM during scraping. Skips translation when off"
+      },
+      "api_key": {
+        "label": "API Key",
+        "description": "OpenAI-compatible API key. No translation occurs while empty, even if enabled"
+      },
+      "base_url": {
+        "label": "API Endpoint",
+        "description": "OpenAI-compatible endpoint URL. May point to a self-hosted or third-party proxy"
+      },
+      "model": {
+        "label": "Model"
+      },
+      "max_retries": {
+        "label": "Max Retries"
+      },
+      "rate_limit": {
+        "label": "Rate Limit (req/s)"
+      },
+      "translate_fields": {
+        "label": "Fields to Translate",
+        "description": "Currently only title and plot are supported",
+        "$": {
+          "options": {
+            "title": "Title",
+            "actors": "Actors",
+            "tags": "Tags",
+            "release": "Release Date",
+            "runtime": "Runtime",
+            "directors": "Directors",
+            "series": "Series",
+            "studio": "Studio",
+            "publisher": "Publisher",
+            "plot": "Plot",
+            "poster_urls": "Poster",
+            "thumb_urls": "Cover",
+            "trailer_urls": "Trailer",
+            "extrafanart": "Stills",
+            "score": "Score"
+          }
+        }
+      }
+    },
+    "agent": {
+      "api_type": {
+        "label": "API Type",
+        "description": "Prefer Responses or Anthropic when the provider supports them",
+        "options": {
+          "chat": "Chat",
+          "response": "Responses",
+          "anthropic": "Anthropic"
+        }
+      },
+      "api_key": {
+        "label": "API Key"
+      },
+      "base_url": {
+        "label": "API Endpoint"
+      },
+      "model": {
+        "label": "Model"
+      },
+      "thinking": {
+        "label": "Default Thinking Level",
+        "description": "Can be changed in chat",
+        "options": {
+          "off": "Off",
+          "minimal": "Minimal",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "xhigh": "Max"
+        }
+      },
+      "rate_limit": {
+        "label": "Rate Limit (req/s)",
+        "description": "See the provider's docs; too high may trigger rate limiting"
+      },
+      "sql_timeout_ms": {
+        "label": "SQL Timeout (ms)",
+        "description": "Default timeout for queries that run without approval; queries that exceed it need user approval"
+      },
+      "result_cache_ttl_s": {
+        "label": "Result Cache TTL (s)",
+        "description": "In-memory TTL for delivered results; expired entries are re-run"
+      },
+      "result_cache_max_entries": {
+        "label": "Result Cache Capacity",
+        "description": "Max in-memory result entries (LRU)"
+      },
+      "history_ttl_s": {
+        "label": "Session History TTL (s)",
+        "description": "In-memory message_history TTL; reloads from on-disk messages.json after eviction"
+      },
+      "history_max_sessions": {
+        "label": "Session History Capacity",
+        "description": "Max sessions kept in the history hot cache (LRU)"
+      }
+    },
+    "r18": {
+      "dsn": {
+        "label": "PostgreSQL DSN",
+        "description": "Superuser connection string (postgresql://user:pass@host:port) with CREATEDB/CREATEROLE"
+      },
+      "db_name": {
+        "label": "Database Name",
+        "description": "Target database name. Created automatically by the importer"
+      },
+      "read_user": {
+        "label": "Read-only Role",
+        "description": "Read-only role used for runtime queries. Created and granted by the importer"
+      },
+      "read_password": {
+        "label": "Read-only Password"
+      },
+      "read_timeout": {
+        "label": "Query Timeout (s)",
+        "description": "Query limit for the read-only role, to prevent runaway queries"
+      },
+      "download_url": {
+        "label": "Dump Download URL",
+        "description": "r18.dev dump download URL, usually a stable redirect to S3"
+      },
+      "psql_path": {
+        "label": "psql Path"
+      }
+    },
+    "actor_scraping": {
+      "profile_sites": {
+        "label": "Actor Profile Priority",
+        "options": {
+          "javdb": "javdb",
+          "minnano": "minnano",
+          "wikipedia": "wikipedia"
+        },
+        "$": {
+          "options": {
+            "javdb": "javdb",
+            "minnano": "minnano",
+            "wikipedia": "wikipedia"
+          }
+        }
+      },
+      "image_sites": {
+        "label": "Avatar Source Priority",
+        "options": {
+          "gfriends": "gfriends"
+        },
+        "$": {
+          "options": {
+            "gfriends": "gfriends"
+          }
+        }
+      },
+      "download_images": {
+        "label": "Download Avatars"
+      },
+      "auto_scrape": {
+        "label": "Auto-scrape",
+        "description": "Automatically scrape actors when scraping movies"
+      },
+      "gfriends_repo": {
+        "label": "gFriends Repository",
+        "description": "gFriends GitHub repository URL"
+      }
+    },
+    "plugins": {
+      "enabled": {
+        "label": "Enable plugin",
+        "description": "Allow this plugin to participate in scrape routes"
+      },
+      "config": {
+        "label": "Plugin configuration",
+        "description": "Configuration fields provided by the plugin"
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+# Compatible with prek (preferred) and pre-commit.
+# Install: uv run prek install (or just setup)
+#
+# 每个钩子只在相关文件变化时运行 (files 过滤, 见 prek docs#files):
+# - src/amane 后端源码变化 → 重新生成 OpenAPI + TS client
+# - Python 文件变化 → ruff 修复/检查 + pyright 类型检查
+# - web/ 下任何文件变化 → oxfmt/oxlint 修复 + web 全量检查
+# - src/amane 或 tests 变化 → 运行测试
+# - 其余文件 (docs/md、yaml、Dockerfile 等) 不触发任何钩子
+#
+# 失败即停: 修复型钩子 (fix-*) 失败 = 文件被修改, 需重新 stage 再提交,
+# 后续检查钩子此刻跑也是必败, 直接停止省掉全量.
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: generate-api
+        name: just generate
+        entry: just generate
+        language: system
+        pass_filenames: false
+        files: '^src/amane/.*\.py$'
+        stages: [pre-commit]
+
+      - id: fix-python
+        name: ruff fix + format
+        entry: just fix-python
+        language: system
+        pass_filenames: false
+        files: '\.(py|pyi)$|^ruff\.toml$'
+        stages: [pre-commit]
+
+      - id: fix-web
+        name: pnpm fix
+        entry: just fix-web
+        language: system
+        pass_filenames: false
+        files: '^web/'
+        stages: [pre-commit]
+
+      - id: lint
+        name: ruff check
+        entry: just lint
+        language: system
+        pass_filenames: false
+        files: '\.(py|pyi)$|^ruff\.toml$'
+        stages: [pre-commit]
+
+      - id: typecheck
+        name: pyright + ty
+        entry: just typecheck
+        language: system
+        pass_filenames: false
+        files: '\.(py|pyi)$|^pyproject\.toml$'
+        stages: [pre-commit]
+
+      - id: check-web
+        name: pnpm check
+        entry: just check-web
+        language: system
+        pass_filenames: false
+        files: '^web/'
+        stages: [pre-commit]
+
+      - id: test
+        name: pytest -n auto
+        entry: just test-cov
+        language: system
+        pass_filenames: false
+        files: '^(src/amane|tests)/.*\.py$'
+        stages: [pre-commit]

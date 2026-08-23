@@ -1,0 +1,84 @@
+import {
+  Alert,
+  Button,
+  Center,
+  Group,
+  Paper,
+  PasswordInput,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+
+import { apiFetch } from "@/lib/api-token";
+
+/**
+ * API token 登录门. 首次访问 (无 cookie) 时整页替换 App; 提交后用
+ * /api/system/desktop + 输入框中的 token 做 Bearer 校验, 成功时服务端下发
+ * HttpOnly `amane_token` cookie, 之后所有请求走 cookie.
+ */
+interface LoginGateProps {
+  onAuthed: () => void;
+}
+
+export function LoginGate({ onAuthed }: LoginGateProps) {
+  const { t } = useTranslation("common");
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit() {
+    const token = value.trim();
+    if (!token) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const resp = await apiFetch(`${import.meta.env.VITE_API_URL || ""}/api/system/desktop`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        onAuthed();
+      } else {
+        setError(t("auth.invalidToken"));
+      }
+    } catch {
+      setError(t("auth.connectionFailed"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Center h="100vh">
+      <Paper withBorder p="xl" radius="md" w={380} shadow="sm">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <Stack gap="md">
+            <Title order={3}>{t("auth.title")}</Title>
+            <Text size="sm" c="dimmed">
+              {t("auth.description")}
+            </Text>
+            <PasswordInput
+              value={value}
+              onChange={(e) => setValue(e.currentTarget.value)}
+              placeholder={t("auth.tokenPlaceholder")}
+              autoFocus
+            />
+            {error && <Alert color="red">{error}</Alert>}
+            <Group justify="flex-end">
+              <Button type="submit" loading={submitting}>
+                {t("actions.submit")}
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Paper>
+    </Center>
+  );
+}

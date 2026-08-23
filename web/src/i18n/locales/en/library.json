@@ -1,0 +1,152 @@
+{
+  "title": "Library",
+  "mediaFilesTitle": "Media Files",
+  "searchPlaceholder": "Search by path or number...",
+  "deleteLibrary": {
+    "confirmTitle": "Delete Library",
+    "confirmDesc": "This permanently deletes the library \"{{name}}\" and all {{count}} media file records in it (the actual files on disk are not affected). This action cannot be undone.",
+    "confirmDescEmpty": "This permanently deletes the library \"{{name}}\". This action cannot be undone.",
+    "confirmDesc_one": "library:deleteLibrary.confirmDesc",
+    "confirmDesc_other": "library:deleteLibrary.confirmDesc",
+    "tooltip": "Delete this library"
+  },
+  "scan": {
+    "button": "Scan",
+    "dialogTitle": "Scan: {{name}}",
+    "dialogDesc": "Configure scan options",
+    "submit": "Start Scan",
+    "scanLabel": "Scan Mode",
+    "scrapeLabel": "Scrape",
+    "useCacheLabel": "Use DB Cache",
+    "organizeLabel": "Organize Files",
+    "emptyWarning": "Please select at least one scan option.",
+    "menuLabel": "Choose scan action",
+    "modes": {
+      "add": {
+        "label": "Scan for new files",
+        "desc": "Discover and register new media files, then scrape pending ones"
+      },
+      "remove": {
+        "label": "Remove dead entries",
+        "desc": "Delete database records whose files no longer exist on disk"
+      }
+    }
+  },
+  "organize": {
+    "tooltip": "Organize library files"
+  },
+  "columns": {
+    "number": "Number",
+    "path": "Path",
+    "status": "Status",
+    "size": "Size",
+    "metadata": "Metadata",
+    "updated": "Updated",
+    "actions": "Actions"
+  },
+  "actions": {
+    "scrape": "Scrape",
+    "batchScrape": "Batch Scrape"
+  },
+  "batch": {
+    "confirmDeleteTitle": "Delete Media Files",
+    "confirmDeleteDesc": "Are you sure you want to delete {{count}} selected media files? This action cannot be undone.",
+    "confirmDeleteDesc_one": "Are you sure you want to delete {{count}} selected media file? This action cannot be undone.",
+    "confirmDeleteDesc_other": "Are you sure you want to delete {{count}} selected media files? This action cannot be undone."
+  },
+  "detail": {
+    "title": "Media Detail",
+    "size": "Size",
+    "metadata": "Metadata",
+    "metadataId": "Linked to metadata #{{id}}",
+    "markSkip": "Mark as Skip",
+    "unskip": "Unskip",
+    "confirmDeleteTitle": "Delete Media File",
+    "confirmDeleteDesc": "Are you sure you want to delete this media file? This action cannot be undone.",
+    "deleteHint": ""
+  },
+  "filters": {
+    "title": "Filter by status",
+    "all": "All",
+    "pending": "Pending",
+    "scraped": "Scraped",
+    "failed": "Failed",
+    "skip": "Skip"
+  },
+  "pagination": {
+    "page": "Page {{current}} of {{total}} ({{count}} total)",
+    "page_one": "library:pagination.page",
+    "page_other": "library:pagination.page"
+  },
+  "empty": "No media files found",
+  "noSelection": "Select a Library",
+  "noSelectionHint": "Choose a library from the sidebar to view and manage its media files, or add a new one.",
+  "configureLibrary": "Configure library",
+  "backToList": "Back to list",
+  "notFound": "Library not found",
+  "invalidId": "Invalid library ID",
+  "automation": {
+    "label": "Automation",
+    "hint": "Watching and auto-scrape; organize stays manual",
+    "none": "Off",
+    "watch": "Ingest only",
+    "scrape": "Ingest and scrape"
+  },
+  "recursive": "Recursive",
+  "nonRecursive": "Non-recursive",
+  "emptyList": "No library configured",
+  "fieldName": "Name",
+  "fieldPath": "Path",
+  "placeholder": "/path/to/media/directory",
+  "fieldRecursive": "Recursive",
+  "fieldPatterns": "Patterns",
+  "fieldPatternsHint": "Comma-separated glob patterns",
+  "fieldTrailerPattern": "Trailer filename regex",
+  "fieldTrailerPatternHint": "Skip files whose names (with extension) match; empty disables. Default matches trailer",
+  "fieldMoveMode": "File Operation Mode",
+  "fieldMoveModeHint": "How files are placed onto template paths during organize",
+  "fieldWriteNfo": "Write NFO",
+  "fieldWriteNfoHint": "Write Emby/Jellyfin compatible NFO during organize",
+  "fieldCopyResources": "Copy on organize",
+  "fieldCopyResourcesHint": "Sidecar types copied onto library paths; organize tasks may override",
+  "copyResource": {
+    "thumb": "Cover",
+    "poster": "Poster",
+    "extrafanart": "Stills",
+    "trailer": "Trailer"
+  },
+  "moveMode": {
+    "move": "Move",
+    "copy": "Copy",
+    "hardlink": "Hard Link",
+    "symlink": "Symbolic Link"
+  },
+  "fieldVideoTemplate": "Video Path Template",
+  "fieldVideoTemplateHint": "Relative to library root or absolute; see placeholder badges below",
+  "fieldCdSuffixTemplate": "Part Suffix Template",
+  "fieldCdSuffixTemplateHint": "Suffix for multi-part video filenames; use the {cd} placeholder for the part number",
+  "fieldInitialRefresh": "Refresh on Creation",
+  "advancedTemplates": "Sidecar Templates",
+  "advancedTemplatesHint": "Leave empty to use backend defaults (usually under {video_dir}). Absolute paths must stay under the library root or safe_dirs.",
+  "optionalTemplateDefault": "Default: {{default}}",
+  "placeholders": {
+    "label": "Placeholders",
+    "hint": "Click a badge to copy",
+    "copied": "Copied {{placeholder}} to clipboard",
+    "copyFailed": "Copy failed, please copy manually",
+    "phases": {
+      "metadata": "From metadata fields",
+      "source": "From source file directory (injected during organize)",
+      "post_video": "Available after video path is rendered; sidecar templates only"
+    }
+  },
+  "tpl": {
+    "thumb": "Thumbnail Template",
+    "poster": "Poster Template",
+    "fanart": "Fanart Template",
+    "extrafanart": "Extrafanart Template",
+    "nfo": "NFO Template",
+    "trailer": "Trailer Template",
+    "subtitle": "Subtitle Template"
+  }
+}

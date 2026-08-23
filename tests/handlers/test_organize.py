@@ -1,0 +1,260 @@
+"""ORGANIZE: 落盘前清本库失效索引, 避免 dest 碰撞名被幽灵行占用."""
+
+from typing import TYPE_CHECKING
+
+import pytest
+
+from amane.config import HotSettings
+from amane.db.models import MediaFileStatus
+from amane.handlers import OrganizeHandler, OrganizePayload
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from amane.db.repository import Repository
+    from amane.media import ResourceStore
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_prunes_stale_collision_dest(
+    repo: Repository, resource_store: ResourceStore, tmp_path: Path
+) -> None:
+    """模板 dest 已被另一文件占用时落到 dest(1); 幽灵占用行在落盘前被清掉, 不撞 UNIQUE."""
+    lib_root = tmp_path / "lib"
+    dest_dir = lib_root / "Studio" / "NSFS-039"
+    dest_dir.mkdir(parents=True)
+    dest = dest_dir / "NSFS-039.mp4"
+    dest.write_bytes(b"first")
+    src = lib_root / "incoming" / "NSFS-039.mp4"
+    src.parent.mkdir()
+    src.write_bytes(b"second")
+    stale = dest_dir / "NSFS-039(1).mp4"
+    assert not stale.exists()
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+
+    first = await repo.create_media_file(
+        lib.id,
+        path=str(dest),
+        number="NSFS-039",
+        status=MediaFileStatus.SCRAPED,
+        metadata_id=meta.id,
+    )
+    occupant = await repo.create_media_file(
+        lib.id,
+        path=str(stale),
+        number="NSFS-039",
+        status=MediaFileStatus.SCRAPED,
+        metadata_id=meta.id,
+    )
+    source = await repo.create_media_file(
+        lib.id,
+        path=str(src),
+        number="NSFS-039",
+        status=MediaFileStatus.SCRAPED,
+        metadata_id=meta.id,
+    )
+    assert first.id is not None and occupant.id is not None and source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src.parent)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+
+    assert dest.exists()
+    assert dest.read_bytes() == b"first"
+    assert stale.exists()
+    assert stale.read_bytes() == b"second"
+    assert not src.exists()
+
+    assert await repo.get_media_file(occupant.id) is None
+    claimed = await repo.get_media_file(source.id)
+    assert claimed is not None
+    assert claimed.path == str(stale)
+    kept = await repo.get_media_file(first.id)
+    assert kept is not None
+    assert kept.path == str(dest)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_collision_dest_free(repo: Repository, resource_store: ResourceStore, tmp_path: Path) -> None:
+    """碰撞 dest(1) 空闲时第二份文件落到 dest(1), 两行都保留."""
+    lib_root = tmp_path / "lib"
+    dest_dir = lib_root / "Studio" / "NSFS-039"
+    dest_dir.mkdir(parents=True)
+    dest = dest_dir / "NSFS-039.mp4"
+    dest.write_bytes(b"first")
+    src = lib_root / "incoming" / "NSFS-039.mp4"
+    src.parent.mkdir()
+    src.write_bytes(b"second")
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+
+    first = await repo.create_media_file(
+        lib.id, path=str(dest), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    source = await repo.create_media_file(
+        lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert first.id is not None and source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src.parent)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+
+    dest1 = dest_dir / "NSFS-039(1).mp4"
+    assert dest.exists()
+    assert dest1.exists()
+    updated = await repo.get_media_file(source.id)
+    assert updated is not None
+    assert updated.path == str(dest1)
+    kept = await repo.get_media_file(first.id)
+    assert kept is not None
+    assert kept.path == str(dest)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_appends_cd_suffix(repo: Repository, resource_store: ResourceStore, tmp_path: Path) -> None:
+    """源文件名含分集标记 (CD1) 时, 目标文件名按库的 cd_suffix_template 追加后缀."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    src = src_dir / "NSFS-039-CD1.mp4"
+    src.write_bytes(b"cd1")
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    source = await repo.create_media_file(
+        lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+
+    dest = lib_root / "Studio" / "NSFS-039" / "NSFS-039-CD1.mp4"
+    assert dest.exists()
+    assert not src.exists()
+    updated = await repo.get_media_file(source.id)
+    assert updated is not None
+    assert updated.path == str(dest)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_dash_number_suffix(repo: Repository, resource_store: ResourceStore, tmp_path: Path) -> None:
+    """裸数字分集 (-2) 识别: NSFS-039-2.mp4 按默认后缀整理为 NSFS-039-CD2.mp4."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    src = src_dir / "NSFS-039-2.mp4"
+    src.write_bytes(b"part2")
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    source = await repo.create_media_file(
+        lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+
+    dest = lib_root / "Studio" / "NSFS-039" / "NSFS-039-CD2.mp4"
+    assert dest.exists()
+    assert not src.exists()
+    updated = await repo.get_media_file(source.id)
+    assert updated is not None
+    assert updated.path == str(dest)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_cd_pair_no_collision(repo: Repository, resource_store: ResourceStore, tmp_path: Path) -> None:
+    """CD1/CD2 一对文件同批整理: 各自带后缀落盘, 不再碰撞改名为 (1)."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    src1 = src_dir / "NSFS-039-CD1.mp4"
+    src2 = src_dir / "NSFS-039-CD2.mp4"
+    src1.write_bytes(b"cd1")
+    src2.write_bytes(b"cd2")
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    first = await repo.create_media_file(
+        lib.id, path=str(src1), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    second = await repo.create_media_file(
+        lib.id, path=str(src2), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert first.id is not None and second.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+    assert result.result.organized == 2
+
+    dest_dir = lib_root / "Studio" / "NSFS-039"
+    dest1 = dest_dir / "NSFS-039-CD1.mp4"
+    dest2 = dest_dir / "NSFS-039-CD2.mp4"
+    assert dest1.exists()
+    assert dest2.exists()
+    assert not (dest_dir / "NSFS-039(1).mp4").exists()
+    claimed1 = await repo.get_media_file(first.id)
+    claimed2 = await repo.get_media_file(second.id)
+    assert claimed1 is not None and claimed2 is not None
+    assert claimed1.path == str(dest1)
+    assert claimed2.path == str(dest2)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_custom_cd_suffix(repo: Repository, resource_store: ResourceStore, tmp_path: Path) -> None:
+    """自定义 cd_suffix_template 生效 (模板格式无需可反推, 配置者自行保证幂等)."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    src = src_dir / "NSFS-039-CD2.mp4"
+    src.write_bytes(b"cd2")
+
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False, cd_suffix_template="-第{cd}集")
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    source = await repo.create_media_file(
+        lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.failed == 0
+
+    dest = lib_root / "Studio" / "NSFS-039" / "NSFS-039-第2集.mp4"
+    assert dest.exists()
+    updated = await repo.get_media_file(source.id)
+    assert updated is not None
+    assert updated.path == str(dest)

@@ -1,0 +1,109 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { ColumnWidths } from "@/hooks/use-resizable-columns";
+import {
+  clampPageSize,
+  DEFAULT_PAGE_SIZES,
+  type PageSize,
+  type PageSizeKey,
+} from "@/lib/page-size";
+import type { LogLevel } from "./logs";
+
+type Theme = "light" | "dark" | "auto";
+type Language = "zh-CN" | "en";
+
+const STORAGE_KEY = "amane-web";
+
+/** 片库列表可调列 (与 MetaTable 列 key 对齐). */
+export type MetaTableColumnKey =
+  | "number"
+  | "title"
+  | "studio"
+  | "release"
+  | "updated_at"
+  | "file_count"
+  | "score";
+
+/** 演员列表可调列 (与 ActorTable 列 key 对齐). */
+export type ActorTableColumnKey =
+  | "name"
+  | "count"
+  | "gender"
+  | "birthday"
+  | "height"
+  | "bust"
+  | "waist"
+  | "hip"
+  | "cup"
+  | "has_image"
+  | "updated_at";
+
+interface UIState {
+  navbarCollapsed: boolean;
+  theme: Theme;
+  language: Language;
+  autoScroll: boolean;
+  logLevelFilter: LogLevel[];
+  pageSizes: Record<PageSizeKey, PageSize>;
+  /** 片库 list 列宽覆盖; 缺省列走组件内默认值. */
+  metaColumnWidths: ColumnWidths<MetaTableColumnKey>;
+  /** 演员 list 列宽覆盖. */
+  actorColumnWidths: ColumnWidths<ActorTableColumnKey>;
+  toggleNavbar: () => void;
+  setNavbarCollapsed: (collapsed: boolean) => void;
+  setTheme: (theme: Theme) => void;
+  setLanguage: (language: Language) => void;
+  setAutoScroll: (autoScroll: boolean) => void;
+  setLogLevelFilter: (levels: LogLevel[]) => void;
+  setPageSize: (key: PageSizeKey, size: PageSize) => void;
+  setMetaColumnWidths: (widths: ColumnWidths<MetaTableColumnKey>) => void;
+  setActorColumnWidths: (widths: ColumnWidths<ActorTableColumnKey>) => void;
+}
+
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      navbarCollapsed: false,
+      theme: "dark",
+      language: "zh-CN",
+      autoScroll: true,
+      logLevelFilter: [],
+      pageSizes: { ...DEFAULT_PAGE_SIZES },
+      metaColumnWidths: {},
+      actorColumnWidths: {},
+      toggleNavbar: () => set((s) => ({ navbarCollapsed: !s.navbarCollapsed })),
+      setNavbarCollapsed: (collapsed) => set({ navbarCollapsed: collapsed }),
+      setTheme: (theme) => set({ theme }),
+      setLanguage: (language) => set({ language }),
+      setAutoScroll: (autoScroll) => set({ autoScroll }),
+      setLogLevelFilter: (levels) => set({ logLevelFilter: levels }),
+      setPageSize: (key, size) =>
+        set((s) => ({
+          pageSizes: { ...s.pageSizes, [key]: size },
+        })),
+      setMetaColumnWidths: (widths) => set({ metaColumnWidths: widths }),
+      setActorColumnWidths: (widths) => set({ actorColumnWidths: widths }),
+    }),
+    {
+      name: STORAGE_KEY,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<UIState> | undefined;
+        const pageSizes = { ...DEFAULT_PAGE_SIZES } as Record<PageSizeKey, PageSize>;
+        for (const key of Object.keys(DEFAULT_PAGE_SIZES) as PageSizeKey[]) {
+          const raw = p?.pageSizes?.[key];
+          pageSizes[key] = clampPageSize(
+            key,
+            typeof raw === "number" ? raw : DEFAULT_PAGE_SIZES[key],
+          );
+        }
+        return {
+          ...current,
+          ...p,
+          pageSizes,
+          metaColumnWidths: p?.metaColumnWidths ?? {},
+          actorColumnWidths: p?.actorColumnWidths ?? {},
+        };
+      },
+    },
+  ),
+);

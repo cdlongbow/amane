@@ -1,0 +1,67 @@
+{
+  "title": "定时任务",
+  "empty": "暂无定时任务",
+  "newSchedule": "新建定时任务",
+  "editSchedule": "编辑定时任务",
+  "fields": {
+    "name": "名称",
+    "namePlaceholder": "例如：每晚全量扫描",
+    "cron": "运行时间",
+    "taskType": "任务类型",
+    "payload": "任务配置",
+    "enabled": "启用"
+  },
+  "cron": {
+    "modes": {
+      "daily": "每天",
+      "weekly": "每周",
+      "monthly": "每月",
+      "interval": "间隔",
+      "custom": "高级"
+    },
+    "every": "每",
+    "units": {
+      "minutes": "分钟",
+      "hours": "小时"
+    },
+    "onDays": "星期",
+    "onDay": "日期",
+    "hour": "时",
+    "minute": "分",
+    "minuteOfHour": "第几分钟",
+    "customPlaceholder": "minute hour day month weekday",
+    "customHint": "标准 5 段 Cron，与 Linux crontab 相同",
+    "dayJoiner": "、",
+    "weekdays": {
+      "sun": "日",
+      "mon": "一",
+      "tue": "二",
+      "wed": "三",
+      "thu": "四",
+      "fri": "五",
+      "sat": "六"
+    },
+    "summary": {
+      "intervalMinutes": "每 {{every}} 分钟",
+      "intervalHours": "每 {{every}} 小时（第 {{minute}} 分钟）",
+      "intervalHoursOnHour": "每小时（第 {{minute}} 分钟）",
+      "daily": "每天 {{time}}",
+      "weekly": "每周{{days}} {{time}}",
+      "monthly": "每月 {{day}} 日 {{time}}"
+    }
+  },
+  "labels": {
+    "lastRun": "上次执行",
+    "nextRun": "下次执行",
+    "cron": "Cron",
+    "type": "类型",
+    "never": "从未执行"
+  },
+  "actions": {
+    "trigger": "立即触发"
+  },
+  "confirm": {
+    "deleteTitle": "删除定时任务",
+    "deleteMessage": "确定要删除此定时任务吗？此操作不可撤销。"
+  }
+}

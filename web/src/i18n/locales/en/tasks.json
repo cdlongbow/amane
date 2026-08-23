@@ -1,0 +1,350 @@
+{
+  "title": "Tasks",
+  "columns": {
+    "type": "Type",
+    "status": "Status",
+    "priority": "Priority",
+    "created": "Created",
+    "error": "Error",
+    "actions": "Actions"
+  },
+  "actions": {
+    "newScan": "New Scan",
+    "scanning": "Scanning...",
+    "cancelTask": "Cancel Task",
+    "log": "Log",
+    "record": "Task record",
+    "submit": "Submit Task"
+  },
+  "status": {
+    "queued": "Queued",
+    "running": "Running",
+    "done": "Done",
+    "failed": "Failed"
+  },
+  "empty": "No tasks",
+  "total": "{{count}} total",
+  "childrenCount": "{{count}} subtasks",
+  "loadMoreChildren": "Load more ({{count}})",
+  "tree": {
+    "loading": "Loading subtasks…",
+    "loadError": "Could not load subtasks",
+    "retry": "Retry",
+    "linkKey": "Followup key"
+  },
+  "filters": {
+    "all": "All",
+    "queued": "Queued",
+    "running": "Running",
+    "done": "Done",
+    "failed": "Failed",
+    "scrape": "Scrape",
+    "organize": "Organize",
+    "cleanup": "Cleanup",
+    "upscale": "Upscale",
+    "refresh": "Refresh",
+    "r18_import": "R18 Import",
+    "actor_scrape": "Actor Scrape",
+    "rescrape": "Rescrape"
+  },
+  "total_one": "tasks:total",
+  "total_other": "tasks:total",
+  "detail": {
+    "status": "Status",
+    "priority": "Priority",
+    "created": "Created",
+    "started": "Started",
+    "duration": "Duration",
+    "retries": "Retries",
+    "id": "ID",
+    "root": "Root",
+    "linkKey": "Followup key",
+    "payload": "Payload",
+    "error": "Error",
+    "result": "Result",
+    "liveLogs": "Live Logs",
+    "progress": "Progress"
+  },
+  "report": {
+    "title": "Summary",
+    "headline": "Failure",
+    "metadata": "Metadata",
+    "viewMetadata": "Open #{{id}}",
+    "actor": "Actor",
+    "viewActor": "Open #{{id}}",
+    "sites": "Sites",
+    "loading": "Loading summary…",
+    "unavailable": "No summary available.",
+    "successEmpty": "Task completed.",
+    "group": {
+      "failed": "Failed",
+      "ok": "Succeeded",
+      "cache_hit": "Cached"
+    },
+    "outcome": {
+      "ok": "OK",
+      "failed": "Failed",
+      "cache_hit": "Cache"
+    },
+    "detail": {
+      "unknown": "Unknown reason"
+    },
+    "reason": {
+      "http_error": "Request rejected by the site",
+      "not_found": "Content not found on the site",
+      "rate_limited": "Rate limited",
+      "server_error": "Site server error",
+      "timeout": "Request timed out",
+      "network": "Network error",
+      "cloudflare_challenge": "Blocked by Cloudflare challenge",
+      "cloudflare_blocked": "Blocked by Cloudflare",
+      "ip_banned": "IP banned",
+      "geo_restricted": "Not available in your region",
+      "age_verification": "Age verification required",
+      "empty_response": "Empty response",
+      "no_usable_metadata": "No usable metadata",
+      "crawler_unavailable": "Crawler unavailable",
+      "unexpected": "Unexpected error"
+    }
+  },
+  "logView": {
+    "empty": "No live logs for this task in the current buffer."
+  },
+  "toolbar": {
+    "cancel": "Cancel",
+    "retryFailed": "Retry failed",
+    "clearDone": "Clear done",
+    "clearFailed": "Clear failed",
+    "collapseAll": "Collapse All",
+    "expandAll": "Expand All"
+  },
+  "worker": {
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "batch": {
+    "cancel": "Cancelled {{count}}",
+    "cancel_one": "Cancelled {{count}}",
+    "cancel_other": "Cancelled {{count}}",
+    "retry": "Retried {{count}}",
+    "retry_one": "Retried {{count}}",
+    "retry_other": "Retried {{count}}",
+    "delete": "Deleted {{count}}",
+    "delete_one": "Deleted {{count}}",
+    "delete_other": "Deleted {{count}}"
+  },
+  "confirm": {
+    "deleteTitle": "Delete task",
+    "deleteMessage": "Delete this task record?",
+    "cancelTitle": "Cancel tasks",
+    "cancelFilterMessage": "Cancel queued and running tasks in the current filter?",
+    "retryFilterTitle": "Retry failed",
+    "retryFilterMessage": "Retry failed tasks in the current filter?",
+    "clearDoneTitle": "Clear completed",
+    "clearDoneMessage": "Delete completed tasks in the current filter?",
+    "clearFailedTitle": "Clear failed",
+    "clearFailedMessage": "Delete failed tasks in the current filter?"
+  },
+  "batchScrape": {
+    "toggle": "Batch Scrape",
+    "templateLabel": "Liquid Template",
+    "previewLabel": "Preview",
+    "previewEmpty": "Enter a template to see preview",
+    "submit": "Submit {{count}} task(s)",
+    "submit_one": "Submit {{count}} task",
+    "submit_other": "Submit {{count}} tasks"
+  },
+  "submit": {
+    "toggle": "Submit Task",
+    "typeLabel": "Task Type",
+    "types": {
+      "scrape": "Scrape",
+      "organize": "Organize",
+      "cleanup": "Cleanup",
+      "upscale": "Upscale",
+      "refresh": "Refresh",
+      "r18_import": "R18 Import",
+      "actor_scrape": "Actor Scrape",
+      "rescrape": "Rescrape"
+    },
+    "cleanup": {
+      "remove_missing_files": {
+        "label": "Remove Missing Files"
+      },
+      "remove_unreferenced_resources": {
+        "label": "Remove Unreferenced Resources"
+      }
+    },
+    "organize": {
+      "library_id": {
+        "label": "Library",
+        "description": "Library to organize; scanning/organization happens within this library."
+      },
+      "recursive": {
+        "label": "Recursive",
+        "description": "Override library recursive setting; None keeps the library default."
+      },
+      "patterns": {
+        "label": "Patterns",
+        "description": "Override library patterns; None keeps the library default."
+      },
+      "path": {
+        "label": "Path",
+        "description": "Directory to scan (overrides library path, must be a subdirectory of the library)."
+      },
+      "write_nfo": {
+        "label": "Write NFO",
+        "description": "Override the library NFO setting; None keeps the library default."
+      },
+      "copy_resources": {
+        "label": "Copy on organize",
+        "description": "Override which sidecars are copied onto library paths; None keeps the library default.",
+        "options": {
+          "thumb": "Cover",
+          "poster": "Poster",
+          "extrafanart": "Stills",
+          "trailer": "Trailer"
+        },
+        "$": {
+          "options": {
+            "thumb": "Cover",
+            "poster": "Poster",
+            "extrafanart": "Stills",
+            "trailer": "Trailer"
+          }
+        }
+      }
+    },
+    "scrape": {
+      "number": {
+        "label": "Number",
+        "description": "Content ID (e.g., MIDV-123); mutually exclusive with Media ID."
+      },
+      "media_id": {
+        "label": "Media ID",
+        "description": "MediaFile ID; server reads the number from it. Mutually exclusive with Number."
+      },
+      "content_type": {
+        "label": "Content Type",
+        "description": "Media content category — determines crawler routing.",
+        "options": {
+          "censored": "Censored",
+          "uncensored": "Uncensored",
+          "chinese": "Chinese",
+          "western": "Western",
+          "fc2": "FC2",
+          "amateur": "Amateur",
+          "hentai": "Hentai"
+        }
+      },
+      "use_cache": {
+        "label": "Use Cache",
+        "description": "Checked caches are reused; unchecked means force-refresh that kind.",
+        "$": {
+          "options": {
+            "metadata": "Metadata Cache",
+            "trans": "Translation Cache"
+          }
+        }
+      }
+    },
+    "upscale": {
+      "max_dim_threshold": {
+        "label": "Max Dimension Threshold",
+        "description": "Only upscale images whose longest side is below this value."
+      },
+      "max_bytes_threshold": {
+        "label": "Max File Size Threshold (bytes)",
+        "description": "Files larger than this skip upscaling (treated as sharp enough)."
+      },
+      "limit": {
+        "label": "Limit",
+        "description": "Maximum number of images to upscale."
+      }
+    },
+    "refresh": {
+      "library_id": {
+        "label": "Library",
+        "description": "Library to refresh; scanning/organization happens within this library."
+      },
+      "recursive": {
+        "label": "Recursive",
+        "description": "Override library recursive setting; None keeps the library default."
+      },
+      "patterns": {
+        "label": "Patterns",
+        "description": "Override library patterns; None keeps the library default."
+      },
+      "path": {
+        "label": "Path",
+        "description": "Directory to scan (overrides library path, must be a subdirectory of the library)."
+      },
+      "scan": {
+        "label": "Scan Mode",
+        "$": {
+          "options": {
+            "add": "Add New Files",
+            "remove": "Remove Missing"
+          }
+        }
+      },
+      "scrape": {
+        "label": "Scrape Status",
+        "$": {
+          "options": {
+            "pending": "Pending",
+            "scraped": "Scraped",
+            "failed": "Failed",
+            "skip": "Skip"
+          }
+        }
+      },
+      "use_cache": {
+        "label": "Use Cache",
+        "$": {
+          "options": {
+            "metadata": "Metadata Cache",
+            "trans": "Translation Cache"
+          }
+        }
+      }
+    },
+    "r18_import": {
+      "force": {
+        "label": "Force Reimport",
+        "description": "Ignore the stored dump ETag and re-download/import unconditionally."
+      }
+    },
+    "actor_scrape": {
+      "actor_id": {
+        "label": "Actor ID",
+        "description": "Primary key of the Actor entity."
+      },
+      "use_cache": {
+        "label": "Use cache",
+        "description": "Checked kinds are reused; unchecked kinds are force-refreshed.",
+        "$": {
+          "options": {
+            "metadata": "Metadata cache",
+            "trans": "Translation cache"
+          }
+        }
+      }
+    },
+    "number": "",
+    "rescrape": {
+      "limit": {
+        "label": "Batch size",
+        "description": "Max metadata entries per run (least recently updated first; keeps the worker queue short)."
+      },
+      "min_age_days": {
+        "label": "Min age (days)",
+        "description": "Only rescrape entries last updated more than this many days ago; leave empty for no threshold."
+      }
+    }
+  },
+  "loadMoreChildren_one": "Load more ({{count}})",
+  "loadMoreChildren_other": "Load more ({{count}})",
+  "childrenCount_one": "{{count}} subtask",
+  "childrenCount_other": "{{count}} subtasks"
+}

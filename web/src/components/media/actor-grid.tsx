@@ -1,0 +1,99 @@
+import { AspectRatio, Center, SimpleGrid, Skeleton, Stack, Text, useMatches } from "@mantine/core";
+import { forwardRef, memo } from "react";
+import { VirtuosoGrid, type GridItemProps, type GridListProps } from "react-virtuoso";
+import type { ActorResponse } from "@/client/types.gen";
+import { ActorCard } from "./actor-card";
+
+const GRID_COLS = { base: 2, xs: 3, sm: 4, md: 5, lg: 6, xl: 7 } as const;
+
+interface ActorGridProps {
+  items: ActorResponse[];
+  loading?: boolean;
+  emptyMessage?: string;
+}
+
+const ActorGridList = forwardRef<HTMLDivElement, GridListProps>(function ActorGridList(
+  { style, children, className, ...props },
+  ref,
+) {
+  const cols = useMatches(GRID_COLS);
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        display: "grid",
+        gap: "var(--mantine-spacing-md)",
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        ...style,
+      }}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+});
+
+const ActorGridItem = forwardRef<HTMLDivElement, GridItemProps>(function ActorGridItem(
+  { children, style, ...props },
+  ref,
+) {
+  return (
+    <div ref={ref} {...props} style={{ ...style, minWidth: 0 }}>
+      {children}
+    </div>
+  );
+});
+
+const GRID_COMPONENTS = { List: ActorGridList, Item: ActorGridItem };
+
+function renderActorCard(_index: number, item: ActorResponse) {
+  return <ActorCard item={item} />;
+}
+
+function actorCardKey(_index: number, item: ActorResponse) {
+  return item.id;
+}
+
+/** 演员头像墙. 窗口滚动虚拟化, 避免无限滚动把全部卡片留在 DOM. */
+export const ActorGrid = memo(function ActorGrid({
+  items,
+  loading = false,
+  emptyMessage,
+}: ActorGridProps) {
+  if (loading) {
+    return (
+      <SimpleGrid cols={GRID_COLS} spacing="md">
+        {Array.from({ length: 12 }, (_, i) => (
+          <Stack key={i} gap={2}>
+            <AspectRatio ratio={0.75}>
+              <Skeleton radius="md" />
+            </AspectRatio>
+            <Skeleton h={12} w="70%" />
+          </Stack>
+        ))}
+      </SimpleGrid>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Center py="xl">
+        <Text c="dimmed" size="sm">
+          {emptyMessage}
+        </Text>
+      </Center>
+    );
+  }
+
+  return (
+    <VirtuosoGrid
+      useWindowScroll
+      data={items}
+      components={GRID_COMPONENTS}
+      itemContent={renderActorCard}
+      computeItemKey={actorCardKey}
+      increaseViewportBy={600}
+    />
+  );
+});

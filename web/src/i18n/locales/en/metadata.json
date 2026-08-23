@@ -1,0 +1,302 @@
+{
+  "title": "Metadata",
+  "search": {
+    "placeholder": "Search number, title…",
+    "advanced": "Advanced search",
+    "advancedHint": "Search each type and add filters",
+    "facetPlaceholder": "Search…",
+    "facetEmpty": "No matches",
+    "hasFiles": "Linked files",
+    "hasFilesAny": "Any",
+    "hasFilesYes": "Has files",
+    "hasFilesNo": "No files"
+  },
+  "columns": {
+    "number": "Number",
+    "title": "Title",
+    "studio": "Studio",
+    "release": "Release",
+    "score": "Score",
+    "actions": "Actions",
+    "created": "Created",
+    "updated": "Updated",
+    "fileCount": "Files"
+  },
+  "actions": {
+    "view": "View Details",
+    "rescape": "Re-scrape",
+    "scrape": "Re-scrape",
+    "batchScrape": "Batch Re-scrape",
+    "batchDelete": "Batch Delete",
+    "confirmBatchDeleteTitle": "Delete selected metadata?",
+    "confirmBatchDeleteDesc_one": "This will permanently delete the selected metadata entries.",
+    "confirmBatchDeleteDesc_other": "This will permanently delete the selected metadata entries."
+  },
+  "edit": {
+    "title": "Edit Metadata"
+  },
+  "detail": {
+    "title": "Metadata Detail",
+    "fields": {
+      "number": "Number",
+      "title": "Title",
+      "studio": "Studio",
+      "publisher": "Publisher",
+      "release": "Release Date",
+      "runtime": "Runtime",
+      "score": "Score",
+      "series": "Series",
+      "directors": "Directors",
+      "actors": "Actors",
+      "tags": "Tags",
+      "plot": "Plot",
+      "trailer": "Trailer",
+      "poster": "Poster",
+      "thumb": "Cover",
+      "extrafanart": "Fanart",
+      "fieldSources": "Field Sources",
+      "sources": "Data Sources",
+      "sourceUrls": "External Links",
+      "externalIds": "External IDs"
+    },
+    "connections": "Related Files",
+    "noFiles": "No related files",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "userTags": "User tags",
+    "noUserTags": "No user tags yet",
+    "selectUserTag": "Select user tag…",
+    "newUserTagPlaceholder": "Create user tag…",
+    "detachUserTag": "Remove from this title",
+    "deleteUserTag": "Delete tag",
+    "confirmDeleteUserTag": "Permanently delete user tag \"{{name}}\"? It will be removed from all titles.",
+    "comments": "Comments",
+    "noComments": "No comments yet",
+    "commentPlaceholder": "Write a comment…",
+    "addComment": "Post comment",
+    "playTrailer": "Play trailer",
+    "closeTrailer": "Close trailer",
+    "coverUnavailable": "Cover unavailable",
+    "cropPoster": {
+      "action": "Crop poster",
+      "title": "Crop poster",
+      "lockAspect": "Lock",
+      "aspect": "Aspect ratio",
+      "left": "Left",
+      "top": "Top",
+      "width": "Width",
+      "height": "Height",
+      "confirm": "Crop & save",
+      "needSelection": "Select a valid region first",
+      "success": "Poster updated",
+      "noThumb": "A cover image is required to crop a poster"
+    }
+  },
+  "browse": {
+    "title": "Browse",
+    "subtitle": "Browse titles by actor, tag, studio, and more",
+    "searchPlaceholder": "Search facet names…",
+    "count_one": "{{count}} title",
+    "count_other": "{{count}} titles",
+    "kinds": {
+      "actor": "Actors",
+      "director": "Directors",
+      "tag": "Tags",
+      "studio": "Studios",
+      "publisher": "Publishers",
+      "series": "Series",
+      "user_tag": "User tags"
+    },
+    "filterInMeta": "Filter in library",
+    "scrapeActor": "Scrape",
+    "scrapeQueued": "Actor scrape task queued",
+    "person": {
+      "aliases": "Aliases",
+      "ruleAliases": "Rule aliases",
+      "gender": "Gender",
+      "genderFemale": "Female",
+      "genderMale": "Male",
+      "genderUnknown": "Unknown",
+      "gender_female": "Female",
+      "gender_male": "Male",
+      "gender_unknown": "Unknown",
+      "birthday": "Birthday",
+      "birthplace": "Birthplace",
+      "height": "Height",
+      "bust": "Bust",
+      "waist": "Waist",
+      "hip": "Hip",
+      "measurements": "Measurements",
+      "cup": "Cup",
+      "overview": "Overview",
+      "tagline": "Tagline",
+      "sourceUrl": "Source",
+      "images": "Photos",
+      "cm": "{{value}} cm",
+      "birthdayFormat": "Stored as YYYY-MM-DD (also accepts 1991/1/1 or Japanese date forms)"
+    }
+  },
+  "view": {
+    "grid": "Grid",
+    "list": "List",
+    "cloud": "Cloud"
+  },
+  "actors": {
+    "title": "Actors",
+    "searchPlaceholder": "Search name or alias…",
+    "empty": "No actors",
+    "hasImage": "Photo",
+    "filterPerson": "Person info",
+    "filterHasPerson": "Has info",
+    "filterNoPerson": "No info",
+    "filterImage": "Photo",
+    "filterHasImage": "Has photo",
+    "filterNoImage": "No photo",
+    "filterApply": "Apply filters",
+    "age": "Age",
+    "rangeMin": "Min",
+    "rangeMax": "Max",
+    "dateMinPlaceholder": "From YYYY-MM-DD",
+    "dateMaxPlaceholder": "To YYYY-MM-DD",
+    "cupMinPlaceholder": "e.g. C",
+    "cupMaxPlaceholder": "e.g. E",
+    "birthplacePlaceholder": "Birthplace contains…",
+    "batchGender": "Set gender",
+    "batchGenderDone": "Set {{count}} actor(s) to {{gender}}",
+    "batchGenderDone_one": "Set {{count}} actor to {{gender}}",
+    "batchGenderDone_other": "Set {{count}} actors to {{gender}}",
+    "batchGenderFailed": "Failed to update {{count}} actor(s)",
+    "batchGenderFailed_one": "Failed to update {{count}} actor",
+    "batchGenderFailed_other": "Failed to update {{count}} actors",
+    "clearPerson": "Clear info",
+    "clearPersonBody": "Clear photos, bio, and measurements for \"{{name}}\". The actor and filmography stay. Gender and scrape cache are kept; a normal scrape may restore from cache.",
+    "clearPersonDone": "Person info cleared",
+    "batchClearPerson": "Clear info",
+    "batchClearPersonBody": "Clear person fields for {{count}} selected actors. Entries are not deleted. Gender and scrape cache are kept.",
+    "batchClearPersonBody_one": "Clear person fields for {{count}} selected actor. The entry is not deleted. Gender and scrape cache are kept.",
+    "batchClearPersonBody_other": "Clear person fields for {{count}} selected actors. Entries are not deleted. Gender and scrape cache are kept.",
+    "batchClearPersonDone": "Cleared person info for {{count}} actor(s)",
+    "batchClearPersonDone_one": "Cleared person info for {{count}} actor",
+    "batchClearPersonDone_other": "Cleared person info for {{count}} actors",
+    "batchClearPersonFailed": "Failed to clear {{count}} actor(s)",
+    "batchClearPersonFailed_one": "Failed to clear {{count}} actor",
+    "batchClearPersonFailed_other": "Failed to clear {{count}} actors",
+    "scrapeMissingOnPage": "Scrape missing on page",
+    "noneMissing": "Nothing missing on this page",
+    "birthdayWithAge": "{{date}} (age {{age}})",
+    "ageShort": "{{age}}",
+    "cupShort": "Cup {{cup}}",
+    "filmography": "Filmography ({{count}})",
+    "noPhoto": "No photo",
+    "noPersonInfo": "No person info yet",
+    "goToLibrary": "Go to library",
+    "editTitle": "Edit actor",
+    "genderHint": "When unknown, scrape only uses dual-gender sites (e.g. Wikipedia) — not female-only sites — to avoid false matches.",
+    "genderUnknownHint": "Gender unset: scrape uses dual-gender sites only. Mark Female then re-scrape to fill minnano / gFriends.",
+    "aliasesHint": "Press Enter or comma to add; click × to remove",
+    "imagesEdit": "Photo URLs",
+    "imagesEditHint": "First URL is the primary photo (detail + grid). Reorder or remove as needed.",
+    "primaryImage": "Primary",
+    "rawSources": "Scrape source snapshots",
+    "rawSourcesHint": "Read-only site snapshots for comparison while editing.",
+    "filmography_one": "Filmography ({{count}})",
+    "filmography_other": "Filmography ({{count}})"
+  },
+  "backToList": "Back to list",
+  "notFound": "Metadata not found",
+  "invalidId": "Invalid metadata ID",
+  "viewFullDetail": "View full detail",
+  "confirmDelete": "Delete metadata #{{id}}? This cannot be undone.",
+  "empty": "No metadata records",
+  "editor": {
+    "title": {
+      "label": "Title"
+    },
+    "actors": {
+      "label": "Actors"
+    },
+    "studio": {
+      "label": "Studio"
+    },
+    "publisher": {
+      "label": "Publisher"
+    },
+    "release": {
+      "label": "Release Date",
+      "description": "Stored as YYYY-MM-DD; ISO datetimes are trimmed to the calendar day on save"
+    },
+    "runtime": {
+      "label": "Runtime (min)"
+    },
+    "tags": {
+      "label": "Tags"
+    },
+    "series": {
+      "label": "Series"
+    },
+    "plot": {
+      "label": "Plot"
+    },
+    "directors": {
+      "label": "Directors"
+    },
+    "poster_urls": {
+      "label": "Poster URLs"
+    },
+    "thumb_urls": {
+      "label": "Thumb URLs"
+    },
+    "trailer_urls": {
+      "label": "Trailer URLs"
+    },
+    "extrafanart_urls": {
+      "label": "Extra Fanart URLs"
+    },
+    "scores": {
+      "label": "Scores"
+    },
+    "external_ids": {
+      "label": "External IDs"
+    },
+    "source_urls": {
+      "label": "Source URLs"
+    }
+  },
+  "manage": {
+    "name": "Name",
+    "count": "Count",
+    "mergeHint": "{{count}} selected — select sources, then click merge on the target",
+    "mergeHint_one": "{{count}} selected — select sources, then click merge on the target",
+    "mergeHint_other": "{{count}} selected — select sources, then click merge on the target",
+    "mergeGuide": "Select sources, then click merge on the target",
+    "mergeNeedSources": "Select source items first, then click merge on the target",
+    "merge": "Merge into this",
+    "mergeConfirm": "Confirm merge",
+    "mergeConfirmBody": "Merge {{count}} sources into the target",
+    "mergeConfirmBody_one": "Merge {{count}} source into the target",
+    "mergeConfirmBody_other": "Merge {{count}} sources into the target",
+    "deleteFacetBody": "Remove \"{{name}}\" from all titles and add it to the blocklist (rescrapes will not recreate it).",
+    "deleteUserTagBody": "Delete user tag \"{{name}}\"? Attachments will be removed.",
+    "rulesTitle": "User rules",
+    "rulesHint": "Aliases and blocklist entries survive rescrapes. Removing a rule does not restore past titles; it only affects future writes.",
+    "rulesEmpty": "No rules yet",
+    "ruleSource": "Source",
+    "ruleAction": "Action",
+    "ruleTarget": "Target",
+    "ruleBlock": "Block",
+    "ruleAlias": "Alias",
+    "ruleRemove": "Remove rule"
+  },
+  "merge": {
+    "title": "Compare Sources",
+    "noRawData": "No raw data available for merge.",
+    "apply": "Apply Merge",
+    "revert": "Revert",
+    "revertAll": "Revert All",
+    "current": "Current",
+    "changedCount": "{{count}} field(s) changed",
+    "noChanges": "No changes",
+    "changedCount_one": "{{count}} field(s) changed",
+    "changedCount_other": "{{count}} field(s) changed"
+  }
+}

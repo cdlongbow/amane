@@ -1,0 +1,241 @@
+"""
+DMM/Fanza TV GraphQL API 响应的 Pydantic 模型.
+
+这些模型解析来自以下端点的结构化 JSON 响应:
+- https://api.tv.dmm.co.jp/graphql (Fanza TV)
+- https://api.tv.dmm.com/graphql (DMM TV)
+
+仅包含实际用于元数据提取的字段.
+"""
+
+from pydantic import BaseModel, Field
+
+# --- Fanza TV (tv.dmm.co.jp) ---
+
+FANZA_TV_QUERY = """query FetchFanzaTvPlusContent($id: ID!, $device: Device!, $isForeign: Boolean) {
+  fanzaTvPlus(device: $device) {
+    content(id: $id, isForeign: $isForeign) {
+      title
+      description(format: HTML)
+      packageImage
+      packageLargeImage
+      startDeliveryAt
+      sampleMovie { url }
+      samplePictures { imageLarge }
+      actresses { name }
+      directors { name }
+      series { name }
+      maker { name }
+      label { name }
+      genres { name }
+      reviewSummary { averagePoint }
+      playInfo { duration }
+    }
+  }
+}"""
+
+
+def fanza_tv_payload(cid: str) -> dict:
+    """构建 Fanza TV 内容查询的 GraphQL 请求负载."""
+    return {
+        "operationName": "FetchFanzaTvPlusContent",
+        "variables": {
+            "id": cid,
+            "device": "BROWSER",
+            "isForeign": False,
+        },
+        "query": FANZA_TV_QUERY,
+    }
+
+
+class _NameItem(BaseModel):
+    name: str = ""
+
+
+class _SamplePicture(BaseModel):
+    imageLarge: str = ""
+
+
+class _SampleMovie(BaseModel):
+    url: str = ""
+
+
+class _ReviewSummary(BaseModel):
+    averagePoint: float = 0.0
+
+
+class _PlayInfo(BaseModel):
+    duration: int = 0
+
+
+class FanzaTvContent(BaseModel):
+    title: str = ""
+    description: str = ""
+    packageImage: str = ""
+    packageLargeImage: str = ""
+    startDeliveryAt: str = ""
+    sampleMovie: _SampleMovie = Field(default_factory=_SampleMovie)
+    samplePictures: list[_SamplePicture] = Field(default_factory=list)
+    actresses: list[_NameItem] = Field(default_factory=list)
+    directors: list[_NameItem] = Field(default_factory=list)
+    series: _NameItem | None = None
+    maker: _NameItem | None = None
+    label: _NameItem | None = None
+    genres: list[_NameItem] = Field(default_factory=list)
+    reviewSummary: _ReviewSummary | None = None
+    playInfo: _PlayInfo = Field(default_factory=_PlayInfo)
+
+
+class _FanzaTvPlus(BaseModel):
+    content: FanzaTvContent = Field(default_factory=FanzaTvContent)
+
+
+class _FanzaData(BaseModel):
+    fanzaTvPlus: _FanzaTvPlus = Field(default_factory=_FanzaTvPlus)
+
+
+class FanzaTvResponse(BaseModel):
+    data: _FanzaData = Field(default_factory=_FanzaData)
+
+
+# --- DMM TV (tv.dmm.com) ---
+
+DMM_TV_QUERY = """query FetchVideo($seasonId: ID!, $device: Device!) {
+  video(id: $seasonId) {
+    titleName
+    description(format: HTML)
+    packageImage
+    keyVisualImage
+    productionYear
+    startPublicAt
+    casts { actorName }
+    staffs { roleName staffName }
+    genres { name }
+    ... on VideoSeason {
+      reviewSummary { averagePoint }
+    }
+    ... on VideoLegacySeason {
+      reviewSummary { averagePoint }
+    }
+  }
+}"""
+
+
+def dmm_tv_payload(season_id: str) -> dict:
+    """构建 DMM TV 视频查询的 GraphQL 请求负载."""
+    return {
+        "operationName": "FetchVideo",
+        "variables": {
+            "seasonId": season_id,
+            "device": "BROWSER",
+        },
+        "query": DMM_TV_QUERY,
+    }
+
+
+class _Cast(BaseModel):
+    actorName: str = ""
+
+
+class _Staff(BaseModel):
+    roleName: str = ""
+    staffName: str = ""
+
+
+class DmmTvVideo(BaseModel):
+    titleName: str = ""
+    description: str = ""
+    packageImage: str = ""
+    keyVisualImage: str = ""
+    productionYear: int = 0
+    startPublicAt: str = ""
+    casts: list[_Cast] = Field(default_factory=list)
+    staffs: list[_Staff] = Field(default_factory=list)
+    genres: list[_NameItem] = Field(default_factory=list)
+    # GraphQL 在无评分时返回 null
+    reviewSummary: _ReviewSummary | None = None
+
+
+class _DmmTvData(BaseModel):
+    video: DmmTvVideo = Field(default_factory=DmmTvVideo)
+
+
+class DmmTvResponse(BaseModel):
+    data: _DmmTvData = Field(default_factory=_DmmTvData)
+
+
+# --- Digital (video.dmm.co.jp) ---
+
+DIGITAL_QUERY = """query FetchDigitalContent($id: ID!) {
+  ppvContent(id: $id) {
+    title
+    description
+    deliveryStartDate
+    duration
+    actresses { name }
+    directors { name }
+    series { name }
+    maker { name }
+    label { name }
+    genres { name }
+    packageImage { largeUrl mediumUrl }
+    sampleImages { imageUrl largeImageUrl }
+    sample2DMovie { highestMovieUrl }
+  }
+  reviewSummary(contentId: $id) {
+    average
+  }
+}"""
+
+
+def digital_payload(cid: str) -> dict:
+    """构建 Digital 内容查询的 GraphQL 请求负载."""
+    return {
+        "operationName": "FetchDigitalContent",
+        "variables": {"id": cid},
+        "query": DIGITAL_QUERY,
+    }
+
+
+class _DigitalPackageImage(BaseModel):
+    largeUrl: str = ""
+    mediumUrl: str = ""
+
+
+class _DigitalSampleImage(BaseModel):
+    imageUrl: str = ""
+    largeImageUrl: str = ""
+
+
+class _DigitalSampleMovie(BaseModel):
+    highestMovieUrl: str = ""
+
+
+class _DigitalReviewSummary(BaseModel):
+    average: float = 0.0
+
+
+class DigitalContent(BaseModel):
+    title: str = ""
+    description: str = ""
+    deliveryStartDate: str = ""
+    duration: int = 0
+    actresses: list[_NameItem] = Field(default_factory=list)
+    directors: list[_NameItem] = Field(default_factory=list)
+    series: _NameItem | None = None
+    maker: _NameItem | None = None
+    label: _NameItem | None = None
+    genres: list[_NameItem] = Field(default_factory=list)
+    packageImage: _DigitalPackageImage = Field(default_factory=_DigitalPackageImage)
+    sampleImages: list[_DigitalSampleImage] = Field(default_factory=list)
+    sample2DMovie: _DigitalSampleMovie = Field(default_factory=_DigitalSampleMovie)
+
+
+class _DigitalData(BaseModel):
+    ppvContent: DigitalContent = Field(default_factory=DigitalContent)
+    # GraphQL 在无评分时返回 null
+    reviewSummary: _DigitalReviewSummary | None = None
+
+
+class DigitalResponse(BaseModel):
+    data: _DigitalData = Field(default_factory=_DigitalData)
