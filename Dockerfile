@@ -32,6 +32,7 @@ EXPOSE 8000
 VOLUME ["/data", "/media"]
 
 ENV AMANE_DATA_DIR=/data
+ENV AMANE_LOG_DIR=/data/logs
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_NO_SYNC=1
 
