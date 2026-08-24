@@ -69,6 +69,50 @@ async def recv(worker: AsyncWorker, n: int, timeout: float = 5.0) -> list[int]:
 
 
 @pytest.mark.asyncio(loop_scope="function")
+async def test_worker_stop_blocks_inflight_claim(repo: Repository):
+    """stop() 不得放行「在飞 claim」: stop 后新入队任务必须保持 QUEUED.
+
+    回归 CI 偶发 test_filter_type_scrape_sees_children 失败: stop() 只置 ``_running=False``
+    并返回, 不等待主循环任务; 若主循环已进入 claim_next_task (在飞), 该 claim 会在
+    stop() 返回后完成并认领测试刚创建的任务, 使测试自身的 claim 读到 None.
+    """
+    tracker = Tracker()
+    handlers = {TaskType.SCRAPE: SuccessHandler(tracker)}
+    worker = AsyncWorker(repo=repo, handlers=handlers, poll_interval=0.05)
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+    orig_claim = repo.claim_next_task
+    blocked = True
+
+    async def blocked_claim():
+        nonlocal blocked
+        if blocked:
+            blocked = False
+            started.set()
+            await release.wait()
+        return await orig_claim()
+
+    # 实例级遮蔽: 仅阻塞 worker 主循环的第一次 claim, 模拟慢 DB 下在飞 claim
+    repo.claim_next_task = blocked_claim  # type: ignore[method-assign]
+
+    worker.start()
+    await started.wait()  # worker 已进入 claim 并在飞
+
+    await worker.stop()  # 契约: stop() 返回后不得再有任何 claim 存活
+
+    t = await repo.create_task(TaskType.SCRAPE, payload={"number": "LATE-1"})
+    assert t.id is not None
+    release.set()
+    await asyncio.sleep(0.1)
+
+    fetched = await repo.get_task(t.id)
+    assert fetched is not None
+    assert fetched.status == TaskStatus.QUEUED, "stop() 后 in-flight claim 不得认领新任务"
+    assert tracker.calls == []
+
+
+@pytest.mark.asyncio(loop_scope="function")
 async def test_worker_processes_task(repo: Repository):
     """Worker 拾取排队的任务并执行 handler"""
     tracker = Tracker()

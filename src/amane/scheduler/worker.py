@@ -11,6 +11,7 @@
 
 import asyncio
 import time
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -68,6 +69,9 @@ class AsyncWorker:
         self._shutdown_timeout = shutdown_timeout
         self._semaphore = asyncio.Semaphore(concurrency)
         self._running = False
+        # 主循环 task: stop() 须取消并等待它退出, 否则「在飞 claim」会在 stop() 返回后
+        # 继续认领 stop 之后新入队的任务 (API 测试 stop_worker 竞态即源于此).
+        self._main_task: asyncio.Task[None] | None = None
         self._active_tasks: set[asyncio.Task] = set()
         # task_id -> asyncio.Task 映射, 用于按 ID 取消正在执行的任务
         self._running_tasks: dict[int, asyncio.Task] = {}
@@ -102,6 +106,13 @@ class AsyncWorker:
     async def stop(self) -> None:
         """停止 worker, 等待所有任务完成后返回."""
         self._running = False
+        # 先终止主循环: 在飞 claim 若不取消, 可能恰在 stop() 返回后完成并认领
+        # 之后新入队的任务, 导致「stop 后任务仍被 worker 拾取」.
+        if self._main_task is not None and not self._main_task.done():
+            self._main_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._main_task
+            self._main_task = None
         # 关闭时: 等待活跃任务完成, 超时则强制取消
         await self._shutdown_active_tasks()
         failed = await self._repo.fail_all_running_tasks()

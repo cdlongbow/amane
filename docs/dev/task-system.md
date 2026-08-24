@@ -1,6 +1,6 @@
 # 任务系统
 
-> 提交: `d28fda5`
+> 提交: `f6012fd`
 >
 > 入口: `src/amane/handlers/`, `src/amane/scheduler/worker.py`. Payload 结构、handler 步骤都在源码; 本文只解释**为什么**这么编排.
 > 数据所有权见 [data-model.md](data-model.md), 启动顺序见 [architecture.md](architecture.md), 日志隔离见 [observability.md](observability.md).
@@ -157,7 +157,7 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 ### 关闭
 
-`worker.shutdown_timeout` (默认 `0`) 等待活跃任务自然完成的秒数; `0` 表示立即超时并 cancel 活跃任务. 需要排空再退出时调大该值 (上限 120).
+`stop()` 先置 `_running=False` 并**取消主循环 task** (消除「在飞 claim」), 再处置活跃任务: `worker.shutdown_timeout` (默认 `0`) 等待活跃任务自然完成的秒数; `0` 表示立即超时并 cancel 活跃任务. 需要排空再退出时调大该值 (上限 120). 主循环若不被终止, 停在 DB 往返中的 claim 会在 stop() 返回后认领**之后**入队的任务 (API 测试停 worker 必须在此语义下才不竞态).
 
 ## 建任务: 即时与定时
 
