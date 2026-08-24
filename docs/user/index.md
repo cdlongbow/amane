@@ -11,43 +11,7 @@
 
 ## Docker
 
-推荐使用 Docker Compose 部署. 将以下内容保存为 `compose.yaml`, 修改 `/path/to/media` 为你的媒体目录:
-
-```yaml
-services:
-  amane:
-    image: ghcr.io/sqzw-x/amane:latest
-    container_name: amane
-    user: "${UID:-1000}:${GID:-1000}"
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/data
-      - /path/to/media:/media
-    environment:
-      - AMANE_DATA_DIR=/data
-      - AMANE_LOG_LEVEL=INFO
-      - AMANE_SUPERVISED=1
-    restart: unless-stopped
-```
-
-```bash
-docker compose up -d
-```
-
-也可以直接运行:
-
-```bash
-docker run -d --name amane \
-  --user "$(id -u):$(id -g)" \
-  -p 8000:8000 \
-  -v "$PWD/data:/data" \
-  -v /path/to/media:/media \
-  -e AMANE_DATA_DIR=/data \
-  ghcr.io/sqzw-x/amane:latest
-```
-
-启动后访问 `http://localhost:8000`.
+推荐使用 Docker Compose, 参考 [compose.yaml](https://github.com/sqzw-x/amane/blob/main/compose.yaml)
 
 ## 源码安装
 
