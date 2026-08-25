@@ -1902,6 +1902,11 @@ export const FileItemSchema = {
 
 export const FileListResponseSchema = {
     properties: {
+        path: {
+            type: 'string',
+            title: 'Path',
+            description: 'Canonical absolute path of the listed directory (POSIX-style).'
+        },
         items: {
             items: {
                 $ref: '#/components/schemas/FileItem'
@@ -1918,6 +1923,7 @@ export const FileListResponseSchema = {
     },
     type: 'object',
     required: [
+        'path',
         'items',
         'total'
     ],

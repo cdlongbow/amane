@@ -1,5 +1,6 @@
 """/files 端点测试 - 文件浏览器"""
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,9 @@ class TestListFiles:
 
         resp = await client.get("files", params={"path": str(safe_path)})
         assert resp.status_code == 200
-        items = resp.json()["items"]
+        body = resp.json()
+        assert body["path"] == str(safe_path)
+        items = body["items"]
         names = {e["name"] for e in items}
         assert names == {"z_dir", "a_file.txt", "data.bin", "somefile.txt"}
         assert items[0]["type"] == "directory"
@@ -39,11 +42,49 @@ class TestListFiles:
         assert "somefile.txt" in {e["name"] for e in parent.json()["items"]}
 
     @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_relative_path_returns_canonical_absolute(self, client: AsyncClient, safe_path):
+        """相对输入 (首次起点 ".") 响应回传 resolve 后的规范绝对路径."""
+        resp = await client.get("files", params={"path": "."})
+        assert resp.status_code == 200
+        assert resp.json()["path"] == str(safe_path)
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_relative_path_with_base(self, client: AsyncClient, safe_path):
+        """相对输入以 base (当前浏览目录) 为基准, 回传规范绝对路径."""
+        target = safe_path / "sub"
+        target.mkdir()
+        resp = await client.get("files", params={"path": "sub", "base": str(safe_path)})
+        assert resp.status_code == 200
+        assert resp.json()["path"] == str(target)
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_relative_path_escapes_base_rejected(self, client: AsyncClient, safe_path):
+        """相对输入经 base 越界 ("..") 与绝对路径同一安全边界 → 403."""
+        resp = await client.get("files", params={"path": "..", "base": str(safe_path)})
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio(loop_scope="function")
     async def test_list_rejects_illegal_paths(self, client: AsyncClient, safe_path, tmp_path):
         outside = await client.get("files", params={"path": str(tmp_path)})
         assert outside.status_code == 403
         missing = await client.get("files", params={"path": str(safe_path / "nope")})
-        assert missing.status_code == 400
+        assert missing.status_code == 404
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_virtual_volume_literal_resolution(self, client: AsyncClient, safe_path, monkeypatch):
+        """虚拟挂载盘 (CloudDrive2 类) 无法规范化查询、只返回字面路径时仍可浏览 (issue #8)."""
+        (safe_path / "movies").mkdir()
+
+        def fake_realpath(path, *, strict=False):
+            # 模拟此类卷的容错结果: 只给出输入的字面绝对路径
+            return os.path.abspath(os.fspath(path))  # noqa: PTH100
+
+        monkeypatch.setattr(os.path, "realpath", fake_realpath)
+        resp = await client.get("files", params={"path": str(safe_path / "movies")})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["path"] == str(safe_path / "movies")
+        assert body["items"] == []
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_list_scandir_oserror_maps_to_500(self, client: AsyncClient, safe_path, monkeypatch):

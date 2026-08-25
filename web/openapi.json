@@ -129,10 +129,28 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Server path to list. Relative paths resolve against first safe dir.",
+              "description": "Server path to list. Relative paths resolve against `base` or the first safe dir.",
               "title": "Path"
             },
-            "description": "Server path to list. Relative paths resolve against first safe dir."
+            "description": "Server path to list. Relative paths resolve against `base` or the first safe dir."
+          },
+          {
+            "name": "base",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Base directory (absolute canonical) for relative `path`; defaults to the first safe dir.",
+              "title": "Base"
+            },
+            "description": "Base directory (absolute canonical) for relative `path`; defaults to the first safe dir."
           },
           {
             "name": "show_hidden",
@@ -6723,6 +6741,11 @@
       },
       "FileListResponse": {
         "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Canonical absolute path of the listed directory (POSIX-style)."
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/FileItem"
@@ -6739,6 +6762,7 @@
         },
         "type": "object",
         "required": [
+          "path",
           "items",
           "total"
         ],

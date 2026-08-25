@@ -1070,6 +1070,12 @@ export type FileItem = {
  */
 export type FileListResponse = {
     /**
+     * Path
+     *
+     * Canonical absolute path of the listed directory (POSIX-style).
+     */
+    path: string;
+    /**
      * Items
      *
      * Entries sorted directories-first, then by name (case-insensitive). Truncated to 1000.
@@ -3284,9 +3290,15 @@ export type ListFilesData = {
         /**
          * Path
          *
-         * Server path to list. Relative paths resolve against first safe dir.
+         * Server path to list. Relative paths resolve against `base` or the first safe dir.
          */
         path: string;
+        /**
+         * Base
+         *
+         * Base directory (absolute canonical) for relative `path`; defaults to the first safe dir.
+         */
+        base?: string | null;
         /**
          * Show Hidden
          *

@@ -15,9 +15,10 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FileItem } from "@/client/types.gen";
 import { useFileList } from "@/hooks/use-files";
+import { canonicalAncestor, splitCanonicalPath } from "@/lib/canonical-path";
 
 interface FileBrowserProps {
-  /** Initial path to display. */
+  /** 起始浏览路径 (仅作首次请求起点; 渲染由服务端规范 path 驱动). */
   initialPath?: string;
   /** Callback when selection is confirmed. */
   onSelect: (paths: string[]) => void;
@@ -39,12 +40,25 @@ export function FileBrowser({
   const { t } = useTranslation(["fileBrowser", "common"]);
   const [path, setPath] = useState(initialPath);
   const [pathInputValue, setPathInputValue] = useState(initialPath);
+  // 相对路径输入时的基准目录 (当前浏览位置); 绝对导航时清空, 由服务端缺省兜底.
+  const [base, setBase] = useState<string | null>(null);
   const [selectedPaths, setSelectedPaths] = useState(new Set<string>());
   const [showHidden, setShowHidden] = useState(false);
 
-  const { data, error, isLoading, refetch } = useFileList({ path, show_hidden: showHidden });
+  const { data, error, isLoading, refetch } = useFileList({
+    path,
+    base: base ?? undefined,
+    show_hidden: showHidden,
+  });
   const items = data?.items ?? [];
   const total = data?.total;
+
+  // 报错时 react-query 会清空 data (keepPreviousData 仅在挂起期生效), 记录最近一次
+  // 成功的规范路径 (render 期状态调整), 保证面包屑在错误态仍可点击返回.
+  const [lastGoodPath, setLastGoodPath] = useState<string | null>(null);
+  if (data?.path && data.path !== lastGoodPath) {
+    setLastGoodPath(data.path);
+  }
 
   const isItemSelectable = (item: FileItem) => {
     if (selectionType === "mixed") return true;
@@ -55,6 +69,7 @@ export function FileBrowser({
     if (item.type === "directory") {
       setPath(item.path);
       setPathInputValue(item.path);
+      setBase(null);
       return;
     }
     if (isItemSelectable(item)) {
@@ -92,7 +107,8 @@ export function FileBrowser({
 
   const handleConfirm = () => {
     if (!allowMultiple && selectedPaths.size === 0 && selectionType !== "file") {
-      onSelect([path]);
+      // 回传规范路径: 服务器 resolve 后的绝对形态 (选目录兜底用)
+      onSelect([data?.path ?? path]);
     } else {
       onSelect(Array.from(selectedPaths));
     }
@@ -102,6 +118,9 @@ export function FileBrowser({
     e.preventDefault();
     const newPath = pathInputValue.trim();
     if (newPath) {
+      // 相对输入以当前浏览目录 (data.path) 为基准; 绝对输入不携带 base (服务端忽略)
+      const isRelative = splitCanonicalPath(newPath).root === "";
+      setBase(isRelative ? (data?.path ?? null) : null);
       setPath(newPath);
     }
   };
@@ -109,22 +128,31 @@ export function FileBrowser({
   const handleBreadcrumbClick = (targetPath: string) => {
     setPath(targetPath);
     setPathInputValue(targetPath);
+    setBase(null);
   };
 
-  // Parse breadcrumb segments
-  const pathSegments = path.split("/").filter(Boolean);
-  const isAbsolute = path.startsWith("/");
+  const handleReset = () => {
+    setPath(initialPath);
+    setPathInputValue(initialPath);
+    setBase(null);
+  };
+
+  // Breadcrumb 由服务端规范路径 (根 + 段) 驱动, 三类前缀互斥, 无平台猜测.
+  // load 期间 data 保留上一次响应 (keepPreviousData), 面包屑不闪烁.
+  const parts = splitCanonicalPath(data?.path ?? lastGoodPath ?? "");
+  const rows = parts.root ? [parts.root, ...parts.segments] : [];
+  const rowLen = rows.length;
 
   // Dynamic breadcrumb collapse: always show first 2 + last 2, hide middle segments on overflow
   const MIN_FIRST = 2;
   const MIN_LAST = 2;
   const [collapseCount, setCollapseCount] = useState(0);
   const breadcrumbRef = useRef<HTMLDivElement>(null);
-  const prevLenRef = useRef(pathSegments.length);
+  const prevLenRef = useRef(rowLen);
 
   // Reset collapse when path changes, then incrementally collapse until nav fits
   useLayoutEffect(() => {
-    const len = pathSegments.length;
+    const len = rowLen;
     if (prevLenRef.current !== len) {
       prevLenRef.current = len;
       setCollapseCount(0);
@@ -137,7 +165,7 @@ export function FileBrowser({
     if (nav.scrollWidth > nav.clientWidth) {
       setCollapseCount((c) => c + 1);
     }
-  }, [collapseCount, pathSegments]);
+  }, [collapseCount, rowLen]);
 
   const shouldCollapse = collapseCount > 0;
 
@@ -169,18 +197,9 @@ export function FileBrowser({
 
       {/* Breadcrumbs */}
       <Group ref={breadcrumbRef} gap={2} wrap="nowrap" style={{ overflowX: "auto" }}>
-        <UnstyledButton
-          onClick={() => handleBreadcrumbClick(initialPath)}
-          px={4}
-          style={{ flexShrink: 0, borderRadius: "var(--mantine-radius-sm)" }}
-        >
-          <Text size="sm" c="dimmed">
-            ~
-          </Text>
-        </UnstyledButton>
-        {pathSegments.map((segment, index) => {
+        {rows.map((row, index) => {
           // Always show first MIN_FIRST + last MIN_LAST; hide middle segments on overflow
-          const len = pathSegments.length;
+          const len = rowLen;
           const isHiddenSegment =
             shouldCollapse &&
             index >= MIN_FIRST &&
@@ -199,17 +218,17 @@ export function FileBrowser({
             }
             return null;
           }
-          const segPath = `${isAbsolute ? "/" : ""}${pathSegments.slice(0, index + 1).join("/")}`;
+          const targetPath = canonicalAncestor(parts, index);
           return (
-            <Group key={segPath} gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
-              <IconChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />
+            <Group key={targetPath} gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+              {index > 0 && <IconChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />}
               <UnstyledButton
-                onClick={() => handleBreadcrumbClick(segPath)}
+                onClick={() => handleBreadcrumbClick(targetPath)}
                 px={4}
                 style={{ borderRadius: "var(--mantine-radius-sm)", whiteSpace: "nowrap" }}
               >
                 <Text size="sm" c="dimmed">
-                  {segment}
+                  {row}
                 </Text>
               </UnstyledButton>
             </Group>
@@ -251,6 +270,9 @@ export function FileBrowser({
                 </Text>
                 <Button variant="subtle" size="compact-xs" onClick={() => refetch()}>
                   {t("common:actions.retry")}
+                </Button>
+                <Button variant="subtle" size="compact-xs" onClick={handleReset}>
+                  {t("common:actions.reset")}
                 </Button>
               </Group>
             </Alert>

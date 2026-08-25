@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -61,3 +62,25 @@ def test_is_descendant_posix(p, parent, expected):
 )
 def test_is_descendant_windows(p, parent, expected):
     assert is_descendant(p, parent) == expected
+
+
+def test_is_descendant_no_propagation_on_resolution_error(monkeypatch):
+    """realpath 抛 OSError (虚拟卷不支持规范化查询等) 不传播, 按字面继续比较 (issue #8)."""
+    base = Path("/vault") / "media"
+
+    def fake_realpath(path, *, strict=False):
+        raise OSError(1, "Incorrect function")
+
+    monkeypatch.setattr(os.path, "realpath", fake_realpath)
+    assert is_descendant(base / "movies", base) is True
+    assert is_descendant(Path("/elsewhere") / "movies", base) is False
+
+
+def test_is_descendant_mixed_forms_fail_closed(monkeypatch):
+    """盘符路径与设备路径前缀形式混合时按字面拒绝 (fail-closed), 不给边界判断留模糊空间."""
+
+    def fake_realpath(path, *, strict=False):
+        return os.fspath(path)
+
+    monkeypatch.setattr(os.path, "realpath", fake_realpath)
+    assert is_descendant(r"\\?\C:\Users\Test", r"C:\Users") is False
