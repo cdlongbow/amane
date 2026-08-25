@@ -9,6 +9,7 @@ from urllib.parse import quote
 from parsel import Selector
 
 from amane.enums import ActorGender, SiteName
+from amane.net.errors import SourceError
 from amane.utils.dates import normalize_calendar_date
 
 from ...base import CrawlerProfile
@@ -16,19 +17,46 @@ from ...parsing import extract_text
 from ..base import ActorCrawler
 from ..models import ActorMetadata
 
+# 描述关键词: 拉丁短语子串 (大小写不敏感) / CJK 限定 AV 语境.
+# CJK 不能收裸的 女優/女优/男優 (日语 女優 = 普通女演员, 多语言搜索会带进普通演员).
 _AV_KEYWORDS: tuple[str, ...] = (
     "av idol",
+    "av actress",
+    "av actor",
+    "adult actress",
+    "adult actor",
+    "adult model",
+    "porn actress",
+    "porn actor",
     "pornographic",
     "japanese idol",
     "gravure",
-    "女優",
-    "女优",
-    "男優",
-    "男优",
+    "av女優",
+    "av女优",
+    "av男優",
+    "av男优",
+    "avアイドル",
     "av監督",
     "アダルト",
     "成人映画",
     "成人影片",
+)
+
+# 英文描述里行业词与角色词分离出现时兜底 (如 "Japanese adult video actress").
+_AV_INDUSTRY_RE = re.compile(r"\b(?:av|adult|porn|xxx)\b", re.IGNORECASE)
+_AV_ROLE_RE = re.compile(r"\b(?:actress|actor|idol|model|star)\b", re.IGNORECASE)
+
+# 多语言搜索顺序: ja 标签最全 (日本 AV 从业者), zh 次之, en 兜底.
+_SEARCH_LANGUAGES: tuple[str, ...] = ("ja", "zh", "en")
+_SEARCH_CANDIDATE_LIMIT = 5
+
+# Wikidata P106 职业中 AV 相关条目.
+_AV_OCCUPATIONS: frozenset[str] = frozenset(
+    {
+        "Q1079215",  # AV女優 / AV idol
+        "Q8380347",  # AV男優
+        "Q488111",  # ポルノ俳優 / pornographic film actor / 色情演員
+    }
 )
 
 # Wikidata P21 (sex or gender) → ActorGender
@@ -56,14 +84,15 @@ class WikipediaActorCrawler(ActorCrawler):
         )
 
     async def fetch(self, name: str) -> ActorMetadata | None:
-        hit = await self._wikidata_search(name)
-        if hit is None:
-            return None
-        qid, tagline = hit
-        entity = await self._entity_data(qid)
-        if entity is None:
-            return None
-        return await self._build_metadata(qid, entity, tagline)
+        """多语言搜索候选 → 逐候选校验实体 (全语言描述 / P106 职业) → 构建元数据."""
+        candidates = await self._wikidata_search(name)
+        for qid, desc in candidates:
+            entity = await self._entity_data(qid)
+            if entity is None:
+                continue
+            if _is_av_entity(entity):
+                return await self._build_metadata(qid, entity, desc)
+        return None
 
     async def _search(self, name: str) -> str | None:
         raise NotImplementedError("WikipediaActorCrawler overrides fetch()")
@@ -71,23 +100,38 @@ class WikipediaActorCrawler(ActorCrawler):
     async def _scrape(self, url: str) -> ActorMetadata | None:
         raise NotImplementedError("WikipediaActorCrawler overrides fetch()")
 
-    async def _wikidata_search(self, name: str) -> tuple[str, str | None] | None:
-        url = (
-            f"{self.base_url}/w/api.php?action=wbsearchentities&search={quote(name)}&language=zh&uselang=zh&format=json"
-        )
-        data = await self.client.get_json(url, cookies=self.cookies)
-        if not isinstance(data, dict):
-            return None
-        for item in data.get("search") or []:
-            if not isinstance(item, dict):
+    async def _wikidata_search(self, name: str) -> list[tuple[str, str | None]]:
+        """多语言 (ja/zh/en) wbsearchentities; 描述命中 AV 关键词者按语言顺序去重.
+
+        单语言失败不阻断; 全部失败时冒泡最后一次异常 (契约见 docs/dev/crawlers.md 多 URL 试探).
+        """
+        out: dict[str, str | None] = {}
+        last_error: SourceError | None = None
+        for lang in _SEARCH_LANGUAGES:
+            url = (
+                f"{self.base_url}/w/api.php?action=wbsearchentities&search={quote(name)}"
+                f"&language={lang}&uselang={lang}&limit={_SEARCH_CANDIDATE_LIMIT}&format=json"
+            )
+            try:
+                data = await self.client.get_json(url, cookies=self.cookies)
+            except SourceError as exc:
+                last_error = exc
                 continue
-            desc = str(item.get("description") or "")
-            if not _match_av_keyword(desc):
+            if not isinstance(data, dict):
                 continue
-            qid = item.get("id")
-            if isinstance(qid, str) and qid.startswith("Q"):
-                return qid, desc or None
-        return None
+            for item in data.get("search") or []:
+                if not isinstance(item, dict):
+                    continue
+                qid = item.get("id")
+                if not (isinstance(qid, str) and qid.startswith("Q")) or qid in out:
+                    continue
+                desc = str(item.get("description") or "")
+                if not _match_av_keyword(desc):
+                    continue
+                out[qid] = desc or None
+        if not out and last_error is not None:
+            raise last_error
+        return list(out.items())
 
     async def _entity_data(self, qid: str) -> dict[str, Any] | None:
         url = f"{self.base_url}/wiki/Special:EntityData/{qid}.json"
@@ -158,7 +202,47 @@ class WikipediaActorCrawler(ActorCrawler):
 
 def _match_av_keyword(description: str) -> bool:
     lower = description.lower()
-    return any(k.lower() in lower or k in description for k in _AV_KEYWORDS)
+    if any(k.lower() in lower for k in _AV_KEYWORDS):
+        return True
+    return bool(_AV_INDUSTRY_RE.search(description) and _AV_ROLE_RE.search(description))
+
+
+def _is_av_entity(entity: dict[str, Any]) -> bool:
+    """全语言描述关键词命中, 或 P106 职业含 AV 相关条目."""
+    return _descriptions_match(entity) or _occupation_match(entity)
+
+
+def _descriptions_match(entity: dict[str, Any]) -> bool:
+    descs = entity.get("descriptions")
+    if not isinstance(descs, dict):
+        return False
+    for item in descs.values():
+        if isinstance(item, dict) and isinstance(item.get("value"), str) and _match_av_keyword(item["value"]):
+            return True
+    return False
+
+
+def _occupation_match(entity: dict[str, Any]) -> bool:
+    """P106 职业 claims 含 _AV_OCCUPATIONS 任一条目."""
+    claims = entity.get("claims")
+    if not isinstance(claims, dict):
+        return False
+    entries = claims.get("P106")
+    if not isinstance(entries, list):
+        return False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        snak = entry.get("mainsnak")
+        if not isinstance(snak, dict):
+            continue
+        datavalue = snak.get("datavalue")
+        if not isinstance(datavalue, dict):
+            continue
+        value = datavalue.get("value")
+        if isinstance(value, dict) and value.get("id") in _AV_OCCUPATIONS:
+            return True
+    return False
 
 
 def _prefer_label(labels: dict[str, Any]) -> str | None:
