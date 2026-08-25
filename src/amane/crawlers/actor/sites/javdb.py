@@ -19,12 +19,16 @@ _ACTOR_PATH_RE = re.compile(r"^/actors/([A-Za-z0-9]+)/?$")
 _ACTOR_INDEX_SLUGS = frozenset({"censored", "uncensored", "western"})
 _BG_URL_RE = re.compile(r"url\(\s*['\"]?(https?://[^)'\"]+)['\"]?\s*\)", re.IGNORECASE)
 _PLACEHOLDER_AVATAR_RE = re.compile(r"actor_unknow", re.IGNORECASE)
-_FILM_COUNT_RE = re.compile(r"\d+\s*部影片")
+# 影片数标注随语言变化: zh「N 部影片」/ en「N movie(s)」; 不匹配会泄进 aliases.
+_FILM_COUNT_RE = re.compile(r"\d+\s*(?:部影片|movie\(s\))", re.IGNORECASE)
 _GENDER_TOKENS: dict[str, ActorGender] = {
     "男優": ActorGender.MALE,
     "男优": ActorGender.MALE,
+    # javdb 无 locale cookie 时按 Accept-Language 走英文页, 性别标注为英文
+    "Male": ActorGender.MALE,
     "女優": ActorGender.FEMALE,
     "女优": ActorGender.FEMALE,
+    "Female": ActorGender.FEMALE,
 }
 
 
@@ -89,6 +93,9 @@ def parse_javdb_actor_detail(html_text: str, *, page_url: str, base_url: str) ->
             if _FILM_COUNT_RE.search(token):
                 continue
             aliases.append(token)
+    if gender is None:
+        # javdb 站点契约: 详情页只为男优标注性别 (zh「男優」/ en「Male」), 女优无标记, 未标注默认女.
+        gender = ActorGender.FEMALE
     aliases = _dedupe_preserve([a for a in aliases if a != name])
 
     image_urls: list[str] = []
