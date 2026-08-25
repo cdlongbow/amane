@@ -10,6 +10,19 @@ if TYPE_CHECKING:
     from httpx2 import AsyncClient
 
 
+def _canonical_path(p: Path) -> str:
+    """/files 回传的规范路径形态 (routes/files.py:_canonical_response_path).
+
+    as_posix + 去 ``\\?\\`` 设备前缀; Windows 下与 ``str(Path)`` (原生 ``\\``) 不同.
+    """
+    s = str(p.resolve().as_posix())
+    if s.startswith("//?/UNC/"):
+        return "//" + s[len("//?/UNC/") :]
+    if s.startswith("//?/"):
+        return s[len("//?/") :]
+    return s
+
+
 class TestListFiles:
     @pytest.mark.asyncio(loop_scope="function")
     async def test_list_directory(self, client: AsyncClient, safe_path):
@@ -23,7 +36,7 @@ class TestListFiles:
         resp = await client.get("files", params={"path": str(safe_path)})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["path"] == str(safe_path)
+        assert body["path"] == _canonical_path(safe_path)
         items = body["items"]
         names = {e["name"] for e in items}
         assert names == {"z_dir", "a_file.txt", "data.bin", "somefile.txt"}
@@ -46,7 +59,7 @@ class TestListFiles:
         """相对输入 (首次起点 ".") 响应回传 resolve 后的规范绝对路径."""
         resp = await client.get("files", params={"path": "."})
         assert resp.status_code == 200
-        assert resp.json()["path"] == str(safe_path)
+        assert resp.json()["path"] == _canonical_path(safe_path)
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_list_relative_path_with_base(self, client: AsyncClient, safe_path):
@@ -55,7 +68,7 @@ class TestListFiles:
         target.mkdir()
         resp = await client.get("files", params={"path": "sub", "base": str(safe_path)})
         assert resp.status_code == 200
-        assert resp.json()["path"] == str(target)
+        assert resp.json()["path"] == _canonical_path(target)
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_list_relative_path_escapes_base_rejected(self, client: AsyncClient, safe_path):
@@ -83,7 +96,7 @@ class TestListFiles:
         resp = await client.get("files", params={"path": str(safe_path / "movies")})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["path"] == str(safe_path / "movies")
+        assert body["path"] == _canonical_path(safe_path / "movies")
         assert body["items"] == []
 
     @pytest.mark.asyncio(loop_scope="function")
@@ -122,7 +135,7 @@ class TestListFiles:
         assert resp.json()["items"] == [
             {
                 "name": "gone.txt",
-                "path": str(safe_path / "gone.txt"),
+                "path": _canonical_path(safe_path / "gone.txt"),
                 "type": "file",
                 "size": None,
                 "last_modified": None,
