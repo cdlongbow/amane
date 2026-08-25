@@ -1,5 +1,6 @@
 """/files 端点测试 - 文件浏览器"""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -43,3 +44,46 @@ class TestListFiles:
         assert outside.status_code == 403
         missing = await client.get("files", params={"path": str(safe_path / "nope")})
         assert missing.status_code == 400
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_scandir_oserror_maps_to_500(self, client: AsyncClient, safe_path, monkeypatch):
+        """网络盘挂载失效 (macOS errno 6) 等 OSError 不再是裸 500 无日志."""
+
+        def fake_scandir(path):
+            raise OSError(6, "Device not configured")
+
+        monkeypatch.setattr("amane.api.routes.files.os.scandir", fake_scandir)
+        resp = await client.get("files", params={"path": str(safe_path)})
+        assert resp.status_code == 500
+        detail = resp.json()["detail"]
+        assert "Device not configured" in detail
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_entry_stat_error_skips_metadata(self, client: AsyncClient, safe_path, monkeypatch):
+        """单个条目 stat 失败只丢该条元数据, 不影响整体列表 (网络盘瞬断场景)."""
+
+        class FakeEntry:
+            def __init__(self, name: str, path: Path) -> None:
+                self.name = name
+                self.path = str(path)
+
+            def stat(self):
+                raise OSError(5, "Input/output error")
+
+        fake = FakeEntry("gone.txt", safe_path / "gone.txt")
+
+        def fake_scandir(path):
+            return iter([fake])
+
+        monkeypatch.setattr("amane.api.routes.files.os.scandir", fake_scandir)
+        resp = await client.get("files", params={"path": str(safe_path)})
+        assert resp.status_code == 200
+        assert resp.json()["items"] == [
+            {
+                "name": "gone.txt",
+                "path": str(safe_path / "gone.txt"),
+                "type": "file",
+                "size": None,
+                "last_modified": None,
+            }
+        ]

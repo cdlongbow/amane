@@ -51,7 +51,6 @@ def create_app() -> FastAPI:
     app.state.server = None
     app.include_router(router)
     mount_spa(app)  # 必须在 API 路由之后, 以免 catch-all 覆盖 API
-    app.add_middleware(LoggingMiddleware)
     app.add_middleware(TokenAuthMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -60,4 +59,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # 最后注册 LoggingMiddleware 使其位于最外层, 可正确记录 TokenAuthMiddleware 等内层自定义中间件的异常
+    app.add_middleware(LoggingMiddleware)
     return app

@@ -1,0 +1,215 @@
+"""LoggingMiddleware 行为: 未捕获异常留痕 + 高频路径降噪."""
+
+import logging
+from typing import TYPE_CHECKING
+
+import pytest
+import structlog
+from fastapi import FastAPI
+from httpx2 import ASGITransport, AsyncClient
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+from amane.api.middleware import LoggingMiddleware
+from amane.observability import setup_logging
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@pytest.fixture(autouse=True)
+def _reset_logging():
+    """每个测试前清理 logging 和 structlog 状态 (同 test_logging.py)."""
+    root = logging.getLogger("amane")
+    root.handlers.clear()
+    req = logging.getLogger("amane.request")
+    req.handlers.clear()
+    structlog.contextvars.clear_contextvars()
+    structlog.reset_defaults()
+    yield
+    root.handlers.clear()
+    req.handlers.clear()
+    structlog.contextvars.clear_contextvars()
+
+
+class _CaptureHandler(logging.Handler):
+    """捕获 amane.request logger 的原始 LogRecord (未经 formatter)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+class _Direct401Middleware(BaseHTTPMiddleware):
+    """类比 TokenAuth: 不发内层, 直接返回 401."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        return JSONResponse(status_code=401, content={"detail": "nope"})
+
+
+class _RaisingMiddleware(BaseHTTPMiddleware):
+    """类比 TokenAuth 自身 bug: 未调用内层就抛未知异常."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        raise RuntimeError("inner middleware boom")
+
+
+def _make_app(*, inner: type[BaseHTTPMiddleware] | None = None) -> FastAPI:
+    app = FastAPI()
+
+    @app.get("/api/system/desktop")
+    async def desktop() -> dict[str, str]:
+        return {"version": "x"}
+
+    @app.get("/api/health")
+    async def health() -> dict[str, str]:
+        return {"ok": "true"}
+
+    @app.get("/api/guard")
+    async def guard() -> None:
+        from fastapi import HTTPException
+
+        raise HTTPException(403, "nope")
+
+    @app.get("/boom")
+    async def boom() -> None:
+        raise RuntimeError("boom")
+
+    if inner is not None:
+        app.add_middleware(inner)
+    app.add_middleware(LoggingMiddleware)
+    return app
+
+
+def _client(app: FastAPI) -> AsyncClient:
+    # raise_app_exceptions=False: 让 Starlette 500 兜底响应可见, 而非在客户端重抛
+    return AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test")
+
+
+def _capture(handler: _CaptureHandler) -> list[dict]:
+    return [r.msg for r in handler.records if isinstance(r.msg, dict)]
+
+
+class TestFailedRequestLogging:
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_unhandled_exception_logged_to_request_log(self, tmp_path: Path):
+        """端点抛未捕获异常 → 500 兜底, 且 request.log 有 error 级 `request failed` + traceback."""
+        setup_logging(level="INFO", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app()) as client:
+                resp = await client.get("/boom")
+            assert resp.status_code == 500
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        records = _capture(handler)
+        assert len(records) == 1
+        payload = records[0]
+        assert payload["event"] == "request failed"
+        assert payload["status"] == 500
+        assert payload["path"] == "/boom"
+        assert payload["method"] == "GET"
+        assert "RuntimeError: boom" in payload["exception"]
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_http_exception_logged_exactly_once(self, tmp_path: Path):
+        """HTTPException 由 FastAPI ExceptionMiddleware 转换为响应, 只打一条 request completed."""
+        setup_logging(level="INFO", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app()) as client:
+                resp = await client.get("/api/guard")
+            assert resp.status_code == 403
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        records = _capture(handler)
+        assert len(records) == 1
+        assert records[0]["event"] == "request completed"
+        assert records[0]["status"] == 403
+        assert "exception" not in records[0]
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_inner_middleware_direct_response_logged(self, tmp_path: Path):
+        """LoggingMiddleware 最外层: 内层中间件直接返回的 401 (不走路由) 也被记录."""
+        setup_logging(level="INFO", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app(inner=_Direct401Middleware)) as client:
+                resp = await client.get("/api/health")
+            assert resp.status_code == 401
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        records = _capture(handler)
+        assert len(records) == 1
+        assert records[0]["event"] == "request completed"
+        assert records[0]["status"] == 401
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_inner_middleware_exception_logged(self, tmp_path: Path):
+        """LoggingMiddleware 最外层: 内层中间件自身异常 (未达路由) 也被 request failed 兜住."""
+        setup_logging(level="INFO", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app(inner=_RaisingMiddleware)) as client:
+                resp = await client.get("/api/health")
+            assert resp.status_code == 500
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        records = _capture(handler)
+        assert len(records) == 1
+        payload = records[0]
+        assert payload["event"] == "request failed"
+        assert payload["status"] == 500
+        assert "RuntimeError: inner middleware boom" in payload["exception"]
+
+
+class TestNoisyPaths:
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_desktop_poll_absent_at_info_level(self, tmp_path: Path):
+        """默认 INFO: /api/system/desktop 高频轮询不落 request.log, 普通路径仍记录."""
+        setup_logging(level="INFO", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app()) as client:
+                assert (await client.get("/api/system/desktop")).status_code == 200
+                assert (await client.get("/api/health")).status_code == 200
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        records = _capture(handler)
+        assert any(
+            m.get("event") == "request completed" and m.get("path") == "/api/health" and m.get("status") == 200
+            for m in records
+        )
+        assert not any(m.get("path") == "/api/system/desktop" for m in records)
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_desktop_poll_visible_only_at_debug(self, tmp_path: Path):
+        """DEBUG 级别下降噪路径可恢复可见 (log = debug 而非丢弃)."""
+        setup_logging(level="DEBUG", log_dir=tmp_path)
+        handler = _CaptureHandler()
+        logging.getLogger("amane.request").addHandler(handler)
+        try:
+            async with _client(_make_app()) as client:
+                assert (await client.get("/api/system/desktop")).status_code == 200
+        finally:
+            logging.getLogger("amane.request").removeHandler(handler)
+
+        record = handler.records[0]
+        assert record.levelno == logging.DEBUG
+        payload = record.msg
+        assert isinstance(payload, dict)
+        assert payload["path"] == "/api/system/desktop"

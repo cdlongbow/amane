@@ -1,6 +1,6 @@
 # 可观测性
 
-> 提交: `0f642c7`
+> 提交: `0bd913d`
 >
 > 入口: `src/amane/observability/` — `logging.py` (进程级三流) + `recorder.py` (单任务 Recorder).
 > 任务系统见 [task-system.md](task-system.md).
@@ -29,6 +29,8 @@ Worker 只 `Recorder.begin` / `finalize`.
 | 任务日志 | `logs/tasks/task-{id}/task.log` | 单任务全生命周期 (Recorder 安装) |
 
 另有一条 EventBus `log` event 流转到前端 Logs 页.
+
+**请求日志打点** (`api/middleware.py`): `LoggingMiddleware` 注册为**最外层**用户中间件 (add_middleware insert(0), 见 [api.md](api.md)) — 每个请求一条 `request completed` (info); 端点和内层中间件 (TokenAuth/CORS 等) 的**未捕获异常**在 Starlette 500 兜底前记 `request failed` (error, 含 traceback) 再重抛. 手动 `HTTPException` 在 `ExceptionMiddleware` (Logging 内层) 被转成响应, 只打 `request completed` + 状态码, 不会重复打 `request failed`. 降噪路径 (`/api/ws`, `/favicon.ico`, `/api/system/desktop` — 后者是菜单栏 bar 每 3s 轮询, 见 [desktop.md](desktop.md)) 降为 debug, 默认 INFO 不落盘, DEBUG 下可恢复. handler 不自行打点请求结果, 统一收口在此.
 
 **打点约定**: Worker 在 `task started` 时打印 payload 全量. 已改造 handler 用 `current().debug/info/...`. Recorder 活跃时, WebClient 对最终失败的 `request failed` 降为 debug — 结构化失败以 `http exchange` + `http/index.jsonl` 为准.
 

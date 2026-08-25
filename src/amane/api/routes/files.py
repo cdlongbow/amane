@@ -77,11 +77,17 @@ async def list_files(
                 item.last_modified = datetime.fromtimestamp(stat_result.st_mtime, tz=UTC)
                 if item_type == "file":
                     item.size = stat_result.st_size
-            except OSError, FileNotFoundError:
+            except OSError:
                 pass
             items.append(item)
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied reading directory.")
+    except OSError as exc:
+        # 网络盘挂载失效 (macOS errno 6 "Device not configured") 等抛 OSError
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"无法读取目录: {exc.strerror or exc}",
+        )
 
     # 排序: 目录优先, 然后按名称字母序 (不区分大小写)
     items.sort(key=lambda x: (x.type != "directory", x.name.lower()))

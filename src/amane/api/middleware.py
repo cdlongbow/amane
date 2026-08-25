@@ -15,6 +15,10 @@ logger = structlog.get_logger("amane.request")
 #: token 校验豁免的 API 路径 (就绪检查, 探活/healthcheck 需要)
 _TOKEN_EXEMPT = {"/api/health"}
 
+#: 高频轮询/静态资源降噪: 不占 info 级, 仅在 DEBUG 可见
+#: (/api/ws 长连接受 EventBus 事件驱动; /api/system/desktop 是菜单栏 bar 每 3s 轮询, 见 desktop.md)
+_NOISY_PATHS = frozenset({"/api/ws", "/favicon.ico", "/api/system/desktop"})
+
 #: HttpOnly cookie 名: 浏览器子资源 (`<img>` 加载 /api/resources/* 等)
 #: 与 WebSocket 握手无法带 Authorization header, 首次 Bearer 认证成功后由中间件
 #: 下发同值 cookie 供其使用. SameSite=Lax + host-only 使跨站嵌入 / 跨站 fetch 不
@@ -73,7 +77,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     1. 生成 request_id 并绑定到 structlog contextvars
     2. 记录结构化访问日志 (method, path, status, duration)
 
-    下游所有 logger 自动继承 request_id 上下文.
+    下游所有 logger 自动继承 request_id 上下文. 端点未捕获异常在 Starlette
+    500 兜底前记录 ``request failed`` (含 traceback), 保证 request.log 无缺口.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
@@ -84,13 +89,28 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         structlog.contextvars.bind_contextvars(request_id=request_id)
 
         start = time.monotonic()
-        response = await call_next(request)
+        path = request.url.path
+
+        try:
+            response = await call_next(request)
+        except Exception:
+            # 端点未捕获异常: Starlette 500 兜底前必须留痕 (含 traceback),
+            # 否则 request.log 对该请求完全无记录
+            duration_ms = (time.monotonic() - start) * 1000
+            logger.error(
+                "request failed",
+                method=request.method,
+                path=path,
+                status=500,
+                duration_ms=round(duration_ms, 1),
+                exc_info=True,
+            )
+            raise
+
         duration_ms = (time.monotonic() - start) * 1000
 
-        path = request.url.path
         # 降噪: 高频轮询/静态资源不占 info 级
-
-        log = logger.debug if path in ("/api/ws", "/favicon.ico") else logger.info
+        log = logger.debug if path in _NOISY_PATHS else logger.info
         log(
             "request completed",
             method=request.method,
