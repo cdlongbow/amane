@@ -56,8 +56,9 @@ class JavDBActorCrawler(ActorCrawler):
 
 
 def pick_javdb_actor_search_hit(html: Selector, name: str, *, base_url: str) -> str | None:
-    """精确匹配 canonical 名或 title 别名; 不回退首条, 避免子串误伤."""
-    needle = _norm(name)
+    """精确匹配 canonical 名或 title 别名; 比较大小写不敏感 (javdb 搜索本身不区分大小写);
+    不回退首条, 避免子串误伤."""
+    needle = _norm(name).casefold()
     if not needle:
         return None
     for box in html.xpath('//div[contains(@class,"actor-box")]//a[@href]'):
@@ -68,7 +69,7 @@ def pick_javdb_actor_search_hit(html: Selector, name: str, *, base_url: str) -> 
         canonical = _norm(extract_text(box, ".//strong/text()") or extract_text(box, "string(.//strong)"))
         aliases = _split_names(extract_text(box, "@title"))
         names = [n for n in [canonical, *aliases] if n]
-        if needle in names:
+        if any(_norm(n).casefold() == needle for n in names):
             return urljoin(base_url + "/", href)
     return None
 
