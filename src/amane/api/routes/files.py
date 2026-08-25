@@ -46,7 +46,9 @@ def _canonical_response_path(p: Path) -> str:
 
 @router.get("", summary="List files and directories at a server path")
 async def list_files(
-    path: Annotated[str, Query(description="Server path to list. Relative paths resolve against `base` or the first safe dir.")],
+    path: Annotated[
+        str, Query(description="Server path to list. Relative paths resolve against `base` or the first safe dir.")
+    ],
     runtime: RuntimeDep,
     base: Annotated[
         str | None,
