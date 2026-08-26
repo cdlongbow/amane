@@ -6,6 +6,7 @@ import pytest
 
 from amane.db.models import (
     FacetKind,
+    FacetRuleAction,
     MediaFileStatus,
     MediaSortField,
     MetadataSortField,
@@ -355,6 +356,18 @@ class TestMetadataRepo:
         assert {"One", "独有名"} <= by_source
         assert all(r.action == "block" for r in rules if r.source_name in by_source)
         assert "共享名" not in by_source
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_actor_alias_rule_write_guard(self, repo: Repository):
+        """规则唯一写点拒绝 (actor, alias); rename 走别名行, 不写规则 (见 rename 用例)."""
+        from amane.db.repos.facet_helpers import _set_facet_rule
+
+        async with repo._session() as session:
+            with pytest.raises(ValueError, match="actor_aliases 表取代"):
+                await _set_facet_rule(
+                    session, FacetKind.ACTOR, "X", FacetRuleAction.ALIAS, "Y"
+                )
+        assert await repo.list_facet_rules(FacetKind.ACTOR) == []
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_upsert_case_insensitive_preserves_number(self, repo: Repository):

@@ -203,6 +203,9 @@ async def _set_facet_rule(
     action: FacetRuleAction,
     target_name: str | None,
 ) -> FacetRule:
+    """规则行唯一写入点; actor 的 alias 规则已退役, 在此层直接拒绝."""
+    if kind == FacetKind.ACTOR and action == FacetRuleAction.ALIAS:
+        raise ValueError("演员别名规则已由 actor_aliases 表取代")
     existing = await _get_facet_rule(session, kind, source_name)
     now = _utcnow()
     if existing is None:
