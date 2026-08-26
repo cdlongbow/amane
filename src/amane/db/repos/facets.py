@@ -5,7 +5,7 @@ from sqlalchemy import asc
 from sqlalchemy import delete as sqla_delete
 from sqlmodel import col, select
 
-from ..actor_lookup import build_actor_lookup_names, list_actor_aliases
+from ..actor_lookup import build_actor_lookup_names, list_actor_aliases, lookup_actors_by_name
 from ..actor_person import actor_to_aggregated, apply_aggregated_to_actor
 from ..models import (
     SCRAPE_FACET_KINDS,
@@ -38,6 +38,7 @@ from .base import RepositoryMixinBase
 from .facet_helpers import (
     LINK_FACETS,
     SCALAR_FACETS,
+    add_one_actor_alias,
     delete_link_facet,
     delete_scalar_facet,
     get_facet,
@@ -45,6 +46,7 @@ from .facet_helpers import (
     merge_link_facets,
     merge_scalar_facets,
     normalize_names,
+    remove_one_actor_alias,
     rename_link_facet,
     rename_scalar_facet,
     replace_actor_aliases,
@@ -175,6 +177,32 @@ class FacetsRepoMixin(RepositoryMixinBase):
         """演员别名行 (保序); 不含展示名."""
         async with self._session() as session:
             return await list_actor_aliases(session, actor_id)
+
+    async def lookup_actors_by_name(self, name: str) -> list[Actor]:
+        """只读名字→演员候选 (展示名命中 + 别名行命中); 不创建实体."""
+        async with self._session() as session:
+            return await lookup_actors_by_name(session, name)
+
+    async def add_actor_alias(self, actor_id: int, name: str) -> bool:
+        """幂等追加单个别名行; 演员不存在 / 空名 / 与展示名相同 / 已存在 → False."""
+        async with self._session() as session:
+            actor = await session.get(Actor, actor_id)
+            if actor is None:
+                return False
+            ok = await add_one_actor_alias(session, actor, name)
+            if ok:
+                await session.commit()
+            return ok
+
+    async def remove_actor_alias(self, actor_id: int, name: str) -> bool:
+        """删除单个别名行; 演员不存在 / 行不存在 → False."""
+        async with self._session() as session:
+            if await session.get(Actor, actor_id) is None:
+                return False
+            ok = await remove_one_actor_alias(session, actor_id, name)
+            if ok:
+                await session.commit()
+            return ok
 
     async def update_actor(self, actor_id: int, **updates: Unpack[ActorPersonFields]) -> Actor | None:
         """按字段更新 Actor 人物元数据; 不改 name/id. 不存在返回 None.

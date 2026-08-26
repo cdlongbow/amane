@@ -541,6 +541,33 @@ async def replace_actor_aliases(session: AsyncSession, actor: Actor, names: Sequ
     await add_actor_aliases(session, actor, names)
 
 
+async def add_one_actor_alias(session: AsyncSession, actor: Actor, name: str) -> bool:
+    """幂等追加单个别名行; 空名 / 与展示名相同 / 已存在 → False."""
+    candidates = _normalize_alias_names([name], actor.name)
+    if not candidates:
+        return False
+    existing = set((await session.exec(select(ActorAlias.name).where(col(ActorAlias.actor_id) == actor.id))).all())
+    if candidates[0] in existing:
+        return False
+    await add_actor_aliases(session, actor, [name])
+    return True
+
+
+async def remove_one_actor_alias(session: AsyncSession, actor_id: int, name: str) -> bool:
+    """删除单个别名行; 名字为空 / 行不存在 → False. 展示名本身不在行内."""
+    name = (name or "").strip()
+    row = (
+        await session.exec(
+            select(ActorAlias.id).where(col(ActorAlias.actor_id) == actor_id, col(ActorAlias.name) == name)
+        )
+    ).first()
+    if row is None:
+        return False
+    await session.exec(sqla_delete(ActorAlias).where(col(ActorAlias.id) == row))
+    await session.flush()
+    return True
+
+
 async def swap_actor_display_name(session: AsyncSession, actor: Actor, old_name: str, new_name: str) -> None:
     """展示名切换的别名行交换: 新名行出表 (即将成为展示名), 旧展示名入表 (追加末尾).
 

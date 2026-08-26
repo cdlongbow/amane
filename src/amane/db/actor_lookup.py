@@ -53,3 +53,30 @@ async def resolve_actor_by_name(session: AsyncSession, name: str) -> Actor | Non
     session.add(actor)
     await session.flush()
     return actor
+
+
+async def lookup_actors_by_name(session: AsyncSession, name: str) -> list[Actor]:
+    """只读名字→演员候选: 展示名命中 + 别名行命中 (去重); **不创建实体**.
+
+    顺序为展示名命中在前, 其余按 id 升序; 多命中即共享别名 (歧义), 由调用方决定处置.
+    """
+    if not name:
+        return []
+    found: list[Actor] = []
+    display = (await session.exec(select(Actor).where(Actor.name == name))).first()
+    if display is not None:
+        found.append(display)
+    rows = (
+        await session.exec(
+            select(Actor)
+            .join(ActorAlias, col(ActorAlias.actor_id) == col(Actor.id))
+            .where(col(ActorAlias.name) == name)
+            .order_by(col(Actor.id))
+        )
+    ).all()
+    seen = {a.id for a in found}
+    for actor in rows:
+        if actor.id not in seen:
+            found.append(actor)
+            seen.add(actor.id)
+    return found
