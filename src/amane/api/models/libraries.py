@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from ...db import Library
 from ...enums import DownloadableResource, LibraryAutomation, MoveMode
-from ...organize.path_templates import CD_SUFFIX_TEMPLATE_DEFAULT, CdSuffixTemplate
+from ...organize.path_templates import CD_SUFFIX_TEMPLATE_DEFAULT, CdSuffixTemplate, PlaceholderPhase
 from ...utils.extensions import DEFAULT_TRAILER_PATTERN, BlacklistPattern, TrailerPattern
 from ...utils.model import create_partial_model
 
@@ -70,7 +70,7 @@ class LibraryListResponse(BaseModel):
 
 class PathTemplatePlaceholder(BaseModel):
     name: str
-    phase: Literal["metadata", "source", "post_video"]
+    phase: PlaceholderPhase
 
 
 class PathTemplateSchemaResponse(BaseModel):

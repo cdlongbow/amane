@@ -16,10 +16,16 @@
 |--------|------|--------|
 | `{number}` | 番号 | `MIDV-123` |
 | `{title}` | 标题 | `Title Here` |
+| `{actor}` | 第一主演 | `Actor1` |
 | `{actors}` | 演员 (逗号分隔) | `Actor1, Actor2` |
 | `{studio}` | 制作商 | `Studio Name` |
+| `{publisher}` | 发行商 | `Publisher Name` |
 | `{series}` | 系列 | `Series Name` |
+| `{year}` | 发行年份 | `2024` |
 | `{release}` | 发行日期 | `2024-01-15` |
+| `{ext}` | 文件扩展名 (不含点) | `mp4` |
+| `{mosaic}` | 马赛克类型, 来自源文件名, 无标记时认目录名整段, 再按内容类型兜底 | `uncensored` / `cracked` / `censored` |
+| `{definition}` | 分辨率, 仅来自源文件名 (同时出现时取最高) | `4K` / `1080p` / `HD` |
 | `{video_dir}` | 视频文件渲染后的父目录 | — |
 | `{dir}` | 源文件所在目录名 | — |
 | `{dir_path}` | 源文件完整路径 | — |
@@ -27,9 +33,10 @@
 ### 默认模板
 
 ```
-视频: {number}/{number}
-缩略图: {number}/{number}-poster
-NFO: {number}/{number}
+视频: {studio}/{number}/{number}.{ext}
+缩略图: {video_dir}/thumb.jpg
+海报: {video_dir}/poster.jpg
+NFO: {video_dir}/{number}.nfo
 ```
 
 ### 示例
@@ -39,7 +46,16 @@ NFO: {number}/{number}
 ```
 {number}/{number}.mp4          → MIDV-123/MIDV-123.mp4
 {studio}/{number}/{title}.mp4  → Studio Name/MIDV-123/Sample Title.mp4
+{studio}/{number}/{number}-{mosaic}-{definition}.{ext}  → Studio Name/MIDV-123/MIDV-123-uncensored-4K.mp4
 ```
+
+!!! warning
+    `{mosaic}` / `{definition}` 检测结果不落库. `{mosaic}` 在文件名无标记时, 还可认目录名整段
+    (`uncensored` / `cracked` / `无码` / `破解` 等词表, 子串如 `uncensored-guide` 不算),
+    因此 `{mosaic}/{number}.{ext}` 二次整理可以稳住. `{definition}` 仍只看文件名:
+    若只把清晰度放在目录段 (如 `{definition}/{number}.mp4`), 二次整理会因文件名不再含标记
+    而回退 `Unknown` 重新归位. 想按清晰度分目录, 请把标记保留在文件名段
+    (如 `{number}-{mosaic}-{definition}.{ext}`).
 
 ## 整理操作
 
