@@ -31,7 +31,7 @@
 
 ## Library 归属 (强关系)
 
-与 Emby Library 概念对齐: 一个 Library = 一个根目录 + 一组路径模板 + 整理放置方式 (`move_mode`) + 自动化级别 (`automation`: none / watch / scrape) + `trailer_pattern`. 库始终有效, `automation` 只控制发现侧: 不监控、仅登记、或登记后自动刮削. **自动整理尚未开放**, 落盘只由手动 ORGANIZE. **每个 `MediaFile` 必须持久关联到唯一 Library** (`MediaFile.library_id` 非空 FK). 库目录落盘只由 ORGANIZE 执行 —— 读 `media_file.library_id` 取模板与放置方式, 是归属的唯一真值来源. SCRAPE 用 `media_file_id` 只作查询输入 (番号 / oshash) 与刮削后回写关联, 不移动文件.
+与 Emby Library 概念对齐: 一个 Library = 一个根目录 + 一组路径模板 + 整理放置方式 (`move_mode`) + 自动化级别 (`automation`: none / watch / scrape) + 跳过正则 (`trailer_pattern` / `blacklist_patterns`). 库始终有效, `automation` 只控制发现侧: 不监控、仅登记、或登记后自动刮削. **自动整理尚未开放**, 落盘只由手动 ORGANIZE. **每个 `MediaFile` 必须持久关联到唯一 Library** (`MediaFile.library_id` 非空 FK). 库目录落盘只由 ORGANIZE 执行 —— 读 `media_file.library_id` 取模板与放置方式, 是归属的唯一真值来源. SCRAPE 用 `media_file_id` 只作查询输入 (番号 / oshash) 与刮削后回写关联, 不移动文件.
 
 **强 FK 的意义**: 归属在文件**入库时确定一次**, 同一文件经任何入口行为一致:
 
@@ -91,6 +91,12 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 每个 Library 持有整理时的放置方式 (`move_mode`: move / copy / hardlink / symlink)、一组路径模板 (`video_template`, `thumb_template`, `nfo_template`, ...)、以及整理默认 (`write_nfo`、`copy_resources`). 放置方式与默认按库区分, 同一进程里各库可以不同. `copy_resources` 与刮削热配置 `scraping.download_resources` 共用 `DownloadableResource` 枚举, 但互不读写 — 刮削控制进 Resource 目录, 整理控制复制到库路径. ORGANIZE payload 上对应字段为 `None` 时沿用库设置, 非空则只覆盖该次任务.
 
 `trailer_pattern` 只在库上: 对**文件名 (含扩展名)** 做正则搜索, 命中则 REFRESH / ORGANIZE 扫描与 watcher 都不把该文件当正片入库. 空串关闭跳过. 非法正则在写入时拒绝 (422). 默认与预告片模板文件名 `{video_dir}/trailer.mp4` 对齐.
+
+`blacklist_patterns` (正则**列表**) 与预告片同属"文件名匹配即跳过", 语义差别在 ORGANIZE:
+- 命中文件被 ORGANIZE 移入库根 **`.trash`** (固定保留名, 恒为物理移动, 不受 `move_mode`), 移动后删除其 `MediaFile` 记录; 无论是否已有记录都归档 (存量黑名单文件收口).
+- 预告片只跳过不动 — 它是模板产物, 属于库内容.
+- `.trash` 是保留目录: 目录本身与任意深度下级路径在任何扫描/监控中都恒被忽略 (否则归档内容会被再次注册), 手动移出 `.trash` 会被当作新文件重新入库.
+- 跳过正则在扫描/监控侧**逐条编译、任一命中即跳过** — 不做 `|` 拼接: 用户全局旗标 (`(?i)ads`) 拼在联合式中间会触发 re 的 "global flags not at the start". 空列表关闭.
 
 分集 (CD) 后缀: `cd_suffix_template` (默认 `-CD{cd}`) 只在**视频文件名**上生效 — ORGANIZE 时从源文件名 `parse_file_info` 检测分集 (识别 `-CD{n}` / `-PART{n}` / `-A` / `-B` / 尾部位数 `-1`–`-9`; `-0` 无意义, 零填充与两位尾数 (`-01` / `-10`) 会与合法番号撞车, 均不识别), 非 None 且模板非空则在扩展名前追加渲染结果; 空串关闭. 裸数字识别与番号提取一致: `MIDV-123-1` 的番号仍是 `MIDV-123`, 尾部 `-1`–`-9` 本就是分集语义. 模板只允许恰一个 `{cd}` 占位符, 不允许路径分隔符 (写入时 422). 侧车模板基于 `{video_dir}` (父目录), 不受 CD 后缀影响. **幂等约束**: 渲染后的格式须保持可被同一检测逻辑反推 (如 `-CD1`, `-Part1`), 否则该文件二次整理会因检测不到分集而丢失后缀 — 当前只文档约束, 不加验证. 检测只做在 ORGANIZE 时, 不落库.
 
