@@ -45,14 +45,10 @@ export type ActorResponse = {
     count?: number;
     /**
      * Aliases
+     *
+     * 别名行 (保序; 不含展示名)
      */
     aliases?: Array<string>;
-    /**
-     * Rule Aliases
-     *
-     * FacetRule 入边来源的 alias 名
-     */
-    rule_aliases?: Array<string>;
     gender?: ActorGender;
     /**
      * Birthday
@@ -207,10 +203,6 @@ export type ActorSortField = 'name' | 'count' | 'updated_at' | 'has_image' | 'bi
  * ActorUpdateRequest
  */
 export type ActorUpdateRequest = {
-    /**
-     * Aliases
-     */
-    aliases?: Array<string> | null;
     gender?: ActorGender | null;
     /**
      * Birthday
@@ -264,6 +256,12 @@ export type ActorUpdateRequest = {
     source_urls?: {
         [key: string]: string;
     } | null;
+    /**
+     * Aliases
+     *
+     * 别名行 (保序), 整表替换
+     */
+    aliases?: Array<string> | null;
 };
 
 /**

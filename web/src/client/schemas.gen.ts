@@ -53,15 +53,8 @@ export const ActorResponseSchema = {
                 type: 'string'
             },
             type: 'array',
-            title: 'Aliases'
-        },
-        rule_aliases: {
-            items: {
-                type: 'string'
-            },
-            type: 'array',
-            title: 'Rule Aliases',
-            description: 'FacetRule 入边来源的 alias 名'
+            title: 'Aliases',
+            description: '别名行 (保序; 不含展示名)'
         },
         gender: {
             $ref: '#/components/schemas/ActorGender',
@@ -341,20 +334,6 @@ export const ActorSortFieldSchema = {
 
 export const ActorUpdateRequestSchema = {
     properties: {
-        aliases: {
-            anyOf: [
-                {
-                    items: {
-                        type: 'string'
-                    },
-                    type: 'array'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Aliases'
-        },
         gender: {
             anyOf: [
                 {
@@ -505,6 +484,21 @@ export const ActorUpdateRequestSchema = {
                 }
             ],
             title: 'Source Urls'
+        },
+        aliases: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Aliases',
+            description: '别名行 (保序), 整表替换'
         }
     },
     type: 'object',
