@@ -341,7 +341,7 @@ class Library(SQLModel, table=True):
     trailer_pattern: TrailerPattern = Field(default=DEFAULT_TRAILER_PATTERN, sa_column=Column(String, nullable=False))
     """匹配文件名 (含扩展名) 的正则; 命中则扫描/监控跳过. 空串关闭."""
     blacklist_patterns: list[BlacklistPattern] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
-    """文件名正则列表, 命中任一则扫描/监控跳过, 且 ORGANIZE 时移入库根 `.trash`. 空列表关闭."""
+    """文件名正则列表, 命中任一则扫描/监控跳过, 且 ORGANIZE 时移入库根 `.amane_trash`. 空列表关闭."""
 
 
 class Schedule(SQLModel, table=True):

@@ -89,8 +89,8 @@ class TestIterMediaFiles:
         assert "a.mp4" in result
 
     def test_trash_directory_never_yielded(self, tree):
-        """.trash (回收站) 内容不会被扫描/整理遍历."""
-        trash = tree / ".trash"
+        """.amane_trash (回收站) 内容不会被扫描/整理遍历."""
+        trash = tree / ".amane_trash"
         trash.mkdir()
         (trash / "ad.mp4").touch()
         result = {p.name for p in iter_media_files(tree, recursive=True, patterns=None)}

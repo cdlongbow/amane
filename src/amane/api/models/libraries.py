@@ -30,7 +30,7 @@ class LibraryCreateRequest(BaseModel):
     copy_resources: list[DownloadableResource] = Field(default_factory=lambda: list(DownloadableResource))
     trailer_pattern: TrailerPattern = DEFAULT_TRAILER_PATTERN
     blacklist_patterns: list[BlacklistPattern] = []
-    """文件名正则列表; 命中任一则扫描/监控跳过, ORGANIZE 时移入库根 `.trash`."""
+    """文件名正则列表; 命中任一则扫描/监控跳过, ORGANIZE 时移入库根 `.amane_trash`."""
     scan: bool = True
 
 

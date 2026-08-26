@@ -34,7 +34,7 @@ MEDIA_EXTENSIONS = frozenset(
 DEFAULT_TRAILER_PATTERN = "(?i)trailer"
 
 # 黑名单命中的文件在 ORGANIZE 时移入库根下该目录 (固定保留名, 任何深度都不入库).
-TRASH_DIRNAME = ".trash"
+TRASH_DIRNAME = ".amane_trash"
 
 
 def compile_skip_patterns(patterns: Sequence[str | None] | None) -> list[Pattern[str]] | None:
@@ -94,5 +94,5 @@ def is_skipped_media(path: Path, pattern: str | None) -> bool:
 
 
 def is_in_trash(path: Path) -> bool:
-    """路径任一深度组件为 `.trash` 则视为回收站内容: 不入库、不触发监控事件."""
+    """路径任一深度组件为 `.amane_trash` 则视为回收站内容: 不入库、不触发监控事件."""
     return any(part == TRASH_DIRNAME for part in path.parts)

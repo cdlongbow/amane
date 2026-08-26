@@ -264,7 +264,7 @@ async def test_organize_custom_cd_suffix(repo: Repository, resource_store: Resou
 async def test_organize_trashes_blacklisted_files(
     repo: Repository, resource_store: ResourceStore, tmp_path: Path
 ) -> None:
-    """黑名单命中文件: ORGANIZE 时移入库根 .trash 并删除 MediaFile 记录, 正片正常落盘.
+    """黑名单命中文件: ORGANIZE 时移入库根 .amane_trash 并删除 MediaFile 记录, 正片正常落盘.
 
     预告片命中 trailer_pattern: 只跳过不归档.
     """
@@ -299,7 +299,7 @@ async def test_organize_trashes_blacklisted_files(
     assert result.result.failed == 0
 
     assert not ad.exists()
-    assert (lib_root / ".trash" / "新片广告.mp4").exists()
+    assert (lib_root / ".amane_trash" / "新片广告.mp4").exists()
     assert await repo.get_media_file(ad_record.id) is None
     # 预告片保留原地 (跳过但不动), 正片落盘
     assert trailer.exists()
@@ -333,7 +333,7 @@ async def test_organize_trash_untracked_and_collision(
     assert result.result.organized == 0
 
     assert not ad1.exists() and not ad2.exists()
-    trash = lib_root / ".trash"
+    trash = lib_root / ".amane_trash"
     assert (trash / "AD_01.mp4").exists()
     assert (trash / "AD_01(1).mp4").exists()
 

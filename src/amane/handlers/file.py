@@ -244,7 +244,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
     流程:
         1. 清掉本库失效索引 (避免幽灵行占用 dest 碰撞名)
-        2. 黑名单预处理: 命中库 blacklist_patterns 的文件移入库根 `.trash` 并删记录
+        2. 黑名单预处理: 命中库 blacklist_patterns 的文件移入库根 `.amane_trash` 并删记录
         3. 遍历目录, 过滤媒体文件 (预告片/黑名单命中跳过)
         4. 对每个文件: 查 MediaFile → 查关联 Metadata
         5. 有元数据: 执行 file operations
@@ -354,10 +354,10 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         )
 
     async def _trash_blacklisted(self, library: Library, scan_dir: Path, recursive: bool) -> int:
-        """把扫描目录中命中库黑名单的媒体文件移入库根 `.trash` (固定保留名).
+        """把扫描目录中命中库黑名单的媒体文件移入库根 `.amane_trash` (固定保留名).
 
         - 命中黑名单即判定非正片: 无论是否已有 MediaFile 记录都归档, 归档后删除记录.
-        - 归档恒为物理移动, 不受库 move_mode 影响; 已归档的 `.trash` 内容不再被遍历.
+        - 归档恒为物理移动, 不受库 move_mode 影响; 已归档的 `.amane_trash` 内容不再被遍历.
         - 失败只记日志, 不阻断整理; 返回成功归档数.
         """
         blacklist = library.blacklist_patterns

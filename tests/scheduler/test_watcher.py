@@ -49,22 +49,22 @@ class TestHandler:
         assert handler._matches(Path("/tmp/video.mp4")) is True
 
     def test_trash_dir_always_ignored(self):
-        """.trash 内路径恒不匹配 (即使文件名是正常影片)."""
+        """.amane_trash 内路径恒不匹配 (即使文件名是正常影片)."""
         handler = _Handler(library_id=1, patterns=None)
-        assert handler._matches(Path("/lib/.trash/video.mp4")) is False
-        assert handler._matches(Path("/lib/.trash/sub/ad.mp4")) is False
+        assert handler._matches(Path("/lib/.amane_trash/video.mp4")) is False
+        assert handler._matches(Path("/lib/.amane_trash/sub/ad.mp4")) is False
 
     def test_move_into_trash_records_src_delete(self):
-        """把文件移入 .trash: dest 不匹配 → 记录 src 为删除 (记录清理/归档竞态安全)."""
+        """把文件移入 .amane_trash: dest 不匹配 → 记录 src 为删除 (记录清理/归档竞态安全)."""
         handler = _Handler(library_id=1, patterns=None)
-        handler.on_moved(FileMovedEvent(src_path="/lib/incoming/ad.mp4", dest_path="/lib/.trash/ad.mp4"))
+        handler.on_moved(FileMovedEvent(src_path="/lib/incoming/ad.mp4", dest_path="/lib/.amane_trash/ad.mp4"))
         assert "/lib/incoming/ad.mp4" in handler._pending_deletes
         assert handler._pending_moves == {}
 
     def test_move_out_of_trash_triggers_found(self):
-        """从 .trash 恢复文件 (移出): dest 匹配 → 记录为移动 (重新入库)."""
+        """从 .amane_trash 恢复文件 (移出): dest 匹配 → 记录为移动 (重新入库)."""
         handler = _Handler(library_id=1, patterns=None)
-        handler.on_moved(FileMovedEvent(src_path="/lib/.trash/video.mp4", dest_path="/lib/video.mp4"))
+        handler.on_moved(FileMovedEvent(src_path="/lib/.amane_trash/video.mp4", dest_path="/lib/video.mp4"))
         assert "/lib/video.mp4" in handler._pending_moves
 
     def test_matches_custom_patterns(self):

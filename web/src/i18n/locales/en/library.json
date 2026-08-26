@@ -104,7 +104,7 @@
   "fieldTrailerPattern": "Trailer filename regex",
   "fieldTrailerPatternHint": "Skip files whose names (with extension) match; empty disables. Default matches trailer",
   "fieldBlacklistPatterns": "Blacklist regexes",
-  "fieldBlacklistPatternsHint": "One regex per line; matching files are skipped from scans and moved to .trash on organize. Empty disables",
+  "fieldBlacklistPatternsHint": "One regex per line; matching files are skipped from scans and moved to .amane_trash on organize. Empty disables",
   "fieldMoveMode": "File Operation Mode",
   "fieldMoveModeHint": "How files are placed onto template paths during organize",
   "fieldWriteNfo": "Write NFO",

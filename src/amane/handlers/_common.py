@@ -41,7 +41,7 @@ def iter_media_files(
     - 提供 patterns 时按 glob 模式匹配 (任一命中即可)
     - 未提供 patterns 时按 MEDIA_EXTENSIONS 扩展名过滤
     - skip_patterns 任一命中文件名 (含扩展名) 则跳过 (预告片/黑名单正则)
-    - 路径任一组件为 `.trash` (回收站) 则跳过
+    - 路径任一组件为 `.amane_trash` (回收站) 则跳过
 
      Args:
          scan_dir: 待遍历目录

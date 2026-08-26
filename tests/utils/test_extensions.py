@@ -1,4 +1,4 @@
-"""跳过/黑名单正则与 `.trash` 保留目录: 匹配文件名 (含扩展名)."""
+"""跳过/黑名单正则与 `.amane_trash` 保留目录: 匹配文件名 (含扩展名)."""
 
 from pathlib import Path
 
@@ -74,9 +74,9 @@ def test_compile_skip_patterns_empty_or_invalid_returns_none():
 
 
 TRASH_CASES = [
-    ("/lib/.trash/ad.mp4", True),
-    ("/lib/sub/.trash/other/ad.mp4", True),
-    ("/lib/.trash", True),
+    ("/lib/.amane_trash/ad.mp4", True),
+    ("/lib/sub/.amane_trash/other/ad.mp4", True),
+    ("/lib/.amane_trash", True),
     ("/lib/ad.mp4", False),
     ("/lib/not-trash/ad.mp4", False),
 ]

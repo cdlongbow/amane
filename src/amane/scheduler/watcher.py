@@ -200,7 +200,7 @@ class FileWatcher:
             patterns: 可选的 glob 模式 (例如 ["*.mp4", "*.mkv"]).
                      如果为 None, 则使用 MEDIA_EXTENSIONS.
             skip_patterns: 跳过正则列表 (预告片/黑名单), 命中文件名则忽略;
-                          `.trash` 目录 (回收站) 内路径恒忽略.
+                          `.amane_trash` 目录 (回收站) 内路径恒忽略.
         """
         handler = _Handler(
             library_id,
