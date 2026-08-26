@@ -5,7 +5,7 @@ from sqlalchemy import asc
 from sqlalchemy import delete as sqla_delete
 from sqlmodel import col, select
 
-from ..actor_lookup import build_actor_lookup_names, list_inbound_alias_names
+from ..actor_lookup import build_actor_lookup_names, list_actor_aliases
 from ..actor_person import actor_to_aggregated, apply_aggregated_to_actor
 from ..models import (
     SCRAPE_FACET_KINDS,
@@ -47,6 +47,7 @@ from .facet_helpers import (
     normalize_names,
     rename_link_facet,
     rename_scalar_facet,
+    replace_actor_aliases,
 )
 
 
@@ -137,11 +138,6 @@ class FacetsRepoMixin(RepositoryMixinBase):
                 return None
             return await build_actor_lookup_names(session, actor)
 
-    async def list_inbound_actor_aliases(self, canonical_name: str) -> list[str]:
-        """指向规范名的 FacetRule alias 源名."""
-        async with self._session() as session:
-            return await list_inbound_alias_names(session, canonical_name)
-
     async def list_actors(self, *, offset: int = 0, limit: int = 500) -> list[Actor]:
         """分页列出 Actor 行 (cleanup 收集 image_urls 等)."""
         async with self._session() as session:
@@ -155,8 +151,11 @@ class FacetsRepoMixin(RepositoryMixinBase):
         async with self._session() as session:
             return await browse_actors(session, params, id_subquery_sql=id_subquery_sql)
 
-    async def save_actor(self, actor: Actor) -> Actor | None:
-        """将已修改的 Actor 人物字段持久化; 不存在返回 None."""
+    async def save_actor(self, actor: Actor, *, aliases: Sequence[str] | None = None) -> Actor | None:
+        """将已修改的 Actor 人物字段持久化; 不存在返回 None.
+
+        ``aliases`` 提供时整表替换该演员别名行 (刮削回写 / 测试用); 省略不动别名行.
+        """
         if actor.id is None:
             return None
         async with self._session() as session:
@@ -166,18 +165,28 @@ class FacetsRepoMixin(RepositoryMixinBase):
             apply_aggregated_to_actor(db, actor_to_aggregated(actor))
             db.updated_at = _utcnow()
             session.add(db)
+            if aliases is not None:
+                await replace_actor_aliases(session, db, aliases)
             await session.commit()
             await session.refresh(db)
             return db
 
+    async def get_actor_aliases(self, actor_id: int) -> list[str]:
+        """演员别名行 (保序); 不含展示名."""
+        async with self._session() as session:
+            return await list_actor_aliases(session, actor_id)
+
     async def update_actor(self, actor_id: int, **updates: Unpack[ActorPersonFields]) -> Actor | None:
-        """按字段更新 Actor 人物元数据; 不改 name/id. 不存在返回 None."""
+        """按字段更新 Actor 人物元数据; 不改 name/id. 不存在返回 None.
+
+        ``aliases`` 走 ``replace_actor_aliases`` 整表替换 (保序).
+        """
         async with self._session() as session:
             actor = await session.get(Actor, actor_id)
             if actor is None:
                 return None
             if "aliases" in updates:
-                actor.aliases = updates["aliases"]
+                await replace_actor_aliases(session, actor, updates["aliases"])
             if "gender" in updates:
                 actor.gender = updates["gender"]
             if "birthday" in updates:
