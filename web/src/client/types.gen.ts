@@ -1264,6 +1264,10 @@ export type LibraryCreateRequest = {
      */
     trailer_pattern?: string;
     /**
+     * Blacklist Patterns
+     */
+    blacklist_patterns?: Array<string>;
+    /**
      * Scan
      */
     scan?: boolean;
@@ -1353,6 +1357,10 @@ export type LibraryResponse = {
      * Trailer Pattern
      */
     trailer_pattern: string;
+    /**
+     * Blacklist Patterns
+     */
+    blacklist_patterns: Array<string>;
 };
 
 /**
@@ -1425,6 +1433,10 @@ export type LibraryUpdateRequest = {
      * Trailer Pattern
      */
     trailer_pattern?: string | null;
+    /**
+     * Blacklist Patterns
+     */
+    blacklist_patterns?: Array<string> | null;
 };
 
 /**
