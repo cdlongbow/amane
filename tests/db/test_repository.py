@@ -364,9 +364,7 @@ class TestMetadataRepo:
 
         async with repo._session() as session:
             with pytest.raises(ValueError, match="actor_aliases 表取代"):
-                await _set_facet_rule(
-                    session, FacetKind.ACTOR, "X", FacetRuleAction.ALIAS, "Y"
-                )
+                await _set_facet_rule(session, FacetKind.ACTOR, "X", FacetRuleAction.ALIAS, "Y")
         assert await repo.list_facet_rules(FacetKind.ACTOR) == []
 
     @pytest.mark.asyncio(loop_scope="function")

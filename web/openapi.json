@@ -7390,6 +7390,14 @@
             "title": "Trailer Pattern",
             "default": "(?i)trailer"
           },
+          "blacklist_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blacklist Patterns",
+            "default": []
+          },
           "scan": {
             "type": "boolean",
             "title": "Scan",
@@ -7549,6 +7557,13 @@
           "trailer_pattern": {
             "type": "string",
             "title": "Trailer Pattern"
+          },
+          "blacklist_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blacklist Patterns"
           }
         },
         "type": "object",
@@ -7563,7 +7578,8 @@
           "cd_suffix_template",
           "write_nfo",
           "copy_resources",
-          "trailer_pattern"
+          "trailer_pattern",
+          "blacklist_patterns"
         ],
         "title": "LibraryResponse"
       },
@@ -7770,6 +7786,20 @@
               }
             ],
             "title": "Trailer Pattern"
+          },
+          "blacklist_patterns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blacklist Patterns"
           }
         },
         "type": "object",

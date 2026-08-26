@@ -2558,6 +2558,14 @@ export const LibraryCreateRequestSchema = {
             title: 'Trailer Pattern',
             default: '(?i)trailer'
         },
+        blacklist_patterns: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Blacklist Patterns',
+            default: []
+        },
         scan: {
             type: 'boolean',
             title: 'Scan',
@@ -2719,6 +2727,13 @@ export const LibraryResponseSchema = {
         trailer_pattern: {
             type: 'string',
             title: 'Trailer Pattern'
+        },
+        blacklist_patterns: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Blacklist Patterns'
         }
     },
     type: 'object',
@@ -2733,7 +2748,8 @@ export const LibraryResponseSchema = {
         'cd_suffix_template',
         'write_nfo',
         'copy_resources',
-        'trailer_pattern'
+        'trailer_pattern',
+        'blacklist_patterns'
     ],
     title: 'LibraryResponse'
 } as const;
@@ -2941,6 +2957,20 @@ export const LibraryUpdateRequestSchema = {
                 }
             ],
             title: 'Trailer Pattern'
+        },
+        blacklist_patterns: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Blacklist Patterns'
         }
     },
     type: 'object',
