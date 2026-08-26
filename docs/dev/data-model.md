@@ -63,7 +63,7 @@
 
 - **DB 列**: ground truth, 全部可持久化字段.
 - **repo 入参 TypedDict** (`MetadataFields` / `MediaFileUpdates` / `LibraryUpdates` / `ScheduleUpdates`, 在 `src/amane/db/repo_types.py`): repo update 方法接受的内部可写面. 比 DB 列窄 (排除主键/时间戳), 但比对外面宽 —— 含仅后端可写字段 (如 `Metadata.raw`/`field_sources` 由刮削写入, `Schedule.next_run`/`last_run` 由调度器维护).
-- **req model** (`src/amane/api/models/`): 对外可写面, 经 `create_partial_model(DBModel, ignore_fields=...)` 从 DB 模型派生. `ignore_fields` 排除只读列与仅后端可写字段, 从模型上**彻底移除**这些字段, 阻断外部经 API 越权赋值 (如 POST `id`/`raw`).
+- **req model** (`src/amane/api/models/`): 对外可写面, 经 `create_partial_model(DBModel, ignore_fields=...)` 从 DB 模型派生. `ignore_fields` 排除只读列与仅后端可写字段, 从模型上**彻底移除**这些字段, 阻断外部经 API 越权赋值 (如 POST `id`/`raw`). 非 DB 列的可写字段 (如 `Actor.aliases` 别名行) 经 `extra_fields` 显式纳入, 同样 partial 化且显式 `null` 被拒.
 
 **安全性如何保证** (无运行时反射):
 
@@ -124,16 +124,16 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 `Metadata` 上的 `actors` / `tags` / `directors` (JSON list) 与 `studio` / `publisher` / `series` (标量) **仍是刮削聚合、NFO、路径模板的真值来源**. 分类实体表 + 关联表是**查询投影**: `upsert_metadata` / `update_metadata` 写入后由 `_sync_metadata_facets` 重建 (按 name get-or-create; list 字段带 `position` 保序).
 
-写入时先清洗 `Metadata.actors` 的 `name(alias1, alias2)` 形式 (`clean_actor_names`, 纯拆分器 `split_actor_aliases`): 规范名留真值, 别名并入对应 `Actor.aliases`. 落袋目标经 actor 规则单跳解析 — 规范名被 alias 规则映射时别名随目标实体走, 被 block 时不落袋, 因此不留孤儿实体. `Metadata.actors` 存库始终是规范名; 站点 `raw` 快照保留原始带括号形式, 重刮时重新清洗.
+写入时先清洗 `Metadata.actors` 的 `name(alias1, alias2)` 形式 (`clean_actor_names`, 纯拆分器 `split_actor_aliases`): 展示名留真值, 别名并入对应演员的 `ActorAlias` 行. 每个名字先经 `resolve_actor_by_name` 解析 (展示名精确命中 → 别名唯一命中 → 歧义/无命中以名字本身为展示名新建实体) — 站点给的**裸别名**也会折到已认定演员, 不再为别名另建重复实体; block 判定在解析前 (原始名) 与解析后 (展示名) 各查一次, 与旧规则链 "B→D 且 block D 则 B 也拦" 等价. `Metadata.actors` 存库始终是展示名; 站点 `raw` 快照保留原始带括号形式, 重刮时重新清洗.
 
 用户对爬取侧分类的改名 / 合并 / 删除意图落在 `FacetRule` (按 `(kind, source_name)` 唯一), **不**改投影表本身:
 
 | action | 含义 |
 |--------|------|
-| `alias` | 源名映射到目标名; **表内保持单跳规范形** (写入时压缩入边, apply 不递归) |
+| `alias` | 源名映射到目标名; **表内保持单跳规范形** (写入时压缩入边, apply 不递归). **演员已不再使用** (由 `ActorAlias` 行承担) |
 | `block` | 源名永久剔除; 指向该名的 alias 入边一并压成 block |
 
-`upsert_metadata` / `update_metadata` 在 `_sync_metadata_facets` 之前对六个分类真值字段跑规则 (不改 `raw`). 目录 API: rename/merge 写 alias 并改已有 Metadata; delete 写 block、从真值剔除后删实体. `user_tag` 与刮削隔离, 硬删且不进规则表.
+`upsert_metadata` / `update_metadata` 在 `_sync_metadata_facets` 之前对六个分类真值字段跑规则 (不改 `raw`); 演员只有 block 会命中. 目录 API: rename/merge 对非演员写 alias 并改已有 Metadata; 演员 rename = 展示名切换 (见下节). delete 写 block、从真值剔除后删实体. `user_tag` 与刮削隔离, 硬删且不进规则表.
 
 - 名称大小写敏感, 与源站原样一致, 不做模糊合并.
 - `Actor` / `Director` 为一等实体: 无影片关联时**不自动删除**. 用户显式删除时实体删除并拉黑.
@@ -141,18 +141,22 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 ### 演员身份与人物元数据
 
-身份是**别名映射 + 合并**, 不是独立身份图. 四层分工:
+身份是 **ID 锚定的名字映射**, 不是独立身份图. 四层分工:
 
 | 层 | 角色 |
 |----|------|
-| `Metadata.actors` | 影片刮削/NFO 真值 (经规则后的规范名) |
-| `FacetRule` | 用户认定的跨名映射 (日/罗/中/旧艺名); rename/merge/alias/block |
-| `Actor.id` | 人物宿主 (任务、关联、人物字段); `name` UNIQUE 规范名 |
-| `Actor.aliases` | 別名袋 (查找/展示): 档案刮削与影片演员名清洗入袋; **不**承担跨名映射 |
+| `Metadata.actors` | 影片刮削/NFO 真值 (解析后的展示名) |
+| `Actor.id` | 人物宿主 (任务、关联、人物字段); `name` UNIQUE **展示名** |
+| `ActorAlias` | ID→名称一对多映射: 别名行 (查找/搜索/展示); `(actor_id, name)` 唯一, `name` 列**不全局唯一** — 两个演员可共享同一别名 |
+| `FacetRule(actor, block)` | 名字永久剔除 (唯一的演员规则; alias 规则已行化退役) |
+
+展示名**不入** `ActorAlias` 表 (恒等约束); 切展示名 = `rename_facet` 语义: 旧展示名入表 (追加末尾), 被选中的别名行出表, 存量 `Metadata.actors` 批量改写为新的展示名 — 一次操作, 无需维护任何映射规则.
+
+名字→演员解析 (`resolve_actor_by_name`, `db/actor_lookup.py`) 三态: 展示名精确命中 > 别名唯一命中 > **歧义 (多演员共享该别名且无展示名命中) 时以该名字本身为展示名新建实体** — 确定性且可后续 merge 收拢, 搜索/目录列表则同时命中所有共享演员.
 
 `Actor` 另存人物元数据 (`gender` / 生日/身材/简介/`image_urls`/`provider_ids`/`source_urls`/`raw` 等). **`gender`**: `female` / `male` / `unknown` (默认); `unknown` 视为标量空位, 可被刮削填空或手改覆盖. **`birthday`** 与影片 **`Metadata.release`** 同为日历日字符串 **`YYYY-MM-DD`** (爬虫与 `PATCH` 写入前规范化; 源站 ISO 日期时间只保留日). **`image_urls[0]` 为主图** (详情/头像墙); 列表与各站 `raw` 并存, 用户可编辑规范列表次序.
 
-刮削查找键 (有序去重): `name` → 入边 alias 的 `source_name` → `Actor.aliases`; 站内首命中即用. 档案刮削**不改** `Actor.name`: 各站 `ActorMetadata.name` 与 `aliases` 一并入別名袋, 写回时丢掉与规范名相同的项 (站点中文显示名如 javdb `筧純` 不会盖掉已认定的 `鷲尾めい`). 多站 `source_url` 聚合为 `source_urls` (site→url, 先到先得), 与影片 `Metadata.source_urls` 同形. 实体 merge 删源前须把人物字段填空并入 target (`merge_person_fields_into_target`: 标量填空; aliases/image_urls/provider_ids/raw 并集), 保留 target id. 刮削发请求前按 `Actor.gender` 与站点性别覆盖裁站 (见 [crawlers.md](crawlers.md) / [task-system.md](task-system.md)). CLEANUP 扫 Resource 存活引用时, 除 Metadata 媒体 URL 外还计入 `Actor.image_urls`.
+刮削查找键: 展示名 → 别名行 (position 保序), 一条索引查询; 站内首命中即用. 档案刮削**不改** `Actor.name`: 各站 `ActorMetadata.name` 与 `aliases` 并入别名行并集, 写回时丢弃与展示名相同的项 (站点中文显示名如 javdb `筧純` 不会盖掉已认定的 `鷲尾めい`). 多站 `source_url` 聚合为 `source_urls` (site→url, 先到先得), 与影片 `Metadata.source_urls` 同形. 实体 merge 删源前先把源演员的名字并入 target 别名行 (`move_actor_alias_rows`, 已有行在前、源展示名/源别名行依次追加), 再把人物字段填空并入 target (`merge_person_fields_into_target`: 标量填空; image_urls/provider_ids/raw 并集), 保留 target id. 实体 delete 会对展示名与其**独有**别名写 block 行 (被其它演员引用为别名/展示名的共享名不拉黑, 避免误伤); 别名行随实体显式删除, 不依赖 SQLite FK pragma. 刮削发请求前按 `Actor.gender` 与站点性别覆盖裁站 (见 [crawlers.md](crawlers.md) / [task-system.md](task-system.md)). CLEANUP 扫 Resource 存活引用时, 除 Metadata 媒体 URL 外还计入 `Actor.image_urls`.
 
 ## 用户注解 (与爬取隔离)
 
