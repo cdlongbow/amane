@@ -28,6 +28,7 @@ export function ListToolbar({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (page < 1) return;
     scrollRef.current?.scrollTo(0, 0);
   }, [page]);
 

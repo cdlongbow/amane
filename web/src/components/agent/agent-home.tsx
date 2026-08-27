@@ -396,6 +396,8 @@ export function AgentHome() {
 
   useEffect(() => {
     if (sessionId == null || streaming) return;
+    // 再点当前会话时 sessionId 不变, 靠 historyEpoch 让本 effect 重绑.
+    if (historyEpoch < 0) return;
     if (skipTraceLoad.current) {
       skipTraceLoad.current = false;
       return;
@@ -425,7 +427,7 @@ export function AgentHome() {
       const el = scrollRef.current;
       if (el) el.scrollTop = el.scrollHeight;
     });
-  }, [sessionId, historyEpoch, messages, streaming]);
+  }, [sessionId, messages, streaming]);
 
   function openSession(id: number) {
     abortRef.current?.abort();

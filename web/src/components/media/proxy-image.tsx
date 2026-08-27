@@ -54,7 +54,7 @@ export function ProxyImage({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [isProxied, src]);
+  }, [isProxied]);
 
   const { src: queuedSrc, release } = useQueuedImageUrl(isProxied && nearViewport ? src : null);
 

@@ -95,6 +95,9 @@ export function FeedSourcesTable({
     if (highlightId == null) {
       return;
     }
+    if (!items.some((feed) => feed.id === highlightId)) {
+      return;
+    }
     const rowId = `feed-source-${highlightId}`;
     const timer = window.setTimeout(() => {
       document.getElementById(rowId)?.scrollIntoView({ block: "nearest" });

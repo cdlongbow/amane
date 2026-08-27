@@ -163,18 +163,24 @@ export function PosterCropDialog({
   const [displaySrc, setDisplaySrc] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
 
-  const sessionKey = opened ? `${thumbUrl}:${configRatio}` : "";
+  // 比例变化只重置选区 (img key=configRatio 触发 onLoad 重算); 同一张 thumb 不重拉.
+  const imageKey = opened ? thumbUrl : "";
+  const sessionKey = `${imageKey}:${configRatio}`;
   const [prevSession, setPrevSession] = useState(sessionKey);
+  const [prevImage, setPrevImage] = useState(imageKey);
   if (sessionKey !== prevSession) {
     setPrevSession(sessionKey);
     setCrop(undefined);
     setCompletedCrop(undefined);
-    setNaturalSize(null);
     setBox({ left: 0, top: 0, width: 0, height: 0 });
     setLockAspect(true);
     setAspectRatio(configRatio);
-    setDisplaySrc(null);
-    setLoadError(false);
+    if (imageKey !== prevImage) {
+      setPrevImage(imageKey);
+      setNaturalSize(null);
+      setDisplaySrc(null);
+      setLoadError(false);
+    }
   }
 
   useEffect(() => {
@@ -206,7 +212,7 @@ export function PosterCropDialog({
         objectUrlRef.current = null;
       }
     };
-  }, [opened, thumbUrl, configRatio]);
+  }, [opened, thumbUrl]);
 
   const syncBoxFromCrop = useCallback((pixelCrop: PixelCrop, image: HTMLImageElement) => {
     const natural = toNaturalBox(pixelCrop, image);
@@ -369,6 +375,7 @@ export function PosterCropDialog({
                 keepSelection
               >
                 <img
+                  key={configRatio}
                   ref={imgRef}
                   src={displaySrc}
                   alt="thumb"
