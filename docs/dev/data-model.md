@@ -1,6 +1,6 @@
 # 数据模型
 
-> 提交: `72f6a4e`
+> 提交: `72c297f`
 >
 > 表结构、字段类型、便捷属性都在 `src/amane/db/models.py`. 本文只解释**为什么**这么建模、所有权关系、生命周期与已知陷阱.
 
@@ -88,7 +88,7 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 ## Library 整理布局
 
-每个 Library 持有整理时的放置方式 (`move_mode`: move / copy / hardlink / symlink)、一组路径模板 (`video_template`, `thumb_template`, `nfo_template`, ...)、以及整理默认 (`write_nfo`、`copy_resources`). 放置方式与默认按库区分, 同一进程里各库可以不同. `copy_resources` 与刮削热配置 `scraping.download_resources` 共用 `DownloadableResource` 枚举, 但互不读写 — 刮削控制进 Resource 目录, 整理控制复制到库路径. ORGANIZE payload 上对应字段为 `None` 时沿用库设置, 非空则只覆盖该次任务.
+每个 Library 持有整理时的放置方式 (`move_mode`: move / copy / hardlink / symlink)、一组路径模板 (`video_template`, `thumb_template`, `nfo_template`, ...)、以及整理默认 (`write_nfo`、`copy_resources`). 放置方式与默认按库区分, 同一进程里各库可以不同. `copy_resources` 与刮削热配置 `scraping.download_resources` 共用 `DownloadableResource` 枚举, 但互不读写 — 刮削控制进 Resource 目录, 整理控制复制到库路径. ORGANIZE payload 上对应字段为 `None` 时沿用库设置, 非空则只覆盖该次任务. JSON 列读回是 str 不是 enum; `OrganizePayload.resolve` 沿用库设置时再做成 `DownloadableResource`, 否则 Pydantic 序列化会 UnexpectedValue.
 
 `trailer_pattern` 只在库上: 对**文件名 (含扩展名)** 做正则搜索, 命中则 REFRESH / ORGANIZE 扫描与 watcher 都不把该文件当正片入库. 空串关闭跳过. 非法正则在写入时拒绝 (422). 默认与预告片模板文件名 `{video_dir}/trailer.mp4` 对齐.
 

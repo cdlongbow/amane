@@ -127,7 +127,6 @@ class TestTokenAuth:
         resp = await client.get("system/release")
         assert resp.status_code == 401
 
-    @pytest.mark.asyncio(loop_scope="function")
     def test_ws_token_enforced(self):
         """WS 校验用最小 app 测 (TestClient 与完整中间件链的 WS 交互有已知
         怪癖, 现有 test_ws.py 同法避开; 生产路径由 uvicorn 实测)."""
@@ -150,7 +149,6 @@ class TestTokenAuth:
             with client.websocket_connect("ws", headers={"Cookie": f"{API_TOKEN_COOKIE}=tok-123"}):
                 pass
 
-    @pytest.mark.asyncio(loop_scope="function")
     def test_ws_token_off_passes(self):
         from fastapi import FastAPI
         from starlette.testclient import TestClient

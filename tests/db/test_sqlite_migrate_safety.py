@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import textwrap
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -81,15 +82,18 @@ def _write_mini_alembic(root: Path) -> Path:
                 @event.listens_for(connectable, "connect")
                 def _txn(dbapi_connection, _):
                     enable_sqlite_transactional_ddl(dbapi_connection)
-                with connectable.connect() as connection:
-                    context.configure(
-                        connection=connection,
-                        target_metadata=target_metadata,
-                        transactional_ddl=True,
-                    )
-                    with context.begin_transaction():
-                        context.run_migrations()
-                    connection.commit()
+                try:
+                    with connectable.connect() as connection:
+                        context.configure(
+                            connection=connection,
+                            target_metadata=target_metadata,
+                            transactional_ddl=True,
+                        )
+                        with context.begin_transaction():
+                            context.run_migrations()
+                        connection.commit()
+                finally:
+                    connectable.dispose()
 
             run_migrations_online()
             """
@@ -227,7 +231,8 @@ class TestBackupSqlite:
         assert bak is not None
         assert bak.is_file()
 
-        rows = sqlite3.connect(bak).execute("SELECT id, v FROM t ORDER BY id").fetchall()
+        with closing(sqlite3.connect(bak)) as bak_conn:
+            rows = bak_conn.execute("SELECT id, v FROM t ORDER BY id").fetchall()
         assert rows == [(1, "a"), (2, "b")]
 
         # 对照: 仅 cp 主文件在 WAL 场景下可能不完整; 至少 backup API 必须完整
@@ -323,7 +328,8 @@ class TestTransactionalUpgrade:
             side.unlink(missing_ok=True)
 
         assert _version(db) == "0001_v1"
-        rows = sqlite3.connect(db).execute("SELECT name FROM items").fetchall()
+        with closing(sqlite3.connect(db)) as conn:
+            rows = conn.execute("SELECT name FROM items").fetchall()
         assert rows == [("keep",)]
 
 
@@ -353,7 +359,7 @@ class TestProjectAlembicPath:
         command.upgrade(cfg, "5abbb79b1ae6")
 
         now = "2026-01-01 00:00:00.000000"
-        with sqlite3.connect(db) as conn:
+        with closing(sqlite3.connect(db)) as conn:
             conn.executescript(
                 f"""
                 insert into actors (name, gender, image_urls, provider_ids, source_urls, field_sources, raw, aliases, created_at, updated_at)
@@ -369,7 +375,7 @@ class TestProjectAlembicPath:
 
         command.upgrade(cfg, "head")
 
-        with sqlite3.connect(db) as conn:
+        with closing(sqlite3.connect(db)) as conn:
             rows = conn.execute(
                 "select actors.name, actor_aliases.name from actor_aliases join actors on actors.id = actor_aliases.actor_id"
                 " order by actors.id, actor_aliases.position"
@@ -405,3 +411,22 @@ class TestProjectAlembicPath:
                 assert len(backups) == 1
         finally:
             await engine.dispose()
+
+
+class TestSqliteDatetimeAdapters:
+    def test_text_bind_datetime_is_silent(self) -> None:
+        import warnings
+        from datetime import UTC, date, datetime
+
+        from amane.db.sqlite_migrate import register_sqlite_datetime_adapters
+
+        register_sqlite_datetime_adapters()
+        now = datetime(2026, 1, 2, 3, 4, 5, 6, tzinfo=UTC)
+        with closing(sqlite3.connect(":memory:")) as conn:
+            conn.execute("CREATE TABLE t (ts TEXT, d TEXT)")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error", message=".*default datetime adapter.*", category=DeprecationWarning)
+                warnings.filterwarnings("error", message=".*default date adapter.*", category=DeprecationWarning)
+                conn.execute("INSERT INTO t VALUES (?, ?)", (now, date(2026, 1, 2)))
+            row = conn.execute("SELECT ts, d FROM t").fetchone()
+        assert row == ("2026-01-02 03:04:05.000006+00:00", "2026-01-02")

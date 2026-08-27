@@ -153,7 +153,8 @@ class OrganizePayload(LibraryBase):
         if self.write_nfo is None:
             self.write_nfo = lib.write_nfo
         if self.copy_resources is None:
-            self.copy_resources = list(lib.copy_resources)
+            # JSON 列读回是 str; Pydantic dump 要 enum, 否则 UnexpectedValue 警告.
+            self.copy_resources = [DownloadableResource(r) for r in lib.copy_resources]
 
 
 class OrganizeResult(BaseModel):

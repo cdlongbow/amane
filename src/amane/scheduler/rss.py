@@ -64,8 +64,12 @@ def _struct_to_utc(value: object) -> datetime | None:
 
 
 def _entry_published_at(entry: feedparser.FeedParserDict) -> datetime | None:
-    """RSS pubDate / Atom published, 没有再用 updated. feedparser 已把二者解析成 UTC struct_time."""
-    return _struct_to_utc(entry.get("published_parsed")) or _struct_to_utc(entry.get("updated_parsed"))
+    """RSS pubDate / Atom published, 没有再用 updated. feedparser 已把二者解析成 UTC struct_time.
+
+    ``updated_parsed`` 必须走 ``dict.get``: FeedParserDict 在缺该键时会映射到
+    ``published_parsed`` (issue 310 临时回退), 触发 DeprecationWarning 且将被移除.
+    """
+    return _struct_to_utc(entry.get("published_parsed")) or _struct_to_utc(dict.get(entry, "updated_parsed"))
 
 
 def parse_feed_bytes(body: bytes) -> ParsedFeed | None:

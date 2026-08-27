@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
+from warnings import catch_warnings, filterwarnings
 
 import pytest
 
@@ -142,7 +143,9 @@ def test_parse_rss_and_atom():
     ],
 )
 def test_parse_entry_published_at(xml: bytes, expected: datetime | None):
-    parsed = parse_feed_bytes(xml)
+    with catch_warnings():
+        filterwarnings("error", message=".*issue 310.*", category=DeprecationWarning)
+        parsed = parse_feed_bytes(xml)
     assert parsed is not None
     assert parsed.entries[0].published_at == expected
 

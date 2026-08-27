@@ -52,11 +52,14 @@ def run_migrations_online() -> None:
         def _enable_txn_ddl(dbapi_connection, _connection_record) -> None:
             enable_sqlite_transactional_ddl(dbapi_connection)
 
-        with connectable.connect() as connection:
-            context.configure(connection=connection, target_metadata=target_metadata, transactional_ddl=True)
-            with context.begin_transaction():
-                context.run_migrations()
-            connection.commit()
+        try:
+            with connectable.connect() as connection:
+                context.configure(connection=connection, target_metadata=target_metadata, transactional_ddl=True)
+                with context.begin_transaction():
+                    context.run_migrations()
+                connection.commit()
+        finally:
+            connectable.dispose()
 
 
 if context.is_offline_mode():

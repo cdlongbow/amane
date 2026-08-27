@@ -1,11 +1,14 @@
 """ORGANIZE: 落盘前清本库失效索引, 避免 dest 碰撞名被幽灵行占用."""
 
+import warnings
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
 
 from amane.config import HotSettings
 from amane.db.models import MediaFileStatus
+from amane.enums import DownloadableResource
 from amane.handlers import OrganizeHandler, OrganizePayload
 
 if TYPE_CHECKING:
@@ -13,6 +16,58 @@ if TYPE_CHECKING:
 
     from amane.db.repository import Repository
     from amane.media import ResourceStore
+
+
+@pytest.mark.asyncio(loop_scope="function")
+@pytest.mark.parametrize(
+    "stored",
+    [
+        [DownloadableResource.thumb],
+        [DownloadableResource.thumb, DownloadableResource.poster],
+        [],
+        list(DownloadableResource),
+    ],
+)
+async def test_organize_resolve_coerces_json_copy_resources(
+    repo: Repository, tmp_path: Path, stored: list[DownloadableResource]
+) -> None:
+    """JSON 列读回是 str; resolve 必须做成 enum, 否则 model_dump 会 UnexpectedValue."""
+    lib_root = tmp_path / "lib"
+    lib_root.mkdir()
+    lib = await repo.create_library(name="t", path=str(lib_root), copy_resources=stored)
+    assert lib.id is not None
+    payload = OrganizePayload(library_id=lib.id)
+    await payload.resolve(repo)
+    assert payload.copy_resources == stored
+    assert all(type(item) is DownloadableResource for item in payload.copy_resources or [])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        dumped = payload.model_dump(mode="json")
+    assert dumped["copy_resources"] == [item.value for item in stored]
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_resolve_rejects_unknown_copy_resource(
+    repo: Repository, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lib_root = tmp_path / "lib"
+    lib_root.mkdir()
+    lib = await repo.create_library(name="t", path=str(lib_root))
+    assert lib.id is not None
+
+    async def fake_get(_library_id: int):
+        return SimpleNamespace(
+            recursive=lib.recursive,
+            patterns=lib.patterns,
+            path=lib.path,
+            write_nfo=lib.write_nfo,
+            copy_resources=["nope"],
+        )
+
+    monkeypatch.setattr(repo, "get_library", fake_get)
+    payload = OrganizePayload(library_id=lib.id)
+    with pytest.raises(ValueError, match="nope"):
+        await payload.resolve(repo)
 
 
 @pytest.mark.asyncio(loop_scope="function")

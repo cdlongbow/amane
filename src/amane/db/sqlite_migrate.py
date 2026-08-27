@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import structlog
@@ -21,6 +21,27 @@ from sqlalchemy.engine import Connection, Engine
 logger = structlog.get_logger()
 
 _DEFAULT_KEEP = 5
+
+
+def register_sqlite_datetime_adapters() -> None:
+    """将 date/datetime 转为字符串后再交给 sqlite3.
+
+    SQLite 无日期类型. Python 3.12 起内置转换已弃用: 目前发出警告, 移除后直接传入 datetime 将失败.
+    SQLAlchemy 的 DateTime 列会自行转换; 迁移脚本中的裸 SQL 不会. 字符串格式与 Python 原先默认一致, 以便读取既有数据.
+    """
+    sqlite3.register_adapter(date, _adapt_date)
+    sqlite3.register_adapter(datetime, _adapt_datetime)
+
+
+def _adapt_date(val: date) -> str:
+    return val.isoformat()
+
+
+def _adapt_datetime(val: datetime) -> str:
+    return val.isoformat(" ")
+
+
+register_sqlite_datetime_adapters()
 
 
 def migrations_dir() -> Path:

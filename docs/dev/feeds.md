@@ -1,6 +1,6 @@
 # 远程发现源 (RSS/Atom)
 
-> 提交: `2efdb6e8`
+> 提交: `72c297f`
 >
 > 与 Watcher / Schedule 的分工、去重真值、每源配置契约. 字段去源码.
 
@@ -29,7 +29,7 @@
 
 不去重 Metadata.number — 已有条目仍入队 SCRAPE (默认 `use_cache`). 同一 tick、同一源内相同番号只入队一次. 删 Feed 应用层级联删 FeedItem. CLEANUP 不碰此表.
 
-`published_at` 是源给出的发布时间 (RSS `pubDate` / Atom `published`, 没有再用 `updated`). 历史列表按它新→旧; 没有才回退 `created_at`, 再按 `id`. `created_at` 只是首次写入历史的时间, 同一次拉取里多条会挤在同一秒, 不能当主排序. 无日期条目按旧→新写入, 让 `id` 与源文档时间线同向. `ignored_at` 非空表示用户忽略该条目; 它不改变 `(feed_id, item_key)` 去重关系. `description` 与 `published_at` 都只在首次写入或当时为空时回填, 不随源更新.
+`published_at` 是源给出的发布时间 (RSS `pubDate` / Atom `published`, 没有再用 `updated`). 读 Atom `updated` 走 `dict.get(entry, "updated_parsed")`, 不走 FeedParserDict 在缺键时映射到 `published_parsed` 的临时回退 (该回退将被移除). 历史列表按它新→旧; 没有才回退 `created_at`, 再按 `id`. `created_at` 只是首次写入历史的时间, 同一次拉取里多条会挤在同一秒, 不能当主排序. 无日期条目按旧→新写入, 让 `id` 与源文档时间线同向. `ignored_at` 非空表示用户忽略该条目; 它不改变 `(feed_id, item_key)` 去重关系. `description` 与 `published_at` 都只在首次写入或当时为空时回填, 不随源更新.
 
 历史列表默认只返回未忽略条目; `state=active|ignored|all` 可切换视图, `search` 同时检索标题、番号、正文、链接和 `item_key`. 响应保留 `ignored_at` / `published_at`, 由前端据此展示状态与时间; 阅读器不重排.
 
