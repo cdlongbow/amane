@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from amane.db.models import FacetKind
+from amane.enums import ActorGender
 
 if TYPE_CHECKING:
     from httpx2 import AsyncClient
@@ -124,7 +125,7 @@ async def _seed_filter_actors(repo: Repository) -> dict[str, int]:
 
     tall = await repo.get_actor(by_name["FltTall"])
     assert tall is not None
-    tall.gender = "female"
+    tall.gender = ActorGender.FEMALE
     tall.birthday = "1990-06-15"
     tall.height = 168
     tall.bust = 86
@@ -137,7 +138,7 @@ async def _seed_filter_actors(repo: Repository) -> dict[str, int]:
 
     short = await repo.get_actor(by_name["FltShort"])
     assert short is not None
-    short.gender = "female"
+    short.gender = ActorGender.FEMALE
     short.birthday = "1995-01-01"
     short.height = 150
     short.bust = 80
@@ -150,7 +151,7 @@ async def _seed_filter_actors(repo: Repository) -> dict[str, int]:
     # 无身高/生日, 仅 gender known - 范围筛选应排除
     null_metric = await repo.get_actor(by_name["FltNullMetric"])
     assert null_metric is not None
-    null_metric.gender = "female"
+    null_metric.gender = ActorGender.FEMALE
     await repo.save_actor(null_metric)
 
     alias_only = await repo.get_actor(by_name["FltAliasOnly"])
@@ -159,7 +160,7 @@ async def _seed_filter_actors(repo: Repository) -> dict[str, int]:
 
     male = await repo.get_actor(by_name["FltMale"])
     assert male is not None
-    male.gender = "male"
+    male.gender = ActorGender.MALE
     male.height = 175
     male.birthday = "1988-12-01"
     await repo.save_actor(male)
