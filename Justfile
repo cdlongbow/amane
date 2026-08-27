@@ -77,6 +77,12 @@ _check-openapi: generate
 # Full CI gate after tool setup (uv/pnpm/node/just)
 ci: ci-sync _check-openapi check build
 
+# Windows CI: 仅 Python 测试. generate / 前端 / lint / typecheck / coverage
+# 与 OS 无关, 由 Ubuntu `just ci` 覆盖. 不获取 crawler fixture (采集用例不依赖盘符).
+ci-windows:
+    uv sync --frozen --all-extras --dev
+    uv run pytest tests/ -q -n auto --dist worksteal
+
 deps: _deps-python _web-deps
 
 _deps-python:
