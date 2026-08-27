@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,19 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPO = "https://github.com/sqzw-x/amane-testdata.git"
 SSH_REPO = "git@github.com:sqzw-x/amane-testdata.git"
 TARGET = ROOT / "tests" / "crawlers" / "cases"
+_PEM = re.compile(r"(-----BEGIN [^-]+-----)\s*(.*?)\s*(-----END [^-]+-----)", re.DOTALL)
+
+
+def normalize_deploy_key(raw: str) -> str:
+    """Actions 把 multiline secret 塞进 env 时可能丢掉换行; OpenSSH 读扁平 PEM 会 libcrypto 失败."""
+    text = raw.replace("\r\n", "\n").replace("\r", "\n").replace("\\n", "\n").strip()
+    match = _PEM.search(text)
+    if match is None:
+        return f"{text}\n" if text else ""
+    header, body, footer = match.group(1), match.group(2), match.group(3)
+    compact = "".join(body.split())
+    wrapped = "\n".join(compact[i : i + 70] for i in range(0, len(compact), 70))
+    return f"{header}\n{wrapped}\n{footer}\n"
 
 
 def _read_rev() -> str:
@@ -57,8 +71,8 @@ def main() -> int:
     deploy_key = os.environ.get("FIXTURES_DEPLOY_KEY", "")
     if deploy_key:
         fd, raw = tempfile.mkstemp(suffix=".key")
-        with os.fdopen(fd, "w") as fh:
-            fh.write(deploy_key)
+        with os.fdopen(fd, "w", encoding="ascii", newline="\n") as fh:
+            fh.write(normalize_deploy_key(deploy_key))
         key_path = Path(raw)
         # OpenSSH/CRT 要求私钥文件权限收紧; POSIX 上 chmod 生效, Windows 上尽力而为
         with contextlib.suppress(OSError):
