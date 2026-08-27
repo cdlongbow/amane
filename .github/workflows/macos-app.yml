@@ -59,9 +59,14 @@ jobs:
           path: ${{ steps.zip.outputs.zip }}
           if-no-files-found: error
 
+      - name: Release notes from CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: uv run python scripts/changelog.py extract "$GITHUB_REF_NAME" > release-notes.md
+
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
+          body_path: release-notes.md
           files: ${{ steps.zip.outputs.zip }}
           fail_on_unmatched_files: true

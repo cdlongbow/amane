@@ -65,7 +65,7 @@ just bump-dry patch          # 预览下一版本
 ```
 
 formatter/linter 不通过时优先使用 `just fix` 自动修复, 不要手动改
-发版只用 `just bump`, 不要手改版本或手打 tag
+发版前更新 `CHANGELOG.md`, 只用 `just bump`, 不要手改版本或手打 tag
 
 ## 开发规范
 

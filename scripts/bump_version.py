@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """发版管线里的检查与白名单提交. 不负责 ``uv version`` 与 ``just generate``.
 
-``pyproject.toml`` 是产品版本的唯一手写源. 对外入口是 ``just bump`` (Justfile 编排预定义命令).
+``pyproject.toml`` 是产品版本的唯一手写源; ``CHANGELOG.md`` 对应版本节是 GitHub Release 正文的唯一手写源. 对外入口是 ``just bump`` (Justfile 编排预定义命令).
 
 用法 (由 Justfile 调用)::
 
@@ -28,12 +28,16 @@ BUMP_CHOICES: tuple[BumpKind, ...] = ("major", "minor", "patch")
 # 整段 bump 管线结束后只允许这些相对路径出现在 git 变更里; 以 ``/`` 结尾的是目录前缀.
 ALLOWED_PATHS: frozenset[str] = frozenset(
     {
+        "CHANGELOG.md",
         "pyproject.toml",
         "uv.lock",
         "web/openapi.json",
         "web/src/client/",
     }
 )
+
+# precheck 时允许已写好、尚未提交的 changelog; 其它脏文件仍拒绝.
+PREBUMP_ALLOWED_PATHS: frozenset[str] = frozenset({"CHANGELOG.md"})
 
 
 class BumpError(Exception):
@@ -137,8 +141,29 @@ def print_plan(current: str, new: str) -> None:
     print(f"tag: {tag_name(new)}")  # noqa: T201
 
 
+def require_changelog(root: Path, version: str) -> None:
+    script = Path(__file__).resolve().parent / "changelog.py"
+    path = root / "CHANGELOG.md"
+    result = subprocess.run(
+        [sys.executable, str(script), "extract", version, "--file", str(path)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
+        raise BumpError(detail)
+
+
+def require_prebump_clean(changed: frozenset[str]) -> None:
+    unexpected = extra_paths(changed, PREBUMP_ALLOWED_PATHS)
+    if unexpected:
+        listing = ", ".join(sorted(unexpected))
+        raise BumpError(f"工作区不干净, 拒绝 bump: {listing}")
+
+
 def precheck(root: Path, kind: BumpKind, *, dry_run: bool) -> str:
-    require_clean(git_changed_paths(root))
+    require_prebump_clean(git_changed_paths(root))
     current = read_uv_version(root)
     new = read_uv_version(root, bump=kind, dry_run=True)
     if new == current:
@@ -146,6 +171,7 @@ def precheck(root: Path, kind: BumpKind, *, dry_run: bool) -> str:
     tag = tag_name(new)
     if tag_exists(root, tag):
         raise BumpError(f"tag 已存在: {tag}")
+    require_changelog(root, new)
     print_plan(current, new)
     if dry_run:
         print("dry-run: 未写入")  # noqa: T201
@@ -157,6 +183,7 @@ def commit_release(root: Path) -> None:
     tag = tag_name(version)
     if tag_exists(root, tag):
         raise BumpError(f"tag 已存在: {tag}")
+    require_changelog(root, version)
     changed = git_changed_paths(root)
     unexpected = extra_paths(changed)
     if unexpected:
@@ -174,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="step", required=True)
 
-    pre = sub.add_parser("precheck", help="工作区干净、下一版本、tag 不冲突")
+    pre = sub.add_parser("precheck", help="工作区 (changelog 除外) 干净、下一版本节存在、tag 不冲突")
     pre.add_argument("kind", choices=BUMP_CHOICES, help="要升高的 semver 段")
     pre.add_argument("--dry-run", action="store_true", help="只预览, 不写文件")
 

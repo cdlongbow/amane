@@ -51,6 +51,7 @@ def test_parse_name_list(diff: str, untracked: str, expected: frozenset[str]) ->
     ("changed", "unexpected"),
     [
         (frozenset({"pyproject.toml", "uv.lock"}), frozenset()),
+        (frozenset({"pyproject.toml", "CHANGELOG.md"}), frozenset()),
         (frozenset({"pyproject.toml", "src/amane/version.py"}), frozenset({"src/amane/version.py"})),
         (frozenset({"pyproject.toml", "web/openapi.json"}), frozenset()),
         (frozenset({"web/src/client/types.gen.ts", "web/src/client/sdk.gen.ts"}), frozenset()),
@@ -87,6 +88,7 @@ def test_parse_kind_rejects_unknown() -> None:
 def test_allowed_changed_includes_client_prefix() -> None:
     changed = frozenset(
         {
+            "CHANGELOG.md",
             "pyproject.toml",
             "web/openapi.json",
             "web/src/client/types.gen.ts",
@@ -94,6 +96,7 @@ def test_allowed_changed_includes_client_prefix() -> None:
         }
     )
     assert bump.allowed_changed(changed) == [
+        "CHANGELOG.md",
         "pyproject.toml",
         "web/openapi.json",
         "web/src/client/types.gen.ts",
@@ -104,6 +107,7 @@ def test_allowed_paths_are_the_known_sidecars() -> None:
     assert (
         frozenset(
             {
+                "CHANGELOG.md",
                 "pyproject.toml",
                 "uv.lock",
                 "web/openapi.json",
@@ -112,3 +116,29 @@ def test_allowed_paths_are_the_known_sidecars() -> None:
         )
         == bump.ALLOWED_PATHS
     )
+
+
+def test_require_prebump_clean_allows_changelog() -> None:
+    bump.require_prebump_clean(frozenset())
+    bump.require_prebump_clean(frozenset({"CHANGELOG.md"}))
+
+
+def test_require_prebump_clean_rejects_other_dirty() -> None:
+    with pytest.raises(bump.BumpError, match="工作区不干净"):
+        bump.require_prebump_clean(frozenset({"CHANGELOG.md", "README.md"}))
+
+
+def test_require_changelog_ok(tmp_path: Path) -> None:
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n## v1.2.3\n\n- item\n", encoding="utf-8")
+    bump.require_changelog(tmp_path, "1.2.3")
+
+
+def test_require_changelog_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(bump.BumpError, match=r"缺少 CHANGELOG\.md"):
+        bump.require_changelog(tmp_path, "1.2.3")
+
+
+def test_require_changelog_missing_section(tmp_path: Path) -> None:
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n## v1.0.0\n\n- old\n", encoding="utf-8")
+    with pytest.raises(bump.BumpError, match=r"没有 v1\.2\.3 节"):
+        bump.require_changelog(tmp_path, "1.2.3")
