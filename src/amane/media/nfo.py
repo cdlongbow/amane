@@ -80,7 +80,7 @@ async def write_nfo(metadata: Metadata, nfo_path: Path) -> bool:
 
         # 标题
         if metadata.title:
-            code.write(f"  <title>{_escape_xml(metadata.title)}</title>\n")
+            code.write(f"  <title>{_escape_xml(metadata.number)} {_escape_xml(metadata.title)}</title>\n")
             code.write(
                 f"  <originaltitle>{_escape_xml(metadata.number)} {_escape_xml(metadata.title)}</originaltitle>\n"
             )

@@ -34,7 +34,7 @@ async def test_write_nfo_has_required_fields(tmp_path: Path, metadata: Metadata)
     assert ok is True
     assert nfo_path.exists()
     content = nfo_path.read_text(encoding="utf-8")
-    assert "<title>Test Title</title>" in content
+    assert "<title>MIDV-123 Test Title</title>" in content
     assert "<num>MIDV-123</num>" in content
     assert "<actor>" in content
     assert "<name>Actor A</name>" in content
