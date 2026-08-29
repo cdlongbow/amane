@@ -5,9 +5,9 @@ from sqlmodel import col, select
 
 from amane.enums import DownloadableResource, LibraryAutomation, LinkMode, MoveMode
 from amane.organize.path_templates import (
-    CD_SUFFIX_TEMPLATE_DEFAULT,
+    VIDEO_TEMPLATE_DEFAULT,
     normalize_link_template,
-    validate_cd_suffix_template,
+    validate_path_template,
 )
 from amane.utils.extensions import (
     DEFAULT_SUBTITLE_EXTENSIONS,
@@ -23,6 +23,10 @@ from ..repo_types import LibraryUpdates
 from .base import RepositoryMixinBase
 
 
+def _path_template_or_none(value: str | None) -> str | None:
+    return None if value is None else validate_path_template(value)
+
+
 class LibrariesRepoMixin(RepositoryMixinBase):
     async def create_library(
         self,
@@ -32,10 +36,9 @@ class LibrariesRepoMixin(RepositoryMixinBase):
         recursive: bool = True,
         patterns: list[str] | None = None,
         move_mode: MoveMode = MoveMode.MOVE,
-        video_template: str = "{studio}/{number}/{number}.{ext}",
+        video_template: str = VIDEO_TEMPLATE_DEFAULT,
         link_template: str | None = None,
         link_mode: LinkMode = LinkMode.STRM,
-        cd_suffix_template: str | None = None,
         thumb_template: str | None = None,
         poster_template: str | None = None,
         fanart_template: str | None = None,
@@ -51,6 +54,15 @@ class LibrariesRepoMixin(RepositoryMixinBase):
         min_file_size: int = 0,
     ) -> Library:
         min_file_size = validate_min_file_size(min_file_size)
+        video_template = validate_path_template(video_template)
+        link_template = _path_template_or_none(normalize_link_template(link_template))
+        thumb_template = _path_template_or_none(thumb_template)
+        poster_template = _path_template_or_none(poster_template)
+        fanart_template = _path_template_or_none(fanart_template)
+        extrafanart_template = _path_template_or_none(extrafanart_template)
+        nfo_template = _path_template_or_none(nfo_template)
+        trailer_template = _path_template_or_none(trailer_template)
+        subtitle_template = _path_template_or_none(subtitle_template)
         async with self._session() as session:
             lib = Library(
                 name=name,
@@ -62,9 +74,6 @@ class LibrariesRepoMixin(RepositoryMixinBase):
                 video_template=video_template,
                 link_template=normalize_link_template(link_template),
                 link_mode=link_mode,
-                cd_suffix_template=validate_cd_suffix_template(
-                    cd_suffix_template if cd_suffix_template is not None else CD_SUFFIX_TEMPLATE_DEFAULT
-                ),
                 thumb_template=thumb_template,
                 poster_template=poster_template,
                 fanart_template=fanart_template,
@@ -159,27 +168,25 @@ class LibrariesRepoMixin(RepositoryMixinBase):
             if "move_mode" in updates:
                 lib.move_mode = updates["move_mode"]
             if "video_template" in updates:
-                lib.video_template = updates["video_template"]
+                lib.video_template = validate_path_template(updates["video_template"])
             if "link_template" in updates:
-                lib.link_template = normalize_link_template(updates["link_template"])
+                lib.link_template = _path_template_or_none(normalize_link_template(updates["link_template"]))
             if "link_mode" in updates:
                 lib.link_mode = updates["link_mode"]
-            if "cd_suffix_template" in updates:
-                lib.cd_suffix_template = validate_cd_suffix_template(updates["cd_suffix_template"])
             if "thumb_template" in updates:
-                lib.thumb_template = updates["thumb_template"]
+                lib.thumb_template = _path_template_or_none(updates["thumb_template"])
             if "poster_template" in updates:
-                lib.poster_template = updates["poster_template"]
+                lib.poster_template = _path_template_or_none(updates["poster_template"])
             if "fanart_template" in updates:
-                lib.fanart_template = updates["fanart_template"]
+                lib.fanart_template = _path_template_or_none(updates["fanart_template"])
             if "extrafanart_template" in updates:
-                lib.extrafanart_template = updates["extrafanart_template"]
+                lib.extrafanart_template = _path_template_or_none(updates["extrafanart_template"])
             if "nfo_template" in updates:
-                lib.nfo_template = updates["nfo_template"]
+                lib.nfo_template = _path_template_or_none(updates["nfo_template"])
             if "trailer_template" in updates:
-                lib.trailer_template = updates["trailer_template"]
+                lib.trailer_template = _path_template_or_none(updates["trailer_template"])
             if "subtitle_template" in updates:
-                lib.subtitle_template = updates["subtitle_template"]
+                lib.subtitle_template = _path_template_or_none(updates["subtitle_template"])
             if "subtitle_extensions" in updates:
                 extensions = updates["subtitle_extensions"]
                 lib.subtitle_extensions = normalize_subtitle_extensions(

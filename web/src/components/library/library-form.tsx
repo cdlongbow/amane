@@ -23,6 +23,7 @@ import type {
   LibraryCreateRequest,
   LibraryResponse,
   LibraryUpdateRequest,
+  OptionalPathTemplateDefaults,
   PathTemplateSchemaResponse,
 } from "@/client/types.gen";
 import { PathPicker } from "@/components/path-picker";
@@ -50,9 +51,7 @@ const OPTIONAL_TEMPLATE_KEYS = [
   "nfo_template",
   "trailer_template",
   "subtitle_template",
-] as const;
-
-type OptionalTemplateKey = (typeof OPTIONAL_TEMPLATE_KEYS)[number];
+] as const satisfies readonly (keyof OptionalPathTemplateDefaults)[];
 
 const MOVE_MODES: readonly LibraryResponse["move_mode"][] = ["move", "copy", "hardlink", "symlink"];
 
@@ -88,7 +87,6 @@ export interface LibraryFormState {
   min_file_size: number;
   subtitle_extensions: string;
   video_template: string;
-  cd_suffix_template: string;
   thumb_template: string;
   poster_template: string;
   fanart_template: string;
@@ -118,8 +116,7 @@ export function emptyLibraryForm(schema?: PathTemplateSchemaResponse | null): Li
     subtitle_extensions: (
       schema?.subtitle_extensions_default ?? [".srt", ".ass", ".ssa", ".vtt", ".sub"]
     ).join(", "),
-    video_template: schema?.video_default ?? "{studio}/{number}/{number}.{ext}",
-    cd_suffix_template: schema?.cd_suffix_default ?? "-CD{cd}",
+    video_template: schema?.video_default ?? "{studio}/{number}/{number}[-CD{cd?}][-{sub?}].{ext}",
     thumb_template: defaults?.thumb_template ?? "",
     poster_template: defaults?.poster_template ?? "",
     fanart_template: defaults?.fanart_template ?? "",
@@ -148,7 +145,6 @@ export function libraryFormFromResponse(lib: LibraryResponse): LibraryFormState 
     min_file_size: lib.min_file_size ?? 0,
     subtitle_extensions: lib.subtitle_extensions?.join(", ") ?? "",
     video_template: lib.video_template,
-    cd_suffix_template: lib.cd_suffix_template,
     thumb_template: lib.thumb_template ?? "",
     poster_template: lib.poster_template ?? "",
     fanart_template: lib.fanart_template ?? "",
@@ -192,7 +188,6 @@ function libraryFormValues(form: LibraryFormState): Record<string, unknown> {
     min_file_size: form.min_file_size,
     subtitle_extensions: parseLibraryPatterns(form.subtitle_extensions),
     video_template: form.video_template.trim(),
-    cd_suffix_template: form.cd_suffix_template.trim(),
     thumb_template: form.thumb_template.trim(),
     poster_template: form.poster_template.trim(),
     fanart_template: form.fanart_template.trim(),
@@ -227,7 +222,7 @@ const TPL_I18N = {
   nfo_template: "tpl.nfo",
   trailer_template: "tpl.trailer",
   subtitle_template: "tpl.subtitle",
-} as const satisfies Record<OptionalTemplateKey, string>;
+} as const satisfies Record<keyof OptionalPathTemplateDefaults, string>;
 
 interface LibraryFormFieldsProps {
   value: LibraryFormState;
@@ -242,7 +237,7 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
   const { data: schema } = useQuery(getPathTemplateSchemaOptions());
 
   const placeholders = schema?.placeholders ?? [];
-  const optionalDefaults = schema?.optional_defaults ?? {};
+  const optionalDefaults = schema?.optional_defaults;
 
   const copyPlaceholder = async (name: string) => {
     const text = `{${name}}`;
@@ -351,13 +346,6 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
         </Group>
       </Checkbox.Group>
       <TextInput
-        label={t("fieldCdSuffixTemplate")}
-        description={t("fieldCdSuffixTemplateHint")}
-        placeholder={schema?.cd_suffix_default ?? "-CD{cd}"}
-        value={value.cd_suffix_template}
-        onChange={(e) => onChange({ ...value, cd_suffix_template: e.currentTarget.value })}
-      />
-      <TextInput
         label={t("fieldVideoTemplate")}
         description={t("fieldVideoTemplateHint")}
         value={value.video_template}
@@ -385,27 +373,28 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
             {t("placeholders.label")} · {t("placeholders.hint")}
           </Text>
           <Group gap={4} wrap="wrap">
-            {placeholders.map((p) => (
-              <Tooltip
-                key={p.name}
-                label={t(`placeholders.items.${p.name}`, {
-                  defaultValue: t(`placeholders.phases.${p.phase}`, { defaultValue: p.phase }),
-                })}
-                multiline
-                maw={280}
-              >
-                <Badge
-                  component="button"
-                  type="button"
-                  size="sm"
-                  variant="light"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => void copyPlaceholder(p.name)}
-                >
-                  {`{${p.name}}`}
-                </Badge>
-              </Tooltip>
-            ))}
+            {placeholders.map((p) => {
+              const item = t(`placeholders.items.${p.name}`, { defaultValue: p.name });
+              const keys = p.map_keys ?? [];
+              const label =
+                keys.length > 0
+                  ? `${item} · ${t("placeholders.mapKeys", { keys: keys.join(", ") })}`
+                  : item;
+              return (
+                <Tooltip key={p.name} label={label} multiline maw={280}>
+                  <Badge
+                    component="button"
+                    type="button"
+                    size="sm"
+                    variant="light"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => void copyPlaceholder(p.name)}
+                  >
+                    {`{${p.name}}`}
+                  </Badge>
+                </Tooltip>
+              );
+            })}
           </Group>
         </Stack>
       )}
@@ -424,11 +413,11 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
                     key={key}
                     label={t(TPL_I18N[key])}
                     description={
-                      optionalDefaults[key]
+                      optionalDefaults?.[key]
                         ? t("optionalTemplateDefault", { default: optionalDefaults[key] })
                         : undefined
                     }
-                    placeholder={optionalDefaults[key] ?? undefined}
+                    placeholder={optionalDefaults?.[key]}
                     value={value[key]}
                     onChange={(e) => onChange({ ...value, [key]: e.currentTarget.value })}
                   />

@@ -13,11 +13,12 @@ import pytest
 from amane.db.models import Library, Metadata
 from amane.enums import LinkMode
 from amane.organize import (
-    CD_SUFFIX_TEMPLATE_DEFAULT,
+    VIDEO_TEMPLATE_DEFAULT,
     normalize_link_template,
+    render_path_template,
     resolve_paths,
     resolve_subtitle_path,
-    validate_cd_suffix_template,
+    validate_path_template,
 )
 from amane.parsing import parse_file_info
 
@@ -41,7 +42,10 @@ def etc(tmp_path: Path) -> Path:
 
 
 def _meta(**kwargs) -> Metadata:
-    """创建测试用 Metadata, 填充默认值."""
+    """创建测试用 Metadata, 填充默认值.
+
+    番号固定 ABC-123, 与源文件名里的 MIDV-123 无关: 模板 {number} 来自刮削元数据, 不是 parse_file_info.
+    """
     defaults = {
         "number": "ABC-123",
         "title": "Test Title",
@@ -53,8 +57,88 @@ def _meta(**kwargs) -> Metadata:
     return Metadata(**defaults)
 
 
+class _RenderCase(NamedTuple):
+    """引擎核心: 源路径 parse_file_info → 按 template 渲染, expected 为相对库根的 posix 路径."""
+
+    source: str | None  # None: 不传 file_info
+    template: str
+    expected: str
+
+
+# 模板 + 源文件 → 整理后相对库根路径. {number}/{studio} 来自 _meta, 标记来自 source.
+RENDER_CASES: tuple[_RenderCase, ...] = (
+    # --- 默认模板: [-CD{cd?}][-{sub?}] 两个并列组 ---
+    _RenderCase("MIDV-123.mp4", VIDEO_TEMPLATE_DEFAULT, "StudioX/ABC-123/ABC-123.mp4"),
+    _RenderCase("MIDV-123-CD1.mp4", VIDEO_TEMPLATE_DEFAULT, "StudioX/ABC-123/ABC-123-CD1.mp4"),
+    _RenderCase("MIDV-123-C.mp4", VIDEO_TEMPLATE_DEFAULT, "StudioX/ABC-123/ABC-123-C.mp4"),
+    _RenderCase("MIDV-123-CD1-C.mp4", VIDEO_TEMPLATE_DEFAULT, "StudioX/ABC-123/ABC-123-CD1-C.mp4"),
+    _RenderCase("MIDV-123-UC.mp4", VIDEO_TEMPLATE_DEFAULT, "StudioX/ABC-123/ABC-123-C.mp4"),
+    # --- 单占位符可选组: 空则连字面量一起省略 ---
+    _RenderCase("MIDV-123-CD2.mp4", "{number}/{number}[-Part {cd?}].{ext}", "ABC-123/ABC-123-Part 2.mp4"),
+    _RenderCase("MIDV-123.mp4", "{number}/{number}[-Part {cd?}].{ext}", "ABC-123/ABC-123.mp4"),
+    _RenderCase("MIDV-123-C.mp4", "{number}/{number}[-{sub?}].{ext}", "ABC-123/ABC-123-C.mp4"),
+    _RenderCase("MIDV-123.mp4", "{number}/{number}[-{sub?}].{ext}", "ABC-123/ABC-123.mp4"),
+    _RenderCase("ABC-123-4K.mp4", "{number}[[{def?}]].{ext}", "ABC-123[4K].mp4"),
+    _RenderCase("ABC-123.mp4", "{number}[[{def?}]].{ext}", "ABC-123.mp4"),
+    # --- 同组多个可空: 有一个非空就渲染, 空的不输出 ---
+    _RenderCase("MIDV-123-UC.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123-UC.mp4"),
+    _RenderCase("MIDV-123-C-U.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123-UC.mp4"),
+    _RenderCase("MIDV-123-U.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123-U.mp4"),
+    _RenderCase("MIDV-123-C.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123-C.mp4"),
+    _RenderCase("MIDV-123.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123.mp4"),
+    _RenderCase("[破解]MIDV-123.mp4", "{number}[-{mosaic?|uncensored=U}{sub?}].{ext}", "ABC-123-cracked.mp4"),
+    # 字面量跟着整组: 仅中字时仍带上 -CD
+    _RenderCase("MIDV-123-C.mp4", "{number}[-CD{cd?}{sub?}].{ext}", "ABC-123-CDC.mp4"),
+    _RenderCase("MIDV-123-CD1-C.mp4", "{number}[-CD{cd?}{sub?}].{ext}", "ABC-123-CD1C.mp4"),
+    # --- 嵌套组: 外层只看自己的直接占位符 ---
+    _RenderCase("MIDV-123-U-4K.mp4", "{number}[-{mosaic?|uncensored=U}[-{def?}]].{ext}", "ABC-123-U-4K.mp4"),
+    _RenderCase("MIDV-123-U.mp4", "{number}[-{mosaic?|uncensored=U}[-{def?}]].{ext}", "ABC-123-U.mp4"),
+    _RenderCase("ABC-123-4K.mp4", "{number}[-{mosaic?|uncensored=U}[-{def?}]].{ext}", "ABC-123.mp4"),
+    # --- 值映射 ---
+    _RenderCase(
+        "MIDV-123-無碼.mp4",
+        "{mosaic?}/{number}[-{mosaic?|uncensored=U,cracked=破解}].{ext}",
+        "uncensored/ABC-123-U.mp4",
+    ),
+    _RenderCase(
+        "[破解]MIDV-123.mp4",
+        "{mosaic?}/{number}[-{mosaic?|uncensored=U,cracked=破解}].{ext}",
+        "cracked/ABC-123-破解.mp4",
+    ),
+    _RenderCase("MIDV-123-C.mp4", "{number}/{number}[-{sub?|C=中字}].{ext}", "ABC-123/ABC-123-中字.mp4"),
+    _RenderCase("ABC-123-4K.mp4", "{number}[[{def?|4K=2160p}]].{ext}", "ABC-123[2160p].mp4"),
+    _RenderCase("MIDV-123-CD1.mp4", "{number}/{number}[-第{cd?|1=一}集].{ext}", "ABC-123/ABC-123-第一集.mp4"),
+    _RenderCase("MIDV-123-CD2.mp4", "{number}/{number}[-第{cd?|1=一}集].{ext}", "ABC-123/ABC-123-第2集.mp4"),
+    _RenderCase("MIDV-123-無碼.mp4", "{number}[-{mosaic?|uncensored=}].{ext}", "ABC-123.mp4"),
+    # --- file 相位未检出为空, 空路径段折叠 ---
+    _RenderCase("MIDV-123-4K-無碼.mp4", "{mosaic?}/{def?}/{number}.{ext}", "uncensored/4K/ABC-123.mp4"),
+    _RenderCase("HEYZO-123-1080p.mp4", "{mosaic?}/{def?}/{number}.{ext}", "1080p/ABC-123.mp4"),
+    _RenderCase("ABC-123.mp4", "{mosaic?}/{def?}/{number}.{ext}", "ABC-123.mp4"),
+    _RenderCase("[破解]MIDV-123.mp4", "{mosaic?}/{number}.{ext}", "cracked/ABC-123.mp4"),
+    _RenderCase("[流出]MIDV-123.mp4", "{mosaic?}/{number}.{ext}", "leaked/ABC-123.mp4"),
+    _RenderCase("MIDV-123_4K_无码.mp4", "{mosaic?}/{def?}/{number}.{ext}", "uncensored/4K/ABC-123.mp4"),
+    _RenderCase("/media/uncensored/MIDV-123.mp4", "{mosaic?}/{def?}/{number}.{ext}", "uncensored/ABC-123.mp4"),
+    _RenderCase("/media/4K/MIDV-123.mp4", "{mosaic?}/{def?}/{number}.{ext}", "ABC-123.mp4"),
+    _RenderCase(None, "{mosaic?}/{def?}/{number}.{ext}", "ABC-123.mp4"),
+    # {cd} 不是 {cd?}, 视为未知 key
+    _RenderCase("MIDV-123-CD1.mp4", "{number}[-CD{cd}].{ext}", "ABC-123-CDUnknown.mp4"),
+)
+
+
+@pytest.mark.parametrize("case", RENDER_CASES, ids=lambda c: f"{c.source} -> {c.expected}")
+def test_render_from_file(case: _RenderCase, media: Path) -> None:
+    """模板引擎核心表: source → FileInfo → template → 相对库根路径."""
+    wp = Library(name="t", path=str(media), video_template=case.template)
+    file_info = parse_file_info(case.source) if case.source is not None else None
+    result = resolve_paths(wp, _meta(), ext="mp4", file_info=file_info)
+    assert result.video == media.joinpath(*case.expected.split("/"))
+
+
 class TestResolvePathsBasic:
     """基本模板渲染."""
+
+    def test_library_default_video_template(self):
+        assert Library(name="t", path="/m").video_template == VIDEO_TEMPLATE_DEFAULT
 
     def test_default_video_template(self, media: Path):
         wp = Library(name="t", path=str(media), video_template="{studio}/{number}/{number}.{ext}")
@@ -81,92 +165,85 @@ class TestResolvePathsBasic:
 
         assert result.video == other / "StudioX" / "ABC-123" / "ABC-123.mp4"
 
-    def test_cd_suffix(self, media: Path):
-        wp = Library(name="t", path=str(media), video_template="{number}/{number}.{ext}")
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=1)
 
-        assert result.video == media / "ABC-123" / "ABC-123-CD1.mp4"
+class TestOptionalGroups:
+    """路径解析边界: 可选组不改附属默认; 结构错误在写入时拒绝."""
 
-    def test_cd_suffix_2(self, media: Path):
-        wp = Library(name="t", path=str(media), video_template="{number}/{number}.{ext}")
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=2)
-
-        assert result.video == media / "ABC-123" / "ABC-123-CD2.mp4"
-
-
-class TestCdSuffixTemplate:
-    """CD 分集后缀模板: 仅视频文件名, 用户可配置/关闭."""
-
-    def test_default_suffix(self, media: Path):
-        wp = Library(name="t", path=str(media), video_template="{number}/{number}.{ext}")
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=1)
-        assert result.video == media / "ABC-123" / "ABC-123-CD1.mp4"
-
-    def test_custom_suffix(self, media: Path):
-        wp = Library(
-            name="t",
-            path=str(media),
-            video_template="{number}/{number}.{ext}",
-            cd_suffix_template="-Part {cd}",
-        )
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=2)
-        assert result.video == media / "ABC-123" / "ABC-123-Part 2.mp4"
-
-    def test_empty_suffix_disables(self, media: Path):
-        """空串关闭: 识别到分集也不追加 (用户显式选择)."""
-        wp = Library(name="t", path=str(media), video_template="{number}/{number}.{ext}", cd_suffix_template="")
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=1)
-        assert result.video == media / "ABC-123" / "ABC-123.mp4"
-
-    def test_no_cd_no_suffix_even_with_custom(self, media: Path):
-        wp = Library(
-            name="t",
-            path=str(media),
-            video_template="{number}/{number}.{ext}",
-            cd_suffix_template="-Part {cd}",
-        )
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=None)
-        assert result.video == media / "ABC-123" / "ABC-123.mp4"
-
-    def test_suffix_only_affects_video(self, media: Path):
-        """附属资源基于 {video_dir}, 不受 CD 后缀影响."""
-        wp = Library(name="t", path=str(media), video_template="{number}/{number}.{ext}")
-        meta = _meta()
-        result = resolve_paths(wp, meta, ext="mp4", cd=1)
+    def test_group_does_not_affect_nfo(self, media: Path):
+        wp = Library(name="t", path=str(media), video_template="{number}/{number}[-CD{cd?}].{ext}")
+        result = resolve_paths(wp, _meta(), ext="mp4", cd=1)
         assert result.nfo == media / "ABC-123" / "ABC-123.nfo"
 
+    def test_unclosed_group_rejected(self):
+        with pytest.raises(ValueError, match="unclosed optional group"):
+            validate_path_template("{number}[-CD{cd?}.{ext}")
 
-class TestValidateCdSuffixTemplate:
+
+class TestValueMapping:
+    """`{name|k=v}` 值替换: 未列出的 key 保持原值; 空源不映射; 映射成空则省略可选组."""
+
+    def test_unmapped_key_keeps_canonical(self):
+        rendered = render_path_template("{mosaic?|cracked=破解}", {"mosaic?": "uncensored"})
+        assert rendered == "uncensored"
+
+    def test_empty_source_skips_mapping(self):
+        rendered = render_path_template("{mosaic?|uncensored=U}", {"mosaic?": ""})
+        assert rendered == ""
+
+    def test_map_present_to_empty_omits_group(self):
+        rendered = render_path_template("x[{mosaic?|uncensored=}]", {"mosaic?": "uncensored"})
+        assert rendered == "x"
+
+    def test_unknown_metadata_can_be_mapped(self, media: Path):
+        wp = Library(name="t", path=str(media), video_template="{studio|Unknown=未分类}/{number}.{ext}")
+        result = resolve_paths(wp, _meta(studio=None), ext="mp4")
+        assert result.video == media / "未分类" / "ABC-123.mp4"
+
+
+class TestValidatePathTemplate:
     def test_default_is_valid(self):
-        assert validate_cd_suffix_template(CD_SUFFIX_TEMPLATE_DEFAULT) == "-CD{cd}"
+        assert validate_path_template(VIDEO_TEMPLATE_DEFAULT) == VIDEO_TEMPLATE_DEFAULT
 
-    def test_empty_and_whitespace_disables(self):
-        assert validate_cd_suffix_template("") == ""
-        assert validate_cd_suffix_template("   ") == ""
+    def test_nested_groups(self):
+        assert validate_path_template("{number}[-{mosaic?}[-{def?}]]") == "{number}[-{mosaic?}[-{def?}]]"
 
-    def test_missing_cd_placeholder_rejected(self):
-        with pytest.raises(ValueError, match="exactly \\{cd\\}"):
-            validate_cd_suffix_template("-CD")
+    def test_unclosed_placeholder(self):
+        with pytest.raises(ValueError, match="unclosed placeholder"):
+            validate_path_template("{number")
 
-    def test_extra_braces_rejected(self):
-        with pytest.raises(ValueError, match="exactly \\{cd\\}"):
-            validate_cd_suffix_template("-CD{cd}-{n}")
+    @pytest.mark.parametrize(
+        "template",
+        [
+            "{mosaic?|uncensored=U,cracked=破解}",
+            "{mosaic?|cracked=破解}",
+            "{mosaic?|leaked=流出}",
+            "{sub?|C=中字}",
+            "{def?|4K=2160p,1080p=FHD}",
+            "{cd?|1=一,2=二}",
+            "{studio|Unknown=未分类}",
+            "{mosaic?|uncensored=}",
+        ],
+    )
+    def test_value_mapping_accepted(self, template: str):
+        assert validate_path_template(template) == template
 
-    def test_path_separator_rejected(self):
-        with pytest.raises(ValueError, match="path separators"):
-            validate_cd_suffix_template("cd{cd}/disc")
-        with pytest.raises(ValueError, match="path separators"):
-            validate_cd_suffix_template("cd{cd}\\disc")
-
-    def test_valid_custom_forms(self):
-        assert validate_cd_suffix_template("-Part{cd}") == "-Part{cd}"
-        assert validate_cd_suffix_template("  -第{cd}集  ") == "-第{cd}集"
+    @pytest.mark.parametrize(
+        ("template", "match"),
+        [
+            ("{mosaic?|}", "empty placeholder mapping"),
+            ("{mosaic?|uncensored}", "invalid placeholder mapping"),
+            ("{mosaic?|=U}", "empty mapping key"),
+            ("{mosaic?|uncensored=U,uncensored=V}", "duplicate mapping key"),
+            ("{mosaic?|uncencored=U}", "unknown mapping key"),
+            ("{mosaic?|censored=有码}", "unknown mapping key"),
+            ("{def?|2160p=4K}", "unknown mapping key"),
+            ("{sub?|CH=中字}", "unknown mapping key"),
+            ("{mosaic?|uncensored=U,}", "invalid placeholder mapping"),
+        ],
+    )
+    def test_value_mapping_rejected(self, template: str, match: str):
+        with pytest.raises(ValueError, match=match):
+            validate_path_template(template)
 
 
 class TestResolvePathsDefaults:
@@ -348,52 +425,6 @@ class TestSourceVariables:
         assert result.video == arch / "B" / "ABC-123.mp4"
 
 
-class _RenderCase(NamedTuple):
-    """file 相位占位符渲染用例: source 经 parse_file_info 后渲染 template, 断言 video 相对库根路径段."""
-
-    source: str | None  # None 表示不传 file_info (未走 ORGANIZE 的调用方)
-    template: str
-    expected: tuple[str, ...]
-
-
-RENDER_CASES: tuple[_RenderCase, ...] = (
-    # 文件名标记优先 + 分辨率归一化
-    _RenderCase("MIDV-123-4K-無碼.mp4", "{mosaic}/{definition}/{number}.{ext}", ("uncensored", "4K", "ABC-123.mp4")),
-    # 无标记时按 content_type 兜底 (无码前缀番号 → uncensored)
-    _RenderCase("HEYZO-123-1080p.mp4", "{mosaic}/{definition}/{number}.{ext}", ("uncensored", "1080p", "ABC-123.mp4")),
-    # 无标记且非无码 → censored; 无分辨率命中 → Unknown (与其余占位符一致)
-    _RenderCase("ABC-123.mp4", "{mosaic}/{definition}/{number}.{ext}", ("censored", "Unknown", "ABC-123.mp4")),
-    # 破解/流出标记
-    _RenderCase("[破解]MIDV-123.mp4", "{mosaic}/{number}.{ext}", ("cracked", "ABC-123.mp4")),
-    # 下划线/汉字邻接的复杂文件名
-    _RenderCase("MIDV-123_4K_无码.mp4", "{mosaic}/{definition}/{number}.{ext}", ("uncensored", "4K", "ABC-123.mp4")),
-    # 目录名整段可补 mosaic; definition 仍不从目录读
-    _RenderCase(
-        "/media/uncensored/MIDV-123.mp4",
-        "{mosaic}/{definition}/{number}.{ext}",
-        ("uncensored", "Unknown", "ABC-123.mp4"),
-    ),
-    _RenderCase(
-        "/media/4K/MIDV-123.mp4", "{mosaic}/{definition}/{number}.{ext}", ("censored", "Unknown", "ABC-123.mp4")
-    ),
-    # cd 参数省略时从 file_info.cd 回退
-    _RenderCase("MIDV-123-CD1.mp4", "{number}/{number}.{ext}", ("ABC-123", "ABC-123-CD1.mp4")),
-    # 未走 ORGANIZE 的调用方不传 file_info: 与占位符缺失回退一致
-    _RenderCase(None, "{mosaic}/{definition}/{number}.{ext}", ("Unknown", "Unknown", "ABC-123.mp4")),
-)
-
-
-@pytest.mark.parametrize("case", RENDER_CASES, ids=lambda c: c.source or "no-file-info")
-def test_file_placeholder_render(case: _RenderCase, media: Path) -> None:
-    """file 相位占位符 {mosaic} / {definition}: 来自 parse_file_info (文件名优先, mosaic 可补目录名)."""
-    wp = Library(name="t", path=str(media), video_template=case.template)
-    meta = _meta()
-    file_info = parse_file_info(case.source) if case.source is not None else None
-    result = resolve_paths(wp, meta, ext="mp4", file_info=file_info)
-
-    assert result.video == media.joinpath(*case.expected)
-
-
 class TestPathTraversalProtection:
     """路径逃逸防护."""
 
@@ -497,12 +528,12 @@ class TestResolvePathsLink:
         result = resolve_paths(wp, _meta(), ext="mkv", safe_dirs=[other])
         assert result.link == other / "ABC-123" / "ABC-123.mkv"
 
-    def test_cd_suffix_applied_to_link(self, media: Path, other: Path):
+    def test_cd_in_link_only_if_template_asks(self, media: Path, other: Path):
         wp = Library(
             name="t",
             path=str(media),
-            video_template="{number}/{number}.{ext}",
-            link_template=str(other / "{number}" / "{number}.{ext}"),
+            video_template="{number}/{number}[-CD{cd?}].{ext}",
+            link_template=str(other / "{number}" / "{number}[-CD{cd?}].{ext}"),
             link_mode=LinkMode.STRM,
         )
         result = resolve_paths(wp, _meta(), ext="mp4", cd=2, safe_dirs=[other])

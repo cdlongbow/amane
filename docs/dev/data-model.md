@@ -1,6 +1,6 @@
 # 数据模型
 
-> 提交: `9330fb5`
+> 提交: `c1daa86`
 >
 > 表结构、字段类型、便捷属性都在 `src/amane/db/models.py`. 本文只解释**为什么**这么建模、所有权关系、生命周期与已知陷阱.
 
@@ -68,7 +68,7 @@
 **安全性如何保证** (无运行时反射):
 
 1. repo update 方法**显式逐字段赋值** (`if "x" in updates: obj.x = updates["x"]`), 不用 `setattr`. 字段名拼写与类型兼容性由静态类型检查保证 —— TypedDict 与 DB 列若漂移会直接编译期报错.
-2. req model 由 DB 模型派生, 故 req↔DB 的字段/类型兼容性由 `create_partial_model` 的构造保证, 只需验证该函数正确 (`tests/api/test_schema_repo_compat.py`). 该文件 `TestRepoRoundTrip` 用独立文件库, 不经 api/conftest 的 `repo` (源自 app lifespan): lifespan 启动的 `FeedService` 会并发 poll 测试新建的 Feed, 其随机 `next_fetch_at` 是历史时刻 (立即到期), 拉取失败后时间列被覆盖为当前时间 — 与 DB 往返断言竞态. 序列化保真与后台服务无关, 必须隔离.
+2. req model 由 DB 模型派生, 故 req↔DB 的字段/类型兼容性由 `create_partial_model` 的构造保证, 只需验证该函数正确 (`tests/api/test_schema_repo_compat.py`). 手写且必须是某表列字段子集的响应模型用 `@subset_of(..., covariant=)` (导入时校验). 该文件 `TestRepoRoundTrip` 用独立文件库, 不经 api/conftest 的 `repo` (源自 app lifespan): lifespan 启动的 `FeedService` 会并发 poll 测试新建的 Feed, 其随机 `next_fetch_at` 是历史时刻 (立即到期), 拉取失败后时间列被覆盖为当前时间 — 与 DB 往返断言竞态. 序列化保真与后台服务无关, 必须隔离.
 3. 端点把窄的 req `model_dump` 结果传入宽的 repo 方法; 二者同源派生, 转换天然安全. 唯一运行时缝隙 (req 键须 ⊆ TypedDict 键, 否则多余键被 repo 静默丢弃) 由字段纪律测试兜底.
 
 PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写入; **显式 `null`** 仅当源列本就可空时表示清空. 源列非 Optional (如 `Library.patterns: list[str]`) 时显式 `null` 由 `create_partial_model` 拒绝 (422). 空 glob 的合法写入是 `[]`.
@@ -100,7 +100,7 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 - `.amane_trash` 是保留目录: 目录本身与任意深度下级路径在任何扫描/监控中都恒被忽略 (否则归档内容会被再次注册), 手动移出 `.amane_trash` 会被当作新文件重新入库.
 - 跳过正则在扫描/监控侧**逐条编译、任一命中即跳过** — 不做 `|` 拼接: 用户全局旗标 (`(?i)ads`) 拼在联合式中间会触发 re 的 "global flags not at the start". 空列表关闭.
 
-分集 (CD) 后缀: `cd_suffix_template` (默认 `-CD{cd}`) 只在**视频文件名**上生效 — ORGANIZE 时从 `parse_file_info` 检测分集 (文件名识别 `-CD{n}` / `-PART{n}` / `-A` / `-B` / 尾部位数 `-1`–`-9`; `-0` 无意义, 零填充与两位尾数 (`-01` / `-10`) 会与合法番号撞车, 均不识别. 文件名无分集时, 直接父目录整段为 `CDn` / `PARTn` 也可认; 更远的祖先、`CD-1`、`A`、裸数字目录都不算), 非 None 且模板非空则在扩展名前追加渲染结果; 空串关闭. 裸数字识别与番号提取一致: `MIDV-123-1` 的番号仍是 `MIDV-123`, 尾部 `-1`–`-9` 本就是分集语义. 模板只允许恰一个 `{cd}` 占位符, 不允许路径分隔符 (写入时 422). 链接文件名走同一套后缀; 附属资源模板基于 `{link_dir}` (父目录), 不受 CD 后缀影响. **幂等约束**: 渲染后的格式须保持可被同一检测逻辑反推 (如 `-CD1`, `-Part1`), 否则该文件二次整理会因检测不到分集而丢失后缀 — 当前只文档约束, 不加验证. 检测只做在 ORGANIZE 时, 不落库.
+分集 (CD) 检测: ORGANIZE 时 `parse_file_info` 从文件名识别 `-CD{n}` / `-PART{n}` / `-A` / `-B` / 尾部位数 `-1`–`-9` (`-0` 无意义; 零填充与两位尾数 `-01` / `-10` 会与合法番号撞车, 均不识别). 文件名无分集时, 直接父目录整段为 `CDn` / `PARTn` 也可认; 更远的祖先、`CD-1`、`A`、裸数字目录都不算. 裸数字与番号提取一致: `MIDV-123-1` 的番号仍是 `MIDV-123`. 检测只做在 ORGANIZE 时, 不落库. 写回靠路径模板里的 `{cd?}` (见下), 不另开后缀列. **幂等**: 写出的分集/中字/马赛克/分辨率格式须能被同一检测逻辑反推, 否则二次整理会丢标记 — 当前只文档约束, 不加验证.
 
 字幕文件: ORGANIZE 在视频**挪走前**扫描其同目录 (不递归、不入库). 扩展名由库 `subtitle_extensions` 配置 (默认 `.srt` `.ass` `.ssa` `.vtt` `.sub`; 写入时规范化为小写带点; 空列表关闭). 多个字幕全部搬走, 不挑主字幕. 配对只用当前视频已解析的 `FileInfo.cd`, 不扫同目录其它视频. 只解析字幕**文件名**上的分集 (`detect_cd`, 不看目录): 有标记的跟当前视频同号; 解析不出的跟无分集或 CD1 的视频 (无分集是同分集, CD1 额外收未标记). 放置走与视频相同的 `move_mode`. 路径由 `resolve_subtitle_path` 逐文件渲染, 默认 `{link_dir}/{raw_srt_name}.{ext}` 保持原文件名与扩展名.
 
@@ -108,9 +108,15 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 `link_template` 为空则不创建链接, `{link_dir}` 等于 `{video_dir}`. 非空时 ORGANIZE 在视频就位后按该模板写一条指向真实视频的入口: `link_mode=strm` 写 `.strm` (内容为一行视频绝对路径, 后缀强制 `.strm`); `symlink` 做文件系统软链接. 链接必须落在库根之外 (否则 REFRESH 会把 strm/软链接再扫成媒体). `{video_dir}` 始终是真实视频父目录; `{link_dir}` 是链接父目录. 默认附属模板用 `{link_dir}`, 因此填链接模板后 NFO/海报自动跟链接走, 不必改六个附属模板. 想把某类附属文件留在网盘侧, 显式写 `{video_dir}/…`.
 
-模板渲染在 `organize/path_templates.py::resolve_paths`. 占位符分相位: metadata 来自 Metadata 字段; `{raw_dir}` / `{raw_name}` (源文件父目录名 / 源文件名不含扩展名) 与 `{mosaic}` / `{definition}` (`parse_file_info` 从源路径检测) 只在 ORGANIZE 时注入, 不落库 (与 CD 检测同一约定); `{video_dir}` 为视频渲染后的父目录, `{link_dir}` 为链接渲染后的父目录 (未设链接时二者相同), 仅附属资源模板可用. `{raw_srt_name}` 仅字幕模板, 为该字幕原文件名不含扩展名; 字幕模板里的 `{ext}` 是该字幕自己的扩展名. `{mosaic}` 取值: 文件名标记 → 目录名整段词表 (由近到远; `uncensored` / `cracked` / 无码 / 破解 等, 子串不算) → content_type 兜底 `censored` (永不 `Unknown` — 有码/无码是全域语义, 保证目录名稳定). `{definition}` 只看文件名, 无命中回退 `Unknown` (与普通占位符一致). **幂等约束**: `{mosaic}` 放目录段且目录名等于词表时可二次读回; `{definition}` 与 CD 后缀必须仍能从**文件名**反推, 只放目录段会按默认值重排. 占位符相位与默认值由同模块导出, 经 `GET /api/libraries/path-template-schema` 下发, 前端不硬编码变量表.
+模板渲染在 `organize/path_templates.py::resolve_paths`. 占位符分相位: metadata 来自 Metadata 字段; `{raw_dir}` / `{raw_name}` 与 file 相位 (`{cd?}` `{sub?}` `{mosaic?}` `{def?}`, `parse_file_info` 从源路径检测) 只在 ORGANIZE 时注入, 不落库; `{video_dir}` / `{link_dir}` 仅附属资源模板; `{raw_srt_name}` 仅字幕模板. file 相位未检出是**空串**, 不是 `Unknown` / `censored`. `{mosaic?}` 只认文件名标记或目录名整段词表 (由近到远; `uncensored` / `cracked` / `leaked` / `-U` / `-UC` / 无码 / 破解 / 流出, 子串不算), 不用 content_type 兜底. 同名多标记时无码优先于破解、流出, 破解优先于流出. `{def?}` 只看文件名. `{sub?}` 有中字标记时为 `C`. 名字里的 `?` 只是提醒可空, 没有运算含义; 写成 `{cd}` 视为未知 key, 回 `Unknown`.
 
-普通占位符缺失回退 `Unknown`. `{raw_dir}` / `{raw_name}` 无 `source_path` 时为空串 — **空变量放模板首段** (如 `{raw_dir}/...`) 会让结果以 `/` 开头被当成绝对路径.
+可选组: `[...]` 组界不输出. 组内**直接**占位符全部为空则整段丢弃; 有一个非空就渲染, 空的那个输出空串 (所以 `[-{mosaic?|uncensored=U}{sub?}]` 可以拼出 `-U` / `-C` / `-UC`). 只有一个占位符时与「空则整段省略」相同, `[-CD{cd?}]` 不会留下裸 `-CD`. 字面量跟着整组走: `[-CD{cd?}{sub?}]` 在仅有中字时仍会带上 `-CD`. 嵌套组各自判断, 不并入外层. `[[...]]` 同样但有值时把结果包一层 `[]`. 未闭合在写入时 422. 默认视频模板 `{studio}/{number}/{number}[-CD{cd?}][-{sub?}].{ext}`. 链接模板要分集须自己写 `{cd?}` 组, 不会自动追加. 渲染后丢掉空路径段, 相对模板不会因首段为空变成绝对路径.
+
+值映射: `{name|原值=输出,另一=输出}` 在查出占位符值之后替换. 未列出的 key 保持规范值; 源值为空串不走映射 (可选组仍省略). 把已有值映射成空串则该占位符视为空, 可选组省略. 同一占位符在目录与文件名可写不同映射. 闭合取值 (`mosaic?` / `def?` / `sub?`) 的映射 key 必须是规范值, 否则写入 422; `{cd?}` 与其它字段不校验 key. 规范值由同模块 `PLACEHOLDER_MAP_KEYS` 导出, 经 schema `map_keys` 下发. 分隔符是 `|` `=` `,` (不用 `:`); 输出值里不能含逗号.
+
+普通占位符缺失回退 `Unknown`. `{raw_dir}` / `{raw_name}` 无 `source_path` 时为空串, 同样走空段折叠.
+
+附属模板列 `None` 表示未自定义, ORGANIZE 回退写在 `path_templates` 的 `*_TEMPLATE_DEFAULT`. HTTP `optional_defaults` 手写、`@subset_of(Library, covariant=True)`: 缺省是产出, 字段类型协变 (`PathTemplate` <: `PathTemplate | None`). 逆变会要求列值都能写进缺省模型, `None` 进不了非空缺省. `link_template` 空表示不建链接, 不在此列. `{mosaic?}` 闭合值是 `parsing.Mosaic`.
 
 **逃逸防护**: 相对模板必须是 library 根的后代; 绝对模板 (含展开 `{video_dir}` / `{link_dir}` 后变绝对) 必须落在 library 根或 `safe_dirs` 下, 否则 `ValueError`. 多盘分存要求目标盘在 `safe_dirs` 内. `link_template` 额外要求渲染结果**不是**库根的后代.
 

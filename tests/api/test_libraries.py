@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from amane.db.models import TaskType
-from amane.organize import CD_SUFFIX_TEMPLATE_DEFAULT, OPTIONAL_TEMPLATE_DEFAULTS, VIDEO_TEMPLATE_DEFAULT
-from amane.utils.extensions import DEFAULT_SUBTITLE_EXTENSIONS
+from amane.organize import VIDEO_TEMPLATE_DEFAULT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,36 +21,6 @@ class TestLibraries:
         empty = await client.get("libraries")
         assert empty.status_code == 200
         assert empty.json()["items"] == []
-
-        schema = await client.get("libraries/path-template-schema")
-        assert schema.status_code == 200
-        data = schema.json()
-        assert data["video_default"] == VIDEO_TEMPLATE_DEFAULT
-        assert data["cd_suffix_default"] == CD_SUFFIX_TEMPLATE_DEFAULT
-        assert data["optional_defaults"] == OPTIONAL_TEMPLATE_DEFAULTS
-        names = {p["name"] for p in data["placeholders"]}
-        assert {
-            "number",
-            "studio",
-            "video_dir",
-            "link_dir",
-            "raw_dir",
-            "raw_name",
-            "ext",
-            "mosaic",
-            "definition",
-        } <= names
-        assert "dir_path" not in names and "dir" not in names
-        phases = {p["name"]: p["phase"] for p in data["placeholders"]}
-        assert phases["number"] == "metadata"
-        assert phases["raw_dir"] == "source"
-        assert phases["raw_name"] == "source"
-        assert phases["mosaic"] == "file"
-        assert phases["definition"] == "file"
-        assert phases["video_dir"] == "post_video"
-        assert phases["link_dir"] == "post_video"
-        assert phases["raw_srt_name"] == "subtitle"
-        assert data["subtitle_extensions_default"] == list(DEFAULT_SUBTITLE_EXTENSIONS)
 
         target = safe_path / "incoming"
         target.mkdir()
@@ -73,7 +42,9 @@ class TestLibraries:
         assert body["blacklist_patterns"] == []
         assert body["min_file_size"] == 0
         assert body["subtitle_extensions"] == [".srt", ".ass", ".ssa", ".vtt", ".sub"]
-        assert body["cd_suffix_template"] == "-CD{cd}"
+        assert body["video_template"] == VIDEO_TEMPLATE_DEFAULT
+        assert body["thumb_template"] is None
+        assert body["poster_template"] is None
         lib_id = body["id"]
 
         listed = await client.get("libraries")
@@ -100,7 +71,6 @@ class TestLibraries:
                 "fanart_template": "/out/{number}/fanart.jpg",
                 "blacklist_patterns": ["广告", "(?i)ads[0-9]+"],
                 "min_file_size": 10485760,
-                "cd_suffix_template": "-Part {cd}",
                 "scan": False,
             },
         )
@@ -111,7 +81,6 @@ class TestLibraries:
         assert fbody["video_template"] == "/out/{number}/{number}.mp4"
         assert fbody["blacklist_patterns"] == ["广告", "(?i)ads[0-9]+"]
         assert fbody["min_file_size"] == 10485760
-        assert fbody["cd_suffix_template"] == "-Part {cd}"
 
         patched = await client.patch(
             f"libraries/{lib_id}",
@@ -123,7 +92,6 @@ class TestLibraries:
                 "blacklist_patterns": ["广告", "预览"],
                 "min_file_size": 0,
                 "subtitle_extensions": ["vtt"],
-                "cd_suffix_template": "",
                 "link_template": str(safe_path / "emby" / "{number}" / "{number}.{ext}"),
                 "link_mode": "symlink",
             },
@@ -137,7 +105,6 @@ class TestLibraries:
         assert pbody["blacklist_patterns"] == ["广告", "预览"]
         assert pbody["min_file_size"] == 0
         assert pbody["subtitle_extensions"] == [".vtt"]
-        assert pbody["cd_suffix_template"] == ""
         assert pbody["link_mode"] == "symlink"
         assert pbody["link_template"] == str(safe_path / "emby" / "{number}" / "{number}.{ext}")
 
@@ -181,8 +148,13 @@ class TestLibraries:
         assert (
             await client.post("libraries", json={**base, "subtitle_extensions": [".srt", "bad ext"]})
         ).status_code == 422
-        assert (await client.post("libraries", json={**base, "cd_suffix_template": "-CD"})).status_code == 422
-        assert (await client.post("libraries", json={**base, "cd_suffix_template": "disc{cd}/x"})).status_code == 422
+        assert (
+            await client.post("libraries", json={**base, "video_template": "{number}[-CD{cd?}.{ext}"})
+        ).status_code == 422
+        assert (await client.post("libraries", json={**base, "video_template": "{number}].{ext}"})).status_code == 422
+        assert (
+            await client.post("libraries", json={**base, "video_template": "{mosaic?|uncencored=U}"})
+        ).status_code == 422
 
         ok_empty_trailer = await client.post("libraries", json={**base, "trailer_pattern": ""})
         assert ok_empty_trailer.status_code == 201
@@ -216,7 +188,7 @@ class TestLibraries:
         assert (await client.patch(f"libraries/{lib.id}", json={"blacklist_patterns": ["(ads"]})).status_code == 422
         assert (await client.patch(f"libraries/{lib.id}", json={"min_file_size": -1})).status_code == 422
         assert (
-            await client.patch(f"libraries/{lib.id}", json={"cd_suffix_template": "no-placeholder"})
+            await client.patch(f"libraries/{lib.id}", json={"video_template": "{number}[-CD{cd?}"})
         ).status_code == 422
         assert (await client.patch(f"libraries/{lib.id}", json={"trailer_pattern": "[unclosed"})).status_code == 422
 
