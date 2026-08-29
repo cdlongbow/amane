@@ -555,8 +555,6 @@ export type CommentUpdateRequest = {
 
 /**
  * ContentType
- *
- * 媒体内容分类 - 决定爬虫路由.
  */
 export type ContentType = 'censored' | 'uncensored' | 'chinese' | 'western' | 'fc2' | 'amateur' | 'hentai';
 

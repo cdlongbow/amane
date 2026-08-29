@@ -1002,8 +1002,7 @@ export const ContentTypeSchema = {
         'amateur',
         'hentai'
     ],
-    title: 'ContentType',
-    description: '媒体内容分类 - 决定爬虫路由.'
+    title: 'ContentType'
 } as const;
 
 export const CropPosterRequestSchema = {

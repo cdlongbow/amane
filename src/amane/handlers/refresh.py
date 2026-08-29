@@ -94,6 +94,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
         for f in media_files:
             parsed = parse_file_info(f.path)
             assert f.id is not None
+            assert parsed.number is not None
             followups.append(
                 FollowupTask(
                     key=f"scrape:{f.id}",

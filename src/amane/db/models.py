@@ -395,9 +395,9 @@ class Feed(SQLModel, table=True):
     interval_seconds: int = Field(default=3600)
     """拉取间隔 (秒). 范围由 API 校验 60–86400; 表单默认按小时."""
     number_pattern: str | None = None
-    """可选正则; 设置后只走该正则, 不回退内置 extract_number."""
+    """可选正则; 设置后只走该正则, 不回退 extract_number."""
     content_type: str | None = None
-    """显式 ContentType; None 则 infer_content_type(number)."""
+    """显式 ContentType; None 则 infer_content_type."""
     use_cache: list[str] = Field(default_factory=lambda: ["metadata", "trans"], sa_column=Column(JSON, nullable=False))
     etag: str | None = None
     last_modified: str | None = None

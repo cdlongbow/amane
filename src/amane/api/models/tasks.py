@@ -130,6 +130,7 @@ class ScrapeRequest(BaseModel):
             if media is None:
                 raise HTTPException(status_code=404, detail=f"Media file {self.media_id} not found")
             parsed = parse_file_info(media.path)
+            assert parsed.number is not None
             return ScrapePayload(
                 number=parsed.number,
                 content_type=self.content_type or parsed.content_type,

@@ -6,7 +6,7 @@ import pytest
 
 from amane.parsing import (
     ContentType,
-    classify_number,
+    detect_cd,
     extract_number,
     get_prefix,
     infer_content_type,
@@ -213,13 +213,13 @@ CASES: list[object] = [
     _Case("/media/FC2-1234567/movie.mkv", number="FC2-1234567", content_type=ContentType.FC2),
     _Case("/media/HEYZO-1234/clip.mp4", number="HEYZO-1234", content_type=ContentType.UNCENSORED),
     _Case("/media/MIDV-123-uncensored/video.mp4", number="MIDV-123"),
-    _Case("/media/Studio Name/video.mp4", number="VIDEO"),
-    _Case("/media/downloads/video.mp4", number="VIDEO"),
-    _Case("/media/Season02/video.mp4", number="VIDEO"),
-    _Case("/media/2024-01/video.mp4", number="VIDEO"),
-    _Case("/media/HDR10/video.mp4", number="VIDEO"),
-    _Case("/media/DISC01/video.mp4", number="VIDEO"),
-    _Case("/media/Vol.12/video.mp4", number="VIDEO"),
+    _Case("/media/Studio Name/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/downloads/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/Season02/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/2024-01/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/HDR10/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/DISC01/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
+    _Case("/media/Vol.12/video.mp4", number="VIDEO", content_type=ContentType.WESTERN),
     _Case("/media/FC2-1111111/MIDV-123/video.mp4", number="MIDV-123"),
     _Case("/media/n1234/clip.mp4", number="n1234", content_type=ContentType.UNCENSORED),
     # --- 完整路径: 分集只认直接父目录 CDn/PARTn ---
@@ -316,7 +316,54 @@ def test_parse_file_info(case: _Case) -> None:
         assert info.content_type == case.content_type
 
 
-# --- 番号级谓词 / 前缀 / 分类 (无路径) ---
+# --- 无路径: 同一 parse_file_info 的字段包装 ---
+
+PREFIX_CASES: list[tuple[str, str]] = [
+    ("MIDV-123", "MIDV"),
+    ("FC2-1234567", "FC2"),
+    ("HEYZO-1234", "HEYZO"),
+    ("vixen.23.04.15", "VIXEN"),
+    ("MKY-HS-001", "MKY-HS"),
+    ("H4610-ki123456", "H4610"),
+]
+
+
+@pytest.mark.parametrize(("number", "expected"), PREFIX_CASES)
+def test_get_prefix(number: str, expected: str) -> None:
+    assert get_prefix(number) == expected
+
+
+INFER_CONTENT_TYPE_CASES: list[tuple[str, str | None, ContentType]] = [
+    ("MIDV-123", None, ContentType.CENSORED),
+    ("SSIS-456", None, ContentType.CENSORED),
+    ("MDVR-0123", None, ContentType.CENSORED),
+    ("SSNI00321", None, ContentType.CENSORED),
+    ("Mywife No.1234", None, ContentType.CENSORED),
+    ("T28-123", None, ContentType.CENSORED),
+    ("KIN8-123", None, ContentType.UNCENSORED),
+    ("TH101-123-12345", None, ContentType.UNCENSORED),
+    ("FC2-PPV-1234567", None, ContentType.FC2),
+    ("vixen.23.04.15", None, ContentType.WESTERN),
+    ("HEYZO-1234", None, ContentType.UNCENSORED),
+    ("CWP-123", None, ContentType.UNCENSORED),
+    ("n1234", None, ContentType.UNCENSORED),
+    ("SIRO-4567", None, ContentType.AMATEUR),
+    ("259LUXU-1456", None, ContentType.AMATEUR),
+    ("MD-0123", None, ContentType.CHINESE),
+    ("MD0165-1", None, ContentType.CHINESE),
+    ("MKY-NS-012", None, ContentType.CHINESE),
+    ("VIDEO", None, ContentType.WESTERN),
+    ("Weekly Update", None, ContentType.WESTERN),
+    ("just a movie title", None, ContentType.WESTERN),
+    ("MIDV-123", "/media/欧美/MIDV-123.mp4", ContentType.WESTERN),
+    ("MIDV-123", "/media/MIDV-123.mp4", ContentType.CENSORED),
+]
+
+
+@pytest.mark.parametrize(("number", "file_path", "expected"), INFER_CONTENT_TYPE_CASES)
+def test_infer_content_type(number: str, file_path: str | None, expected: ContentType) -> None:
+    assert infer_content_type(number, file_path) == expected
+
 
 UNCENSORED_CASES: list[tuple[str, bool]] = [
     ("HEYZO-1234", True),
@@ -327,7 +374,7 @@ UNCENSORED_CASES: list[tuple[str, bool]] = [
     ("SKY-001", True),
     ("XXX-AV-12345", True),
     ("MKBD-S120", True),
-    ("vixen.23.04.15", True),
+    ("vixen.23.04.15", False),
     ("MIDV-123", False),
     ("SSIS-456", False),
     ("ABP-789", False),
@@ -354,55 +401,8 @@ def test_is_amateur(number: str, expected: bool) -> None:
     assert is_amateur(number) is expected
 
 
-PREFIX_CASES: list[tuple[str, str]] = [
-    ("MIDV-123", "MIDV"),
-    ("FC2-1234567", "FC2"),
-    ("HEYZO-1234", "HEYZO"),
-    ("vixen.23.04.15", "VIXEN"),
-    ("MKY-HS-001", "MKY-HS"),
-    ("H4610-ki123456", "H4610"),
-]
-
-
-@pytest.mark.parametrize(("number", "expected"), PREFIX_CASES)
-def test_get_prefix(number: str, expected: str) -> None:
-    assert get_prefix(number) == expected
-
-
-CLASSIFY_NUMBER_CASES: list[tuple[str, ContentType]] = [
-    ("MIDV-123", ContentType.CENSORED),
-    ("SSIS-456", ContentType.CENSORED),
-    ("FC2-PPV-1234567", ContentType.FC2),
-    ("vixen.23.04.15", ContentType.WESTERN),
-    ("HEYZO-1234", ContentType.UNCENSORED),
-    ("SIRO-4567", ContentType.AMATEUR),
-    ("MD-0123", ContentType.CHINESE),
-    ("MD0165-1", ContentType.CHINESE),
-    ("MKY-NS-012", ContentType.CHINESE),
-    ("MDVR-0123", ContentType.CENSORED),
-]
-
-
-@pytest.mark.parametrize(("number", "expected"), CLASSIFY_NUMBER_CASES)
-def test_classify_number(number: str, expected: ContentType) -> None:
-    assert classify_number(number) == expected
-
-
-INFER_CONTENT_TYPE_CASES: list[tuple[str, str | None, ContentType]] = [
-    ("MIDV-123", "/media/欧美/MIDV-123.mp4", ContentType.WESTERN),
-    ("MIDV-123", "/media/MIDV-123.mp4", ContentType.CENSORED),
-    ("MIDV-123", None, ContentType.CENSORED),
-    ("MD-0123", None, ContentType.CHINESE),
-]
-
-
-@pytest.mark.parametrize(("number", "file_path", "expected"), INFER_CONTENT_TYPE_CASES)
-def test_infer_content_type(number: str, file_path: str | None, expected: ContentType) -> None:
-    assert infer_content_type(number, file_path) == expected
-
-
 EXTRACT_NUMBER_CASES: list[tuple[str, str | None]] = [
-    ("[4K] MIDV-123 タイトル", "MIDV-123"),
+    ("[4K] MIDV-123 标题", "MIDV-123"),
     ("SSIS-456 FHD", "SSIS-456"),
     ("FC2-PPV-1234567 新作", "FC2-1234567"),
     ("HEYZO-1234", "HEYZO-1234"),
@@ -429,6 +429,20 @@ EXTRACT_VS_PATH_CASES: list[tuple[str, str]] = [
 def test_extract_number_skips_filename_fallback(text: str, path: str) -> None:
     assert extract_number(text) is None
     assert parse_file_info(path).number
+
+
+DETECT_CD_CASES: list[tuple[str, int | None]] = [
+    ("MIDV-123-CD2.srt", 2),
+    ("MIDV-123-PART2.ass", 2),
+    ("MIDV-123-1.srt", 1),
+    ("MIDV-123.srt", None),
+    ("/media/CD2/MIDV-123.srt", None),
+]
+
+
+@pytest.mark.parametrize(("filename", "expected"), DETECT_CD_CASES)
+def test_detect_cd(filename: str, expected: int | None) -> None:
+    assert detect_cd(filename) == expected
 
 
 ESCAPE_STRING_CASES: list[tuple[str, list[str], str]] = [

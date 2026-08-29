@@ -48,7 +48,7 @@ def apply_number_pattern(pattern: str, *texts: str | None) -> str | None:
 
 
 def resolve_entry_number(feed: Feed, entry: ParsedFeedEntry) -> str | None:
-    """按源配置提取番号: 有 number_pattern 则只走正则, 否则内置 extract_number."""
+    """按源配置提取番号: 有 number_pattern 则只走正则, 否则 extract_number."""
     if feed.number_pattern:
         return apply_number_pattern(feed.number_pattern, entry.title, entry.description, entry.link)
     return extract_number(entry.title) or (extract_number(entry.description) if entry.description else None)
