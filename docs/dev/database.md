@@ -1,6 +1,6 @@
 # 数据库
 
-> 提交: `72c297f`
+> 提交: `7bd4f6c`
 >
 > Alembic 标准命令直接查 [官方文档](https://alembic.sqlalchemy.org/). 本文只记 Amane 特有的决策与陷阱.
 > 数据模型设计见 [data-model.md](data-model.md).
@@ -65,6 +65,7 @@ SQLite 不支持删列、改类型等 ALTER TABLE 操作. Alembic 通过 batch m
 - **已知噪声**: `tasks.type` / `schedules.task_type` 每次 autogenerate 都报 VARCHAR→Enum 的 `modify_type` diff. 这是 SQLite 无原生 enum + SQLModel 反射差异导致的假阳性, 与实际 schema 无关, 忽略即可.
 - **JSON 列内部结构** — `Metadata.raw` 等 blob 不在 autogenerate 视野里. 爬虫/聚合模型改字段名或类型时, **结果列与 raw 快照是两份数据**; 只改列定义不够, 必须另写 data revision 扫 JSON (见 `c4f17334c3ea`). 站点级复用会把 raw 直接 `MediaMetadata(...)`, 旧 key 会被 Pydantic 静默丢掉.
 - **JSON 列表列** — `Library.patterns` / `copy_resources` 等非空, 空集合存 `[]` 不是 JSON `null`. 改为 NOT NULL 须先 `UPDATE … '[]'` 回填 (含字面量 `'null'`), 再 `batch_alter_table` `nullable=False`.
+- **path 投影列** — `MediaFile.content_type` / `mosaic` 与 `status` 同为 SA Enum (持久化成员名, 回填 `.name`); `definition` 不是枚举. 丢掉 `ix_metadata_number` / `schedules.task_type` 噪声.
 
 ## 加非空 FK + 数据回填 (一次性原子迁移)
 
