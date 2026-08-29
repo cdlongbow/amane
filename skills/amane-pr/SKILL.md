@@ -2,7 +2,7 @@
 name: amane-pr
 description: >-
   Amane PR 规范: 跟踪并修复 CI、用 Close/Fix 关联 Issue、squash/rebase
-  合入 (禁止 merge commit)、以及 Alembic migration 的 multi-head 处理.
+  合入并清理、以及 Alembic migration 的 multi-head 处理.
   Use when creating, updating, or merging a pull request, 开 PR, 更新 PR,
   合并 PR, 处理 CI 失败, or when a PR adds an Alembic migration.
 ---
@@ -18,9 +18,19 @@ description: >-
 
 ## Issue
 
-如果 PR 是为了解决 Issue, 则在消息**末尾**写 `Close` / `Fix`, 合并时自动关闭. 例如:
+PR 有相关 Issue 时, 按是否彻底解决区分, 写在正文**末尾**:
 
-```
+- **彻底解决** (议题范围小, PR 就是在修这个 bug / 做这个 feature): 简短的在最后用 `Close` / `Fix`, 合并时自动关闭.
+- **只是关联、并未彻底解决**: 在最后添加一节 `Related` 中列出它们. 已被 `Close` / `Fix` 的不必写.
+
+示例:
+
+```markdown
+<!-- other content -->
+## Related:
+- #56
+- #78
+
 Close #12
 Fix #34
 ```
@@ -32,6 +42,8 @@ Fix #34
 - 首选 squash
 - 非常简单的 PR 可以用 rebase
 - 永远不要用 merge commit 把 PR 合进 main
+
+合入后, 需删除本地分支或 worktree 并同步 main. 若是从本仓库分支创建的, 还需要删除远程分支
 
 ## Alembic
 
