@@ -1,7 +1,5 @@
 # 爬虫测试
 
-> 提交: `6b932a5`
->
 > 运行器: `tests/crawlers/test_crawlers.py` (影片) / `test_actor_crawlers.py` (演员). TOML 字段语法以解析器源码为准; 本文只写约定与仍会影响采集的坑.
 > 爬虫架构见 [crawlers.md](crawlers.md).
 

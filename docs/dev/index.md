@@ -1,7 +1,5 @@
 # 开发文档
 
-> 提交: `5fdb243`
->
 > 只写跨文件的边界、顺序、契约、取舍与踩坑. 字段、签名、枚举去源码或 `web/openapi.json`.
 > 用语见 [writing.md](writing.md).
 

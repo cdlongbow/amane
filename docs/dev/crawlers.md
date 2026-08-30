@@ -1,7 +1,5 @@
 # 爬虫开发
 
-> 提交: `bcf8d0c`
->
 > 入口: `src/amane/crawlers/`. 本文解释爬虫架构、HTTP 层设计、限速机制, 以及添加新爬虫的完整步骤.
 > 测试约定见 [crawler-testing.md](crawler-testing.md). 默认路由与站点覆盖见 [content-routes.md](content-routes.md).
 > 外部影片来源见 [plugins.md](plugins.md).

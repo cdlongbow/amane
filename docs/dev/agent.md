@@ -1,7 +1,5 @@
 # 助理 Agent
 
-> 提交: `e711e93`
->
 > 入口: `src/amane/agent/`. 本文只解释边界与契约; 字段与签名去源码.
 > 配置见 [config.md](config.md), 列表接入见 [api.md](api.md), 翻译 LLM 见 [llm.md](llm.md), 前端 IA 见 [frontend.md](frontend.md).
 

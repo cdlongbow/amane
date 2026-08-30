@@ -1,7 +1,5 @@
 # 内容路由与站点特性
 
-> 提交: `bcf8d0c`
->
 > 默认 `content_routes` 的取舍、各源覆盖与怪癖. 资格真值 / `field_priority` 编译见 [config.md](config.md); 建图见 [task-system.md](task-system.md). 成员与顺序以 `src/amane/config/manager.py` `_DEFAULT_CONTENT_ROUTES` 为准, 本文不抄表.
 
 改默认表或加爬虫前先读本文: 许多站「能搜到」不等于该进默认链.

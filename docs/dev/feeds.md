@@ -1,7 +1,5 @@
 # 远程发现源 (RSS/Atom)
 
-> 提交: `bcf8d0c`
->
 > 与 Watcher / Schedule 的分工、去重真值、每源配置契约. 字段去源码.
 
 ## 定位

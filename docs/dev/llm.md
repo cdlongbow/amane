@@ -1,7 +1,5 @@
 # LLM 能力
 
-> 提交: `42b4603`
->
 > 入口: `src/amane/llm/`. 本文解释 LLM 能力的端口设计、为何选/不选 dspy, 以及翻译如何嵌入刮削管线.
 > 配置分层见 [config.md](config.md), 刮削管线见 [task-system.md](task-system.md).
 

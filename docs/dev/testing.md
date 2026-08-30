@@ -1,7 +1,5 @@
 # 加测试
 
-> 提交: `d7ab886`
-
 > 怎么跑见 `just test`. 爬虫 TOML 见 [crawler-testing.md](crawler-testing.md). 夹具路径见下; 什么算测试、什么禁止加见文末.
 
 能用现成 fixture 就不要自建引擎: `repo` / `resource_store` (`tests/conftest.py`) 已拷 head schema; HTTP 走 `client` 或 `make_app` (`tests/api/conftest.py`), 后者会 `copy_schema` 并把 `worker.poll_interval` 压到配置下限.

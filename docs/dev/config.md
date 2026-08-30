@@ -1,7 +1,5 @@
 # 配置系统
 
-> 提交: `697b7c0`
->
 > 入口: `src/amane/config/`. 本文解释分层设计动机、热重载机制和添加新配置的约定.
 > 启动编排见 [architecture.md](architecture.md).
 

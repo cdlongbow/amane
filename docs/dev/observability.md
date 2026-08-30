@@ -1,7 +1,5 @@
 # 可观测性
 
-> 提交: `2fcd95c`
->
 > 入口: `src/amane/observability/` — `logging.py` (进程级三流) + `recorder.py` (单任务 Recorder).
 > 任务系统见 [task-system.md](task-system.md).
 
