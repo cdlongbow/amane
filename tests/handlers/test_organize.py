@@ -408,6 +408,41 @@ async def test_organize_trashes_blacklisted_files(
 
 
 @pytest.mark.asyncio(loop_scope="function")
+async def test_organize_trashes_blacklisted_outside_patterns(
+    repo: Repository, resource_store: ResourceStore, tmp_path: Path
+) -> None:
+    """黑名单归档不应用 library `patterns`: 即使文件名不匹配 glob, 仍移动至 `.amane_trash`."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    ad = src_dir / "新片广告.mp4"
+    ad.write_bytes(b"ad")
+    video = src_dir / "NSFS-039.mkv"
+    video.write_bytes(b"video")
+
+    lib = await repo.create_library(
+        name="t", path=str(lib_root), write_nfo=False, patterns=["*.mkv"], blacklist_patterns=["广告"]
+    )
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    source = await repo.create_media_file(
+        lib.id, path=str(video), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+    assert source.id is not None
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir), patterns=["*.mkv"]))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.trashed == 1
+    assert result.result.organized == 1
+    assert not ad.exists()
+    assert (lib_root / ".amane_trash" / "新片广告.mp4").exists()
+    assert (lib_root / "Studio" / "NSFS-039" / "NSFS-039.mkv").exists()
+
+
+@pytest.mark.asyncio(loop_scope="function")
 async def test_organize_trash_untracked_and_collision(
     repo: Repository, resource_store: ResourceStore, tmp_path: Path
 ) -> None:
@@ -643,7 +678,7 @@ async def test_organize_writes_strm_and_nfo_next_to_link(
     ["two_files", "empty", "not_a_dir", "missing_library"],
 )
 async def test_reports_progress(repo: Repository, resource_store: ResourceStore, tmp_path: Path, kind: str) -> None:
-    """收齐 glob 后按已知总量 determinate 上报; skip 也计入 current. 非法路径不上报."""
+    """目录遍历完成后按文件总数上报 determinate 进度; 跳过的文件仍计入 current. 非法路径不上报."""
     lib_root = tmp_path / "lib"
     src_dir = lib_root / "incoming"
     src_dir.mkdir(parents=True)

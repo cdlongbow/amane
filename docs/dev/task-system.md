@@ -1,6 +1,6 @@
 # 任务系统
 
-> 提交: `08c92a8`
+> 提交: `2d58403`
 >
 > 入口: `src/amane/handlers/`, `src/amane/scheduler/worker.py`. Payload 结构、handler 步骤都在源码; 本文只解释**为什么**这么编排.
 > 数据所有权见 [data-model.md](data-model.md), 启动顺序见 [architecture.md](architecture.md), 日志隔离见 [observability.md](observability.md).
@@ -93,7 +93,7 @@ Worker 在 `handle()` 前注入 `report_progress` 回调, 经 EventBus 发 `task
 
 **SCRAPE**: 分母 = 标量字段数 + 2 (`materialize` / `persist`). 聚合按波次上报已满足标量字段数 (URL/score/extrafanart 只累积, 不计入); message 为当波站点 `cache_key`. 抓取结束后抬到标量满分, 再走后两步至 `done`.
 
-**ORGANIZE**: 失效索引清理按本库 MediaFile 条数 (`prune`); 黑名单归档与主循环先 glob 收齐再按文件数上报 (`trash` / 文件名). glob 进行中 `total=0` (indeterminate). 空目录以 1/1 `done` 收尾.
+**ORGANIZE**: 失效索引按本库 MediaFile 条数 (`prune`). 目录遍历一次 (`aiter_media_files` 不应用黑名单与 `min_file_size`, 否则应归档的文件不会出现在结果中). 遍历完成后依次归档 (`trash`) 与落盘 (message 为文件名). glob 进行中 `total=0`. 空目录以 1/1 `done` 收尾.
 
 其它任务类型不调用则静默忽略.
 
