@@ -122,8 +122,8 @@ async def test_delete_task_cleans_links_both_directions(repo: Repository):
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_delete_parent_refuses_active_children(repo: Repository):
-    """有非终态子任务 (QUEUED/RUNNING) 的父任务拒绝删除, 子任务终态后可删."""
+async def test_delete_parent_refuses_remaining_children(repo: Repository):
+    """有集合外后裔的父任务拒绝删除; 先删子任务后父才可删."""
     parent = await repo.create_task(TaskType.REFRESH, payload={})
     assert parent.id is not None
     claimed = await repo.claim_next_task()
@@ -135,22 +135,25 @@ async def test_delete_parent_refuses_active_children(repo: Repository):
     child = children[0]
     assert child.id is not None
 
-    # 子任务仍 QUEUED → 拒绝删除父
     assert not await repo.delete_task(parent.id)
     assert await repo.get_task(parent.id) is not None
     assert await repo.get_task(child.id) is not None
     assert await repo.list_task_links(parent_task_id=parent.id) != []
 
-    # 子任务终态后父可删
     await repo.fail_task(child.id, error="boom")
+    assert not await repo.delete_task(parent.id)
+    assert await repo.get_task(parent.id) is not None
+    assert await repo.get_task(child.id) is not None
+
+    assert await repo.delete_task(child.id)
     assert await repo.delete_task(parent.id)
     assert await repo.get_task(parent.id) is None
-    assert await repo.get_task(child.id) is not None
+    assert await repo.get_task(child.id) is None
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_delete_tasks_allows_terminal_children(repo: Repository):
-    """批量删除: 子任务全部终态时删父成功 (已结束的链可整棵清理); 有在跑子任务时整批拒绝."""
+async def test_delete_tasks_skips_parent_with_remaining_children(repo: Repository):
+    """批量删除: 仅删父且子仍在时跳过; 子与父同批则可整棵删除."""
     parent = await repo.create_task(TaskType.REFRESH, payload={})
     assert parent.id is not None
     claimed = await repo.claim_next_task()
@@ -165,31 +168,76 @@ async def test_delete_tasks_allows_terminal_children(repo: Repository):
         ],
     )
     assert all(c.id is not None for c in children)
-    child_ids = {c.id for c in children}
+    child_ids = {c.id for c in children if c.id is not None}
 
-    # 子任务仍 QUEUED → 只删父被拒, 全部保留
     assert await repo.delete_tasks([parent.id]) == 0
     assert await repo.get_task(parent.id) is not None
     for cid in child_ids:
-        assert cid is not None
         assert await repo.get_task(cid) is not None
 
-    # 子任务全部终态后, 只删父成功 (子任务保留, 但边被清理, 不再被孤儿引用)
     for cid in child_ids:
-        assert cid is not None
         await repo.fail_task(cid, error="boom")
-    assert await repo.delete_tasks([parent.id]) == 1
+    assert await repo.delete_tasks([parent.id]) == 0
+    assert await repo.get_task(parent.id) is not None
+    assert await repo.list_task_links(parent_task_id=parent.id) != []
+
+    assert await repo.delete_tasks([parent.id, *child_ids]) == 1 + len(child_ids)
     assert await repo.get_task(parent.id) is None
     for cid in child_ids:
-        assert cid is not None
-        assert await repo.get_task(cid) is not None
-    # 子任务失去父引用后仍可被发现: root 仍指向父 id, 但不再有边
-    assert await repo.list_task_links(child_task_id=next(iter(child_ids))) == []
+        assert await repo.get_task(cid) is None
 
-    # 父已删, 子任务可单独删
-    assert await repo.delete_tasks(list(child_ids)) == len(child_ids)
-    for cid in child_ids:
-        assert cid is not None
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_delete_tasks_mixed_tree_keeps_root(repo: Repository):
+    """DONE 父 + DONE/FAILED 子: 只删除 DONE 叶子; 父与 FAILED 子及边保留, 列表仍能看到链根."""
+    parent = await repo.create_task(TaskType.REFRESH, payload={"library_id": 1})
+    assert parent.id is not None
+    claimed = await repo.claim_next_task()
+    assert claimed is not None and claimed.id == parent.id
+    assert claimed.id is not None
+    children = await repo.complete_task_with_followups(
+        claimed.id,
+        result={},
+        followups=[
+            ("scrape:ok", TaskType.SCRAPE, {"number": "OK"}, 0),
+            ("scrape:bad", TaskType.SCRAPE, {"number": "BAD"}, 0),
+        ],
+    )
+    done_child, failed_child = children
+    assert done_child.id is not None and failed_child.id is not None
+    await repo.complete_task(done_child.id)
+    await repo.fail_task(failed_child.id, error="boom")
+
+    assert await repo.delete_tasks([parent.id, done_child.id]) == 1
+    assert await repo.get_task(done_child.id) is None
+    assert await repo.get_task(parent.id) is not None
+    assert await repo.get_task(failed_child.id) is not None
+    links = await repo.list_task_links(parent_task_id=parent.id)
+    assert [link.child_task_id for link in links] == [failed_child.id]
+    roots = await repo.list_tasks(roots_only=True)
+    assert parent.id in {t.id for t in roots}
+    failed_listed = await repo.list_tasks(statuses=[TaskStatus.FAILED], roots_only=True)
+    assert parent.id in {t.id for t in failed_listed}
+
+    all_done = await repo.create_task(TaskType.REFRESH, payload={"library_id": 2})
+    assert all_done.id is not None
+    claimed_done = await repo.claim_next_task()
+    assert claimed_done is not None and claimed_done.id == all_done.id
+    assert claimed_done.id is not None
+    ok_children = await repo.complete_task_with_followups(
+        claimed_done.id,
+        result={},
+        followups=[
+            ("scrape:1", TaskType.SCRAPE, {"number": "D-1"}, 0),
+            ("scrape:2", TaskType.SCRAPE, {"number": "D-2"}, 0),
+        ],
+    )
+    ok_ids = [c.id for c in ok_children if c.id is not None]
+    for cid in ok_ids:
+        await repo.complete_task(cid)
+    assert await repo.delete_tasks([all_done.id, *ok_ids]) == 1 + len(ok_ids)
+    assert await repo.get_task(all_done.id) is None
+    for cid in ok_ids:
         assert await repo.get_task(cid) is None
 
 
@@ -247,8 +295,8 @@ async def test_complete_duplicate_key_keeps_first(repo: Repository):
 
 
 @pytest.mark.asyncio(loop_scope="function")
-async def test_delete_task_refuses_active_grandchild(repo: Repository):
-    """单删看整条后裔: 直接子已终态但孙任务仍在跑时拒绝."""
+async def test_delete_task_refuses_remaining_grandchild(repo: Repository):
+    """单删看整条后裔: 直接子已终态但孙任务仍在时拒绝."""
     parent = await repo.create_task(TaskType.REFRESH, payload={})
     assert parent.id is not None
     claimed = await repo.claim_next_task()

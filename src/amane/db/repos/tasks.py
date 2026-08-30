@@ -87,8 +87,12 @@ def _matching_root_ids(
     return _scope_tasks(stmt, statuses=statuses, task_types=task_types).distinct()
 
 
-async def _ids_with_active_descendants(session: AsyncSession, ids: Sequence[int]) -> set[int]:
-    """待删集合里, 仍有 QUEUED/RUNNING 后裔的那些 id (含菱形多父)."""
+async def _ids_with_external_descendants(session: AsyncSession, ids: Sequence[int]) -> set[int]:
+    """待删集合里, 存在不在该集合内的后裔的那些 id (含菱形多父).
+
+    整棵匹配子树可一次删除; 有未纳入本次删除的后裔时祖先跳过, 以免链根消失后
+    剩余子任务无法在列表中显示. QUEUED/RUNNING 后裔不在 DONE/FAILED 待删集合内, 同样挡住祖先.
+    """
     id_set = set(ids)
     if not id_set:
         return set()
@@ -108,22 +112,16 @@ async def _ids_with_active_descendants(session: AsyncSession, ids: Sequence[int]
                 visited.add(child)
                 next_frontier.append(child)
         frontier = next_frontier
-    descendants = visited - id_set
-    if not descendants:
-        return set()
-    status_rows = await session.exec(
-        select(Task.id).where(col(Task.id).in_(list(descendants)), col(Task.status).in_(_ACTIVE_STATUSES))
-    )
-    active = {tid for tid in status_rows.all() if tid is not None}
-    if not active:
+    external = visited - id_set
+    if not external:
         return set()
     parents_of: dict[int, list[int]] = {}
     for parent, kids in children_of.items():
         for child in kids:
             parents_of.setdefault(child, []).append(parent)
     protected: set[int] = set()
-    stack = list(active)
-    seen = set(active)
+    stack = list(external)
+    seen = set(external)
     while stack:
         node = stack.pop()
         for parent in parents_of.get(node, []):
@@ -447,12 +445,12 @@ class TasksRepoMixin(RepositoryMixinBase):
             return created
 
     async def delete_task(self, task_id: int) -> bool:
-        """删除任务. 有非终态后裔 (QUEUED/RUNNING) 时拒绝 (否则会把在跑子任务删成孤儿)."""
+        """删除任务. 有未纳入本次删除的后裔时拒绝, 以免剩余子任务失去链根后无法在列表中显示."""
         async with self._session() as session:
             task = await session.get(Task, task_id)
             if task is None:
                 return False
-            if await _ids_with_active_descendants(session, [task_id]):
+            if await _ids_with_external_descendants(session, [task_id]):
                 return False
             await session.exec(
                 sqla_delete(TaskLink).where(
@@ -466,14 +464,14 @@ class TasksRepoMixin(RepositoryMixinBase):
     async def delete_tasks(self, task_ids: Iterable[int | None]) -> int:
         """批量删除任务 (含相关后继边), 返回删除数量.
 
-        允许删除有终态子任务 (DONE/FAILED) 的任务 — 已结束的链可整棵清理;
-        仍有非终态后裔 (QUEUED/RUNNING) 的行跳过, 其余照删, 避免「清已完成」被一条在跑链整批挡住.
+        存在不在本次 id 集合内的后裔的行跳过, 其余照删.
+        整棵匹配子树可一次删除; 混合状态的祖先保留为链根.
         """
         ids = [i for i in task_ids if i is not None]
         if not ids:
             return 0
         async with self._session() as session:
-            protected = await _ids_with_active_descendants(session, ids)
+            protected = await _ids_with_external_descendants(session, ids)
             deletable = [i for i in ids if i not in protected]
             if not deletable:
                 return 0

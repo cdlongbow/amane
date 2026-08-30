@@ -127,10 +127,16 @@ async def _apply_found(
         return TaskBatchResponse(affected=affected, skipped=skipped, missing=missing)
 
     if action == TaskBatchAction.DELETE:
-        for task in eligible:
-            cleanup_task_artifacts(task, log_dir)
-        deleted = await repo.delete_tasks([task.id for task in eligible])
-        # 有活跃后裔的行被跳过, 计入 skipped (与 status 不合格的 skipped 相加).
+        ids = [task.id for task in eligible if task.id is not None]
+        deleted = await repo.delete_tasks(ids)
+        leftover_ids: set[int] = set()
+        if deleted and deleted < len(ids):
+            leftover_ids = {task.id for task in await repo.find_tasks(task_ids=ids) if task.id is not None}
+        if deleted:
+            for task in eligible:
+                if task.id is not None and task.id not in leftover_ids:
+                    cleanup_task_artifacts(task, log_dir)
+        # 有集合外后裔的行被跳过, 计入 skipped (与 status 不合格的 skipped 相加).
         return TaskBatchResponse(affected=deleted, skipped=skipped + (len(eligible) - deleted), missing=missing)
 
     created = await repo.retry_tasks(eligible)

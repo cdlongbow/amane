@@ -1,6 +1,6 @@
 # 任务系统
 
-> 提交: `2d58403`
+> 提交: `720cc54`
 >
 > 入口: `src/amane/handlers/`, `src/amane/scheduler/worker.py`. Payload 结构、handler 步骤都在源码; 本文只解释**为什么**这么编排.
 > 数据所有权见 [data-model.md](data-model.md), 启动顺序见 [architecture.md](architecture.md), 日志隔离见 [observability.md](observability.md).
@@ -32,7 +32,7 @@
 - **`TaskLink`** 是父子边真值: `(parent_task_id, key)` 唯一. `key` 须在父节点内区分后继 (fan-out 带实体 id, 如 `scrape:{media_file_id}` / `actor-scrape:{actor_id}`). 完成事务对同 key 只留第一条. 删除任务时清理其边, 不删除另一端任务.
 - **链聚合**: `tasks.root_task_id` 记录链根 (根指向自己, 在完成事务内写入), 一棵链一次 `list_tasks_by_root` 取回. 任务列表默认只显示链根 (子任务按需展开). `child_count` / `child_status` 是直接后继的数量与状态分布 — 折叠节点据此显示数量、失败/运行数, 不必先展开.
 - **筛选与 roots_only 正交**: `GET /tasks` 带 status/type 筛选时在 SQL 中匹配**全部**任务 (含子任务), 再 `DISTINCT COALESCE(root_task_id, id)` 还原链根行 — 因此「父已 DONE、子 SCRAPE 排队中」时 `status=queued` / `type=scrape` 仍能看到父根行. 裸任务 (root 为空) 按自身 id 精确匹配, 不会误扩到其它裸任务.
-- **删除保护**: 有非终态后裔 (QUEUED/RUNNING, 含孙任务、菱形多父) 的任务跳过删除, 防止把仍在跑的子任务删成不可见孤儿. 批量删除跳过这些行、其余照删 (「清除已完成」不会被一条在跑的链整批挡住). 后裔全部终态后父任务可删 (删除父任务不删除子任务, 只清其边).
+- **删除保护**: 待删集合里存在**不在该集合内的后裔**的节点跳过 (含孙任务、菱形多父). 整棵匹配子树可一次删除; 「清除已完成」遇到父 DONE、子有成有败时保留父节点作为链根, 只删除无剩余后裔的 DONE 叶子. 删除节点时清理其边, 不删除集合外的另一端任务.
 - **重试 = 独立重跑**: `retry_tasks` 克隆为**无根裸任务**, 不继承原任务链归属 — 有链任务失败重试后克隆在顶层列表可见, 原 FAILED 行留在原链上, 克隆自身无父无子, 完成后自成新链. 不与原链的后继冲突.
 - **树视图 API**: `GET /tasks/{id}/children` 返回直接子任务 (`TaskChildResponse`, 含出边 `link_key`; `limit`/`offset`, `total` 为出边总数不受本页截断). `GET /tasks?root_task_id=` 取整链. 前端 `web/src/components/task/task-tree.tsx` 嵌套列表树: 点击整行展开/收起该节点 (子任务与详情同一动作). 完成/失败事件与批量操作经 `invalidateTaskQueries` 同时失效列表与 children (hey-api query key 是 `[{ _id }]`, 不能写成 `["getTaskChildren"]`).
 - 静态 continuation / on_failure / 多父 join 尚未实现, 见 `docs/plan/task-graph.md`.
