@@ -41,6 +41,29 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+async def _alist_media_files(
+    scan_dir: Path,
+    *,
+    recursive: bool,
+    patterns: list[str] | None,
+    skip_patterns: Sequence[str | None] | None = None,
+    min_file_size: int = 0,
+    media_extensions: frozenset[str] | None = None,
+) -> list[Path]:
+    """收齐一次 glob, 供 ORGANIZE 按已知总量上报进度."""
+    return [
+        p
+        async for p in aiter_media_files(
+            scan_dir,
+            recursive=recursive,
+            patterns=patterns,
+            skip_patterns=skip_patterns,
+            min_file_size=min_file_size,
+            media_extensions=media_extensions,
+        )
+    ]
+
+
 @dataclass
 class FileOperationsResult:
     """file operations 执行结果."""
@@ -414,9 +437,14 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         assert library.id is not None
 
         # 落盘前清掉本库失效索引, 避免 dest 碰撞名被幽灵行占用而撞 path UNIQUE.
-        for mf in await self._repo.list_media_files(library_id=library.id, limit=None):
-            if mf.id is not None and not await path_exists(Path(mf.path), follow_symlinks=False):
-                await self._repo.delete_media_file(mf.id)
+        indexed = await self._repo.list_media_files(library_id=library.id, limit=None)
+        prune_total = len(indexed)
+        if prune_total:
+            await self.report_progress(0, prune_total, "prune")
+            for i, mf in enumerate(indexed, start=1):
+                if mf.id is not None and not await path_exists(Path(mf.path), follow_symlinks=False):
+                    await self._repo.delete_media_file(mf.id)
+                await self.report_progress(i, prune_total, "prune")
 
         recursive = payload.recursive if payload.recursive is not None else True
         media_extensions = frozenset(self._config.watcher.media_extensions) or MEDIA_EXTENSIONS
@@ -428,54 +456,66 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         skipped = 0
         failed = 0
 
-        async for file_path in aiter_media_files(
+        await self.report_progress(0, 0, "scan")
+        files = await _alist_media_files(
             scan_dir,
             recursive=recursive,
             patterns=payload.patterns,
             skip_patterns=[library.trailer_pattern, *(library.blacklist_patterns or [])],
             min_file_size=library.min_file_size,
             media_extensions=media_extensions,
-        ):
-            path_str = str(file_path)
+        )
+        total = len(files)
+        if total == 0:
+            await self.report_progress(1, 1, "done")
+        else:
+            await self.report_progress(0, total, "organize")
+            for i, file_path in enumerate(files, start=1):
+                path_str = str(file_path)
 
-            # 查找 MediaFile 记录
-            media_file = await self._repo.get_media_file_by_path(path_str)
-            if media_file is None or media_file.metadata_id is None:
-                skipped += 1
-                continue
+                # 查找 MediaFile 记录
+                media_file = await self._repo.get_media_file_by_path(path_str)
+                if media_file is None or media_file.metadata_id is None:
+                    skipped += 1
+                    await self.report_progress(i, total, file_path.name)
+                    continue
 
-            # 查找关联的 Metadata
-            metadata = await self._repo.get_metadata(media_file.metadata_id)
-            if metadata is None:
-                skipped += 1
-                continue
+                # 查找关联的 Metadata
+                metadata = await self._repo.get_metadata(media_file.metadata_id)
+                if metadata is None:
+                    skipped += 1
+                    await self.report_progress(i, total, file_path.name)
+                    continue
 
-            # 执行 file operations
-            write_nfo = library.write_nfo if payload.write_nfo is None else payload.write_nfo
-            copy_resources = library.copy_resources if payload.copy_resources is None else payload.copy_resources
-            fop_result = await apply_file_operations(
-                self._repo,
-                media_file.id,
-                metadata,
-                self._config,
-                self._resource_store,
-                write_nfo=write_nfo,
-                copy_resources=copy_resources,
-                web_client=self._web_client,
-                safe_dirs=self._safe_dirs,
-                watermark_dir=self._watermark_dir,
-            )
-            if fop_result is None:
-                skipped += 1
-                continue
+                # 执行 file operations
+                write_nfo = library.write_nfo if payload.write_nfo is None else payload.write_nfo
+                copy_resources = library.copy_resources if payload.copy_resources is None else payload.copy_resources
+                fop_result = await apply_file_operations(
+                    self._repo,
+                    media_file.id,
+                    metadata,
+                    self._config,
+                    self._resource_store,
+                    write_nfo=write_nfo,
+                    copy_resources=copy_resources,
+                    web_client=self._web_client,
+                    safe_dirs=self._safe_dirs,
+                    watermark_dir=self._watermark_dir,
+                )
+                if fop_result is None:
+                    skipped += 1
+                    await self.report_progress(i, total, file_path.name)
+                    continue
 
-            if fop_result.dest and media_file.id is not None:
-                await self._repo.update_media_file(media_file.id, path=str(fop_result.dest))
-            if fop_result.success:
-                organized += 1
-            else:
-                logger.warning("organize failed", path=path_str, error=fop_result.error)
-                failed += 1
+                if fop_result.dest and media_file.id is not None:
+                    await self._repo.update_media_file(media_file.id, path=str(fop_result.dest))
+                if fop_result.success:
+                    organized += 1
+                else:
+                    logger.warning("organize failed", path=path_str, error=fop_result.error)
+                    failed += 1
+                await self.report_progress(i, total, file_path.name)
+            await self.report_progress(total, total, "done")
 
         logger.info(
             "organize completed",
@@ -513,13 +553,18 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         trailer_res = compile_skip_patterns([library.trailer_pattern])
         trash_dir = Path(library.path) / TRASH_DIRNAME
         trashed = 0
-        async for file_path in aiter_media_files(
+        await self.report_progress(0, 0, "trash")
+        candidates = await _alist_media_files(
             scan_dir,
             recursive=recursive,
             patterns=None,
             skip_patterns=None,
             media_extensions=media_extensions,
-        ):
+        )
+        trash_total = len(candidates)
+        if trash_total:
+            await self.report_progress(0, trash_total, "trash")
+        for i, file_path in enumerate(candidates, start=1):
             blacklisted = trash_res is not None and any(r.search(file_path.name) for r in trash_res)
             is_trailer = trailer_res is not None and any(r.search(file_path.name) for r in trailer_res)
             result = await _trash_if_unwanted(
@@ -531,9 +576,11 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                 media_extensions=media_extensions,
             )
             if result is None:
+                await self.report_progress(i, trash_total, "trash")
                 continue
             if not result.success:
                 logger.warning("unwanted file trash failed", path=str(file_path), error=result.error)
+                await self.report_progress(i, trash_total, "trash")
                 continue
             logger.info("unwanted file trashed", path=str(file_path), dest=str(result.dest))
             media_file = await self._repo.get_media_file_by_path(str(file_path))
@@ -541,6 +588,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                 assert media_file.id is not None
                 await self._repo.delete_media_file(media_file.id)
             trashed += 1
+            await self.report_progress(i, trash_total, "trash")
         return trashed
 
 

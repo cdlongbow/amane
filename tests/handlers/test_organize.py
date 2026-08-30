@@ -635,3 +635,76 @@ async def test_organize_writes_strm_and_nfo_next_to_link(
     updated = await repo.get_media_file(media.id)
     assert updated is not None
     assert updated.path == str(dest)
+
+
+@pytest.mark.asyncio(loop_scope="function")
+@pytest.mark.parametrize(
+    "kind",
+    ["two_files", "empty", "not_a_dir", "missing_library"],
+)
+async def test_reports_progress(repo: Repository, resource_store: ResourceStore, tmp_path: Path, kind: str) -> None:
+    """收齐 glob 后按已知总量 determinate 上报; skip 也计入 current. 非法路径不上报."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    lib = await repo.create_library(name="t", path=str(lib_root), write_nfo=False)
+    assert lib.id is not None
+
+    events: list[tuple[int, int, str]] = []
+
+    async def capture(current: int, total: int, message: str = "") -> None:
+        events.append((current, total, message))
+
+    org = OrganizeHandler(repo, HotSettings(), resource_store)
+    org.set_progress_callback(capture)
+
+    if kind == "not_a_dir":
+        result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir / "missing")))
+        assert result.success is False
+        assert result.error is not None
+        assert "Not a directory" in result.error
+        assert events == []
+        return
+
+    if kind == "missing_library":
+        result = await org.handle(OrganizePayload(library_id=lib.id + 999, path=str(src_dir)))
+        assert result.success is False
+        assert result.error is not None
+        assert "not found" in result.error
+        assert events == []
+        return
+
+    if kind == "empty":
+        result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+        assert result.success is True
+        assert result.result is not None
+        assert result.result.organized == 0
+        assert (0, 0, "scan") in events
+        assert events[-1] == (1, 1, "done")
+        return
+
+    src1 = src_dir / "NSFS-039.mp4"
+    src2 = src_dir / "SKIP-001.mp4"
+    src1.write_bytes(b"a")
+    src2.write_bytes(b"b")
+    meta = await repo.upsert_metadata(number="NSFS-039", studio="Studio")
+    assert meta.id is not None
+    await repo.create_media_file(
+        lib.id, path=str(src1), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+    )
+
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert result.result.organized == 1
+    assert result.result.skipped == 1
+
+    assert (0, 0, "scan") in events
+    scan_at = events.index((0, 0, "scan"))
+    after = events[scan_at + 1 :]
+    assert after[0] == (0, 2, "organize")
+    assert after[-1] == (2, 2, "done")
+    assert all(t == 2 for _, t, _ in after)
+    assert [c for c, _, _ in after] == sorted(c for c, _, _ in after)
+    assert any(m == src1.name for _, _, m in after)
+    assert any(m == src2.name for _, _, m in after)

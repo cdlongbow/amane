@@ -126,10 +126,11 @@ export function TaskDetailPanel({ task, linkKey, actions }: TaskDetailPanelProps
             value={progress && progress.total > 0 ? (progress.current / progress.total) * 100 : 100}
             animated={!progress || progress.total === 0}
           />
-          {progress && progress.total > 0 && (
+          {progress && (progress.total > 0 || progress.message) && (
             <Text size="xs" c="dimmed" mt={4}>
-              {progress.current} / {progress.total}
-              {progress.message ? ` · ${progress.message}` : ""}
+              {progress.total > 0 ? `${progress.current} / ${progress.total}` : ""}
+              {progress.total > 0 && progress.message ? " · " : ""}
+              {progress.message}
             </Text>
           )}
         </div>
