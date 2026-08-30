@@ -1,6 +1,6 @@
 # 前端架构
 
-> 提交: `31c1235`
+> 提交: `847de27`
 >
 > 入口: `web/src/`. 组件清单从源码可见; 本文只写信息架构、跨模块约定与踩坑.
 
@@ -31,7 +31,7 @@
 
 ## Schema 表单
 
-Settings、任务提交、定时创建、metadata 编辑共用 `components/schema-form/`: Pydantic → OpenAPI → FieldRouter. `x-*` 清单见 `schema/types.ts`. `SchemaForm` 双模式: `patch` (dirty 门控, 只提交 diff) / `create` (完整值). 表单空值编码走 `schema-form/encode.ts` (`encodeFormBody` / `encodeEmptyValue`), 按 **Create / 列 schema** 判空: 可空 string 空串 → `null`, 非空 string 空串 → `""`, 非空 array 空 → `[]`. **不要**对着 PATCH partial schema 编码 — `create_partial_model` 会把非空列标成 `T|null`, 空 glob 会被编成 JSON `null`. 手写 Library / Feed 表单经同一编码器出 body (`libraryFormToCreateBody` / `libraryFormToUpdateBody` 分别用 Create 与 Response schema). `/plugins` 通过 `/api/plugins` 取得插件自带 JSON Schema，单独渲染每个来源配置；插件配置不进入核心 HotSettings 表单。安装用 `PathPicker` 选服务器目录/zip，或上传本机 zip；重新扫描 / 卸载走同一资源的 POST/DELETE，成功后同时失效插件列表与 config schema（路由 enum 会变）。
+Settings、任务提交、定时创建、metadata 编辑共用 `components/schema-form/`: Pydantic → OpenAPI → FieldRouter. `x-*` 清单见 `schema/types.ts`. `SchemaForm` 双模式: `patch` (dirty 门控, 只提交 diff) / `create` (完整值). dirty 保存条 (`UnsavedChangesBar`) : 设置页与影片/演员编辑弹窗都走 `affix` (Portal 钉视口底, 居中). Affix 默认 z-index 与 Modal 同为 200, 编辑弹窗里必须抬到 300 才能压过弹窗. **不要**把 dirty 条放进 Modal 表单流里 — Modal content 是滚动容器, 末尾的条必须滚到底才看见. `fieldLayout="grid"` 把连续短 scalar 收成两列 (`sm+`); title/plot 类长文本与 array/dict 仍整行 — 仅 metadata 编辑开启. 表单空值编码走 `schema-form/encode.ts` (`encodeFormBody` / `encodeEmptyValue`), 按 **Create / 列 schema** 判空: 可空 string 空串 → `null`, 非空 string 空串 → `""`, 非空 array 空 → `[]`. **不要**对着 PATCH partial schema 编码 — `create_partial_model` 会把非空列标成 `T|null`, 空 glob 会被编成 JSON `null`. 手写 Library / Feed 表单经同一编码器出 body (`libraryFormToCreateBody` / `libraryFormToUpdateBody` 分别用 Create 与 Response schema). `/plugins` 通过 `/api/plugins` 取得插件自带 JSON Schema，单独渲染每个来源配置；插件配置不进入核心 HotSettings 表单。安装用 `PathPicker` 选服务器目录/zip，或上传本机 zip；重新扫描 / 卸载走同一资源的 POST/DELETE，成功后同时失效插件列表与 config schema（路由 enum 会变）。
 
 任务 / 定时提交用 `DiscriminatedSchemaForm`: 外部选 `type` → schema variant → 去掉 const `type` 后交给 `create` 模式. 短枚举共用 `EnumToggle` (`components/common/enum-toggle.tsx`): 项间分隔线 + 滑动指示; `fullWidth` 占满行 (任务/定时 type、cron 模式、订阅内容类型), 默认按文案宽度 (Schema 表单短枚举、库放置方式/自动化、间隔单位). 片库 grid/list 等页面 view 切换仍用 SegmentedControl. 定时的 cron 用 `CronPicker`: 可视化覆盖间隔/每天/每周/每月, 无法往返的表达式回落「高级」手写; 产出 5-field, 与后端 croniter 一致. Library 表单仍手写 (create/edit 差 + `scan` 条件字段 + 库级 `automation` / 整理默认与预告片跳过正则); 路径模板占位符与后端 `resolve_paths` 同源, 经 `GET /api/libraries/path-template-schema` 下发 name+map_keys, 徽章说明在 i18n `placeholders.items` (有闭合取值时 tooltip 附 `map_keys`); 可空占位符名带字面量 `?`, `{name|k=v}` 与可选组语法见 [data-model.md](data-model.md). Feed 表单手写 (分组伪路径 / 间隔默认小时 / 正则 / content_type / use_cache), 只出现在 `/feeds/sources`. `/feeds` 是侧栏目录 + 条目阅读器. 导航态在 URL (`feed` / `group` / `q` / `state` / `page` / `nodedupe`). `/feeds/sources` 复用 BrowsePageShell `fill` / ListToolbar / SelectionBar / SortableTh; 源列表无分页 API, 前端筛、排、切页. 排序只走表头; 搜索旁是启用/自动入队筛选按钮 (URL `enabled` / `auto_enqueue`). 阅读器侧栏源/分组左侧图标深链源表, 见上文信息架构. 条目 HTML 经 DOMPurify 后渲染, 同番号折叠是前端显示层. 条目批量按 `feed_id` 分组走现有 batch. 源级批量 (拉取 / 启用 / 停用 / 自动入队 / 删除) 是前端循环现有单源端点, 无独立 batch. OPML 把无 xmlUrl 的 outline 写成 `group`; 导入时可加分组前缀 (拼在 outline 路径前) 与 `auto_enqueue` (默认关). 番号是否已在库由 items 列表 JOIN 的 `metadata_id` 判断, 见 [feeds.md](feeds.md).
 
@@ -66,6 +66,8 @@ OpenAPI 字符串联合若需运行时迭代, 集中放 `lib/exhaustive-maps.ts`
 ## 图片
 
 外站图经 `/api/resources/proxy` (`proxyImageUrl`). `<img>` 不能带 Authorization, 鉴权靠 cookie. 裁切基准是 `thumb_urls[0]` 对应的 **Resource 本地文件** (与后端 `acquire` 同一份), 只提交像素坐标, 不上传 blob. 片库海报角标 (中字/无码/破解/流出/清晰度) 是 CSS overlay, 读列表聚合 `file_phase`, 不改 Resource 像素. 无码 = mosaic 标记或片种 uncensored.
+
+`FanartLightbox` 必须 `Portal` 到 `document.body`. Modal 打开态带 `transform` (`fade-down` 的 `translateY(0)`), 会把 `position: fixed` 的包含块收成弹窗本身, 大图被 content `overflow-y: auto` 裁切. Lightbox 拦截 mousedown/click 冒泡, 避免点预览被 Modal 当成 click-outside.
 
 **proxy 限流**: 外链 `<img>` 走 `ProxyImage` / `useQueuedImageUrl`. 浏览器对同 host HTTP/1.1 连接有限 (约 6); 慢速外链不限流会占满连接池, API 请求全部排队. 全局信号量限制 4 个并发; 探测到 h2+ 时放行. 本地 `/api/resources/*` 不走队列. **只对邻近视口的 proxy 图抢槽** (`rootMargin` 400px); 排队图一旦拿到 `src` 立即请求, 不用 `loading=lazy` (lazy 会让屏外图占槽不发请求, 视口内头像一直空白).
 

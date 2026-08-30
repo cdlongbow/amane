@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
+import { ActionIcon, Box, Group, Loader, Portal, Text } from "@mantine/core";
 import { useDisclosure, useHotkeys } from "@mantine/hooks";
 import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
 import {
@@ -69,118 +69,130 @@ export function FanartLightbox({ images, initialIndex = 0, onClose }: FanartLigh
 
   const multi = images.length > 1;
 
+  // Portal 出 Modal: 打开态带 transform, 会把 position:fixed 的包含块收成弹窗,
+  // 大图被 overflow 裁切. 高于 Overlay(400) / Affix, 低于 max.
+  // 拦截 mousedown 以免点预览被 Modal 当成 click-outside.
   return (
-    <Box
-      pos="fixed"
-      inset={0}
-      style={{ zIndex: 400, background: "rgba(0,0,0,0.92)" }}
-      onClick={onClose}
-    >
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        size="lg"
-        pos="absolute"
-        top={16}
-        right={16}
-        style={{ zIndex: 1 }}
-        onClick={onClose}
-        aria-label="Close"
+    <Portal>
+      <Box
+        pos="fixed"
+        inset={0}
+        style={{ zIndex: 500, background: "rgba(0,0,0,0.92)" }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
       >
-        <IconX size={20} />
-      </ActionIcon>
-
-      <Group
-        gap="sm"
-        pos="absolute"
-        top={20}
-        left="50%"
-        style={{ transform: "translateX(-50%)", zIndex: 1 }}
-        wrap="nowrap"
-      >
-        <Text size="sm" c="dimmed">
-          {index + 1} / {images.length}
-        </Text>
-        {resolution && (
-          <Text size="sm" c="gray.5">
-            {resolution.w} × {resolution.h}
-          </Text>
-        )}
-      </Group>
-
-      {multi && (
         <ActionIcon
           variant="subtle"
           color="gray"
-          size="xl"
+          size="lg"
           pos="absolute"
-          left={16}
-          top="50%"
-          style={{ transform: "translateY(-50%)", zIndex: 1 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIndex((i) => (i > 0 ? i - 1 : images.length - 1));
-          }}
-        >
-          <IconChevronLeft size={28} />
-        </ActionIcon>
-      )}
-
-      {multi && (
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="xl"
-          pos="absolute"
+          top={16}
           right={16}
-          top="50%"
-          style={{ transform: "translateY(-50%)", zIndex: 1 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIndex((i) => (i < images.length - 1 ? i + 1 : 0));
-          }}
+          style={{ zIndex: 1 }}
+          onClick={onClose}
+          aria-label="Close"
         >
-          <IconChevronRight size={28} />
+          <IconX size={20} />
         </ActionIcon>
-      )}
 
-      <Group justify="center" align="center" h="100%" p="xl" style={{ pointerEvents: "none" }}>
-        {loading && (
-          <Loader color="gray" style={{ position: "absolute", zIndex: 1, pointerEvents: "none" }} />
+        <Group
+          gap="sm"
+          pos="absolute"
+          top={20}
+          left="50%"
+          style={{ transform: "translateX(-50%)", zIndex: 1 }}
+          wrap="nowrap"
+        >
+          <Text size="sm" c="dimmed">
+            {index + 1} / {images.length}
+          </Text>
+          {resolution && (
+            <Text size="sm" c="gray.5">
+              {resolution.w} × {resolution.h}
+            </Text>
+          )}
+        </Group>
+
+        {multi && (
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="xl"
+            pos="absolute"
+            left={16}
+            top="50%"
+            style={{ transform: "translateY(-50%)", zIndex: 1 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIndex((i) => (i > 0 ? i - 1 : images.length - 1));
+            }}
+          >
+            <IconChevronLeft size={28} />
+          </ActionIcon>
         )}
-        <img
-          ref={imgRef}
-          key={queuedSrc}
-          src={queuedSrc ?? undefined}
-          alt={`fanart-${index}`}
-          referrerPolicy="no-referrer"
-          style={{
-            maxHeight: "90vh",
-            maxWidth: "90vw",
-            objectFit: "contain",
-            pointerEvents: "auto",
-            opacity: loading ? 0 : 1,
-            transition: "opacity 150ms ease",
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onLoad={(e) => {
-            release();
-            const img = e.currentTarget;
-            setResolution(
-              img.naturalWidth > 0 && img.naturalHeight > 0
-                ? { w: img.naturalWidth, h: img.naturalHeight }
-                : null,
-            );
-            setLoading(false);
-          }}
-          onError={() => {
-            release();
-            setResolution(null);
-            setLoading(false);
-          }}
-        />
-      </Group>
-    </Box>
+
+        {multi && (
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="xl"
+            pos="absolute"
+            right={16}
+            top="50%"
+            style={{ transform: "translateY(-50%)", zIndex: 1 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIndex((i) => (i < images.length - 1 ? i + 1 : 0));
+            }}
+          >
+            <IconChevronRight size={28} />
+          </ActionIcon>
+        )}
+
+        <Group justify="center" align="center" h="100%" p="xl" style={{ pointerEvents: "none" }}>
+          {loading && (
+            <Loader
+              color="gray"
+              style={{ position: "absolute", zIndex: 1, pointerEvents: "none" }}
+            />
+          )}
+          <img
+            ref={imgRef}
+            key={queuedSrc}
+            src={queuedSrc ?? undefined}
+            alt={`fanart-${index}`}
+            referrerPolicy="no-referrer"
+            style={{
+              maxHeight: "90vh",
+              maxWidth: "90vw",
+              objectFit: "contain",
+              pointerEvents: "auto",
+              opacity: loading ? 0 : 1,
+              transition: "opacity 150ms ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onLoad={(e) => {
+              release();
+              const img = e.currentTarget;
+              setResolution(
+                img.naturalWidth > 0 && img.naturalHeight > 0
+                  ? { w: img.naturalWidth, h: img.naturalHeight }
+                  : null,
+              );
+              setLoading(false);
+            }}
+            onError={() => {
+              release();
+              setResolution(null);
+              setLoading(false);
+            }}
+          />
+        </Group>
+      </Box>
+    </Portal>
   );
 }
 

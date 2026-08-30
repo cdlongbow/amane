@@ -739,13 +739,16 @@ function TitleDetailPage() {
         opened={editOpen}
         onClose={() => setEditOpen(false)}
         title={`${t("edit.title")} — ${item.number}`}
-        size="xl"
+        size="72rem"
+        styles={{ body: { paddingBottom: 88 } }}
       >
         {editSchema ? (
           <SchemaForm
             schema={editSchema}
             prefix="editor"
             i18nPrefix="metadata"
+            fieldLayout="grid"
+            actionsPlacement="affix"
             values={(() => {
               const bag: Record<string, unknown> = { ...item };
               const out: Record<string, unknown> = {};

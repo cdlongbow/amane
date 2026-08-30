@@ -1,13 +1,12 @@
 import {
   Accordion,
-  ActionIcon,
   Anchor,
-  Box,
   Button,
   Group,
   Modal,
   NumberInput,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -15,13 +14,73 @@ import {
   TagsInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconArrowDown, IconArrowUp, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActorGender, ActorResponse, ActorUpdateRequest } from "@/client/types.gen";
+import { UnsavedChangesBar } from "@/components/common/unsaved-changes-bar";
 import { FanartLightbox } from "@/components/media/fanart-lightbox";
-import { proxyImageUrl } from "@/lib/utils";
-import { ProxyImage } from "@/components/media/proxy-image";
+import { SortableImageList } from "@/components/media/sortable-image-list";
+import { useResettingState } from "@/hooks/use-resetting-state";
+
+interface ActorDraft {
+  gender: ActorGender;
+  birthday: string;
+  birthplace: string;
+  height: number | string;
+  bust: number | string;
+  waist: number | string;
+  hip: number | string;
+  cup: string;
+  tagline: string;
+  overview: string;
+  aliases: string[];
+  imageUrls: string[];
+}
+
+function draftFromActor(actor: ActorResponse): ActorDraft {
+  return {
+    gender: actor.gender ?? "unknown",
+    birthday: actor.birthday ?? "",
+    birthplace: actor.birthplace ?? "",
+    height: actor.height ?? "",
+    bust: actor.bust ?? "",
+    waist: actor.waist ?? "",
+    hip: actor.hip ?? "",
+    cup: actor.cup ?? "",
+    tagline: actor.tagline ?? "",
+    overview: actor.overview ?? "",
+    aliases: [...(actor.aliases ?? [])],
+    imageUrls: [...(actor.image_urls ?? [])],
+  };
+}
+
+function numOrNull(v: number | string): number | null {
+  if (v === "" || v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function sameStringList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+function isDraftDirty(draft: ActorDraft, actor: ActorResponse): boolean {
+  const initial = draftFromActor(actor);
+  return (
+    draft.gender !== initial.gender ||
+    draft.birthday !== initial.birthday ||
+    draft.birthplace !== initial.birthplace ||
+    numOrNull(draft.height) !== numOrNull(initial.height) ||
+    numOrNull(draft.bust) !== numOrNull(initial.bust) ||
+    numOrNull(draft.waist) !== numOrNull(initial.waist) ||
+    numOrNull(draft.hip) !== numOrNull(initial.hip) ||
+    draft.cup !== initial.cup ||
+    draft.tagline !== initial.tagline ||
+    draft.overview !== initial.overview ||
+    !sameStringList(draft.aliases, initial.aliases) ||
+    !sameStringList(draft.imageUrls, initial.imageUrls)
+  );
+}
 
 export interface ActorEditDialogProps {
   actor: ActorResponse;
@@ -31,13 +90,7 @@ export interface ActorEditDialogProps {
   saving?: boolean;
 }
 
-function numOrNull(v: number | string): number | null {
-  if (v === "" || v == null) return null;
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-/** 演员人物字段编辑弹窗 - 含头像调序, 别名 tags, raw 只读来源. */
+/** 演员人物字段编辑弹窗 - 含头像拖拽调序, 别名 tags, raw 只读来源. */
 export function ActorEditDialog({
   actor,
   opened,
@@ -46,70 +99,40 @@ export function ActorEditDialog({
   saving = false,
 }: ActorEditDialogProps) {
   const { t } = useTranslation(["metadata", "common"]);
-  const [gender, setGender] = useState<ActorGender>(actor.gender ?? "unknown");
-  const [birthday, setBirthday] = useState(actor.birthday ?? "");
-  const [birthplace, setBirthplace] = useState(actor.birthplace ?? "");
-  const [height, setHeight] = useState<number | string>(actor.height ?? "");
-  const [bust, setBust] = useState<number | string>(actor.bust ?? "");
-  const [waist, setWaist] = useState<number | string>(actor.waist ?? "");
-  const [hip, setHip] = useState<number | string>(actor.hip ?? "");
-  const [cup, setCup] = useState(actor.cup ?? "");
-  const [tagline, setTagline] = useState(actor.tagline ?? "");
-  const [overview, setOverview] = useState(actor.overview ?? "");
-  const [aliases, setAliases] = useState<string[]>(() => [...(actor.aliases ?? [])]);
-  const [imageUrls, setImageUrls] = useState<string[]>(() => [...(actor.image_urls ?? [])]);
-  const [newImageUrl, setNewImageUrl] = useState("");
+  const formId = useId();
+  const formKey = opened ? actor.id : "closed";
+  const [draft, setDraft] = useResettingState(() => draftFromActor(actor), formKey);
+  const [newImageUrl, setNewImageUrl] = useResettingState(() => "", formKey);
   const [lightboxOpen, { open: openLightbox, close: closeLightbox }] = useDisclosure(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const formKey = opened ? actor.id : "closed";
   const [prevFormKey, setPrevFormKey] = useState(formKey);
   if (formKey !== prevFormKey) {
     setPrevFormKey(formKey);
-    setGender(actor.gender ?? "unknown");
-    setBirthday(actor.birthday ?? "");
-    setBirthplace(actor.birthplace ?? "");
-    setHeight(actor.height ?? "");
-    setBust(actor.bust ?? "");
-    setWaist(actor.waist ?? "");
-    setHip(actor.hip ?? "");
-    setCup(actor.cup ?? "");
-    setTagline(actor.tagline ?? "");
-    setOverview(actor.overview ?? "");
-    setAliases([...(actor.aliases ?? [])]);
-    setImageUrls([...(actor.image_urls ?? [])]);
-    setNewImageUrl("");
     closeLightbox();
   }
 
   const rawSites = Object.entries(actor.raw ?? {});
+  const dirty = isDraftDirty(draft, actor);
 
-  function moveImage(index: number, delta: number) {
-    const next = index + delta;
-    if (next < 0 || next >= imageUrls.length) return;
-    setImageUrls((prev) => {
-      const copy = [...prev];
-      const tmp = copy[index];
-      copy[index] = copy[next];
-      copy[next] = tmp;
-      return copy;
-    });
+  function patchDraft(partial: Partial<ActorDraft>) {
+    setDraft((prev) => ({ ...prev, ...partial }));
   }
 
   function handleSave() {
     onSave({
-      gender,
-      birthday: birthday.trim() || null,
-      birthplace: birthplace.trim() || null,
-      height: numOrNull(height),
-      bust: numOrNull(bust),
-      waist: numOrNull(waist),
-      hip: numOrNull(hip),
-      cup: cup.trim() || null,
-      tagline: tagline.trim() || null,
-      overview: overview.trim() || null,
-      aliases: aliases.map((a) => a.trim()).filter(Boolean),
-      image_urls: imageUrls,
+      gender: draft.gender,
+      birthday: draft.birthday.trim() || null,
+      birthplace: draft.birthplace.trim() || null,
+      height: numOrNull(draft.height),
+      bust: numOrNull(draft.bust),
+      waist: numOrNull(draft.waist),
+      hip: numOrNull(draft.hip),
+      cup: draft.cup.trim() || null,
+      tagline: draft.tagline.trim() || null,
+      overview: draft.overview.trim() || null,
+      aliases: draft.aliases.map((a) => a.trim()).filter(Boolean),
+      image_urls: draft.imageUrls,
     });
   }
 
@@ -118,71 +141,100 @@ export function ActorEditDialog({
       opened={opened}
       onClose={onClose}
       title={`${t("actors.editTitle")} — ${actor.name}`}
-      size="lg"
+      size="72rem"
+      styles={{ body: { paddingBottom: 88 } }}
     >
-      <Stack gap="sm">
-        <Select
-          label={t("browse.person.gender")}
-          description={t("actors.genderHint")}
-          value={gender}
-          onChange={(v) => {
-            if (v === "female" || v === "male" || v === "unknown") setGender(v);
-          }}
-          data={[
-            { value: "female", label: t("browse.person.genderFemale") },
-            { value: "male", label: t("browse.person.genderMale") },
-            { value: "unknown", label: t("browse.person.genderUnknown") },
-          ]}
-          allowDeselect={false}
-        />
-        <TextInput
-          label={t("browse.person.birthday")}
-          description={t("browse.person.birthdayFormat")}
-          value={birthday}
-          onChange={(e) => setBirthday(e.currentTarget.value)}
-          placeholder="YYYY-MM-DD"
-        />
-        <TextInput
-          label={t("browse.person.birthplace")}
-          value={birthplace}
-          onChange={(e) => setBirthplace(e.currentTarget.value)}
-        />
+      <Stack
+        component="form"
+        id={formId}
+        gap="sm"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (dirty) handleSave();
+        }}
+      >
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+          <Select
+            label={t("browse.person.gender")}
+            description={t("actors.genderHint")}
+            value={draft.gender}
+            onChange={(v) => {
+              if (v === "female" || v === "male" || v === "unknown") patchDraft({ gender: v });
+            }}
+            data={[
+              { value: "female", label: t("browse.person.genderFemale") },
+              { value: "male", label: t("browse.person.genderMale") },
+              { value: "unknown", label: t("browse.person.genderUnknown") },
+            ]}
+            allowDeselect={false}
+          />
+          <TextInput
+            label={t("browse.person.birthday")}
+            description={t("browse.person.birthdayFormat")}
+            value={draft.birthday}
+            onChange={(e) => patchDraft({ birthday: e.currentTarget.value })}
+            placeholder="YYYY-MM-DD"
+          />
+          <TextInput
+            label={t("browse.person.birthplace")}
+            value={draft.birthplace}
+            onChange={(e) => patchDraft({ birthplace: e.currentTarget.value })}
+          />
+          <Group grow align="flex-end">
+            <NumberInput
+              label={t("browse.person.height")}
+              value={draft.height}
+              onChange={(v) => patchDraft({ height: v })}
+              min={0}
+              allowDecimal={false}
+            />
+            <TextInput
+              label={t("browse.person.cup")}
+              value={draft.cup}
+              onChange={(e) => patchDraft({ cup: e.currentTarget.value })}
+            />
+          </Group>
+        </SimpleGrid>
         <Group grow>
           <NumberInput
-            label={t("browse.person.height")}
-            value={height}
-            onChange={setHeight}
+            label="B"
+            value={draft.bust}
+            onChange={(v) => patchDraft({ bust: v })}
             min={0}
             allowDecimal={false}
           />
-          <TextInput
-            label={t("browse.person.cup")}
-            value={cup}
-            onChange={(e) => setCup(e.currentTarget.value)}
+          <NumberInput
+            label="W"
+            value={draft.waist}
+            onChange={(v) => patchDraft({ waist: v })}
+            min={0}
+            allowDecimal={false}
           />
-        </Group>
-        <Group grow>
-          <NumberInput label="B" value={bust} onChange={setBust} min={0} allowDecimal={false} />
-          <NumberInput label="W" value={waist} onChange={setWaist} min={0} allowDecimal={false} />
-          <NumberInput label="H" value={hip} onChange={setHip} min={0} allowDecimal={false} />
+          <NumberInput
+            label="H"
+            value={draft.hip}
+            onChange={(v) => patchDraft({ hip: v })}
+            min={0}
+            allowDecimal={false}
+          />
         </Group>
         <TextInput
           label={t("browse.person.tagline")}
-          value={tagline}
-          onChange={(e) => setTagline(e.currentTarget.value)}
+          value={draft.tagline}
+          onChange={(e) => patchDraft({ tagline: e.currentTarget.value })}
         />
         <Textarea
           label={t("browse.person.overview")}
-          value={overview}
-          onChange={(e) => setOverview(e.currentTarget.value)}
+          value={draft.overview}
+          onChange={(e) => patchDraft({ overview: e.currentTarget.value })}
           minRows={3}
           autosize
         />
         <TagsInput
           label={t("browse.person.aliases")}
           description={t("actors.aliasesHint")}
-          value={aliases}
-          onChange={setAliases}
+          value={draft.aliases}
+          onChange={(aliases) => patchDraft({ aliases })}
           splitChars={[",", "，", "\n"]}
           clearable
         />
@@ -194,70 +246,17 @@ export function ActorEditDialog({
           <Text size="xs" c="dimmed">
             {t("actors.imagesEditHint")}
           </Text>
-          {imageUrls.map((url, index) => (
-            <Group key={`${url}-${index}`} gap="xs" wrap="nowrap" align="center">
-              <Box
-                component="button"
-                type="button"
-                onClick={() => {
-                  setLightboxIndex(index);
-                  openLightbox();
-                }}
-                style={{
-                  padding: 0,
-                  border: "none",
-                  background: "none",
-                  cursor: "zoom-in",
-                  lineHeight: 0,
-                  borderRadius: "var(--mantine-radius-sm)",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                }}
-              >
-                <ProxyImage
-                  src={proxyImageUrl(url) ?? url}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  style={{
-                    display: "block",
-                    width: 36,
-                    height: 48,
-                    objectFit: "cover",
-                  }}
-                  placeholder={
-                    <span style={{ display: "block", width: 36, height: 48 }} aria-hidden />
-                  }
-                />
-              </Box>
-              <Text size="xs" style={{ flex: 1, minWidth: 0 }} truncate title={url}>
-                {index === 0 ? `${t("actors.primaryImage")} · ${url}` : url}
-              </Text>
-              <ActionIcon
-                variant="subtle"
-                disabled={index === 0}
-                onClick={() => moveImage(index, -1)}
-                aria-label="up"
-              >
-                <IconArrowUp size={14} />
-              </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                disabled={index === imageUrls.length - 1}
-                onClick={() => moveImage(index, 1)}
-                aria-label="down"
-              >
-                <IconArrowDown size={14} />
-              </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                onClick={() => setImageUrls((prev) => prev.filter((_, i) => i !== index))}
-                aria-label="remove"
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Group>
-          ))}
+          <SortableImageList
+            urls={draft.imageUrls}
+            onChange={(imageUrls) => patchDraft({ imageUrls })}
+            onOpen={(index) => {
+              setLightboxIndex(index);
+              openLightbox();
+            }}
+            primaryLabel={t("actors.primaryImage")}
+            removeLabel={t("actors.removeImage")}
+            reorderLabel={t("actors.reorderImage")}
+          />
           <Group gap="xs" wrap="nowrap">
             <TextInput
               style={{ flex: 1 }}
@@ -270,7 +269,12 @@ export function ActorEditDialog({
               disabled={!/^https?:\/\//i.test(newImageUrl.trim())}
               onClick={() => {
                 const url = newImageUrl.trim();
-                setImageUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+                setDraft((prev) => ({
+                  ...prev,
+                  imageUrls: prev.imageUrls.includes(url)
+                    ? prev.imageUrls
+                    : [...prev.imageUrls, url],
+                }));
                 setNewImageUrl("");
               }}
             >
@@ -300,18 +304,24 @@ export function ActorEditDialog({
           </Stack>
         )}
 
-        <Group justify="flex-end" mt="sm">
-          <Button variant="default" onClick={onClose}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button loading={saving} onClick={handleSave}>
-            {t("common:actions.save")}
-          </Button>
-        </Group>
+        <UnsavedChangesBar
+          dirty={dirty}
+          saving={saving}
+          formId={formId}
+          placement="affix"
+          onDiscard={() => {
+            setDraft(draftFromActor(actor));
+            setNewImageUrl("");
+          }}
+        />
       </Stack>
 
-      {lightboxOpen && imageUrls.length > 0 && (
-        <FanartLightbox images={imageUrls} initialIndex={lightboxIndex} onClose={closeLightbox} />
+      {lightboxOpen && draft.imageUrls.length > 0 && (
+        <FanartLightbox
+          images={draft.imageUrls}
+          initialIndex={lightboxIndex}
+          onClose={closeLightbox}
+        />
       )}
     </Modal>
   );

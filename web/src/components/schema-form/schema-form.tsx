@@ -1,12 +1,25 @@
-import { Affix, Box, Button, Group, Paper, Stack, Text, Transition } from "@mantine/core";
+import { Box, Button, Group, SimpleGrid, Stack } from "@mantine/core";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useId, useMemo } from "react";
+import { useCallback, useId, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { UnsavedChangesBar } from "@/components/common/unsaved-changes-bar";
 import { isRecord } from "@/lib/utils";
 import { encodeFormBody } from "./encode";
 import { FieldRouter } from "./fields";
 import type { JSONSchemaObject } from "./schema";
-import { createSchemaValidator } from "./schema";
+import {
+  createSchemaValidator,
+  isArray,
+  isBool,
+  isDict,
+  isEnum,
+  isHidden,
+  isLibrary,
+  isNumeric,
+  isObject,
+  isPath,
+  isText,
+} from "./schema";
 
 /** Deep equality check for config values (handles primitives, arrays, objects). */
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -24,6 +37,79 @@ function deepEqual(a: unknown, b: unknown): boolean {
     return keysA.every((k) => deepEqual(a[k], b[k]));
   }
   return false;
+}
+
+/** Keys that stay full-width even when `fieldLayout="grid"`. */
+const WIDE_TEXT_KEYS = new Set([
+  "title",
+  "plot",
+  "overview",
+  "description",
+  "body",
+  "notes",
+  "comment",
+  "summary",
+]);
+
+function isCompactFormField(key: string, schema: JSONSchemaObject): boolean {
+  if (isHidden(schema)) return false;
+  if (
+    isArray(schema) ||
+    isDict(schema) ||
+    isObject(schema) ||
+    isPath(schema) ||
+    isLibrary(schema)
+  ) {
+    return false;
+  }
+  if (isText(schema) && (schema["x-multiline"] === true || schema["x-long"] === true)) {
+    return false;
+  }
+  if (WIDE_TEXT_KEYS.has(key)) return false;
+  return isText(schema) || isNumeric(schema) || isEnum(schema) || isBool(schema);
+}
+
+interface FieldNode {
+  key: string;
+  schema: JSONSchemaObject;
+}
+
+/** Consecutive compact scalars become 2-col rows; everything else is a full-width row. */
+function layoutFieldRows(
+  properties: NonNullable<JSONSchemaObject["properties"]>,
+  grid: boolean,
+): FieldNode[][] {
+  const nodes: FieldNode[] = [];
+  for (const [key, schema] of Object.entries(properties)) {
+    if (typeof schema === "boolean") continue;
+    if (isHidden(schema)) continue;
+    nodes.push({ key, schema });
+  }
+  if (!grid) return nodes.map((n) => [n]);
+
+  const rows: FieldNode[][] = [];
+  let run: FieldNode[] = [];
+  const flush = () => {
+    if (run.length === 0) return;
+    if (run.length === 1) {
+      rows.push(run);
+    } else {
+      for (let i = 0; i < run.length; i += 2) {
+        rows.push(run.slice(i, i + 2));
+      }
+    }
+    run = [];
+  };
+  for (const node of nodes) {
+    if (isCompactFormField(node.key, node.schema)) {
+      run.push(node);
+    } else {
+      flush();
+      rows.push([node]);
+    }
+  }
+  flush();
+  return rows;
 }
 
 interface SchemaFormProps {
@@ -45,8 +131,8 @@ interface SchemaFormProps {
   saving: boolean;
   /**
    * Where dirty save/reset actions appear.
-   * - `affix`: fixed viewport-bottom bar (settings page).
-   * - `inline`: in-flow bar at the end of the form (modals / embedded).
+   * - `affix`: fixed viewport-bottom bar (settings page and metadata/actor edit modals).
+   * - `inline`: sticky to the nearest scrollport (embedded / create forms).
    * @default "inline"
    */
   actionsPlacement?: "affix" | "inline";
@@ -59,6 +145,12 @@ interface SchemaFormProps {
   submitLabel?: string;
   /** Extra disable gate for the primary action (e.g. parent envelope fields incomplete). */
   submitDisabled?: boolean;
+  /**
+   * Field arrangement.
+   * - `stack` (default): one field per row.
+   * - `grid`: consecutive short scalars share a 2-col row on `sm+`.
+   */
+  fieldLayout?: "stack" | "grid";
 }
 
 export function SchemaForm({
@@ -72,11 +164,16 @@ export function SchemaForm({
   mode = "patch",
   submitLabel,
   submitDisabled = false,
+  fieldLayout = "stack",
 }: SchemaFormProps) {
   const { t } = useTranslation("common");
   const formId = useId();
   const properties = useMemo(() => schema.properties ?? {}, [schema.properties]);
   const isCreate = mode === "create";
+  const rows = useMemo(
+    () => layoutFieldRows(properties, fieldLayout === "grid"),
+    [properties, fieldLayout],
+  );
 
   // Build defaultValues as { [prefix]: { field1: val1, field2: val2, ... } }
   // TanStack Form resolves dot-path names like "prefix.field1" to this nested object.
@@ -147,70 +244,67 @@ export function SchemaForm({
     >
       {({ dirty, isValid }) => {
         if (isCreate) {
-          const createBar = (
-            <Group justify="flex-end">
-              <Button
-                type="submit"
-                form={formId}
-                disabled={saving || !isValid || submitDisabled}
-                loading={saving}
-              >
-                {primaryLabel}
-              </Button>
-            </Group>
-          );
-          return <Box mt="md">{createBar}</Box>;
-        }
-
-        const bar = (
-          <Paper withBorder shadow="md" px="md" py="sm" radius="md">
-            <Group gap="md" wrap="nowrap" justify="space-between">
-              <Text size="sm">{t("status.unsavedChanges")}</Text>
-              <Group gap="sm" wrap="nowrap">
-                <Button type="button" variant="default" onClick={handleReset} disabled={saving}>
-                  {t("actions.discard")}
-                </Button>
-                {/* form= associates portaled Affix buttons with the <form> */}
+          return (
+            <Box mt="md">
+              <Group justify="flex-end">
                 <Button
                   type="submit"
                   form={formId}
                   disabled={saving || !isValid || submitDisabled}
                   loading={saving}
                 >
-                  {saving ? t("actions.saving") : (submitLabel ?? t("actions.save"))}
+                  {primaryLabel}
                 </Button>
               </Group>
-            </Group>
-          </Paper>
-        );
-
-        if (actionsPlacement === "affix") {
-          return (
-            <Affix position={{ bottom: 24, left: 0, right: 0 }} withinPortal>
-              <Transition mounted={dirty} transition="slide-up" duration={180}>
-                {(styles) => (
-                  <Box
-                    style={{
-                      ...styles,
-                      display: "flex",
-                      justifyContent: "center",
-                      pointerEvents: "none",
-                      paddingInline: 16,
-                    }}
-                  >
-                    <Box style={{ pointerEvents: "auto", maxWidth: 560, width: "100%" }}>{bar}</Box>
-                  </Box>
-                )}
-              </Transition>
-            </Affix>
+            </Box>
           );
         }
 
-        if (!dirty) return null;
-        return <Box mt="md">{bar}</Box>;
+        return (
+          <UnsavedChangesBar
+            dirty={dirty}
+            saving={saving}
+            saveDisabled={!isValid || submitDisabled}
+            formId={formId}
+            onDiscard={handleReset}
+            submitLabel={submitLabel}
+            placement={actionsPlacement === "affix" ? "affix" : "sticky"}
+          />
+        );
       }}
     </form.Subscribe>
   );
+
+  const fieldBlocks: ReactNode[] = rows.map((row, rowIdx) => {
+    const fields = row.map(({ key, schema: fieldSchema }) => (
+      <FieldRouter
+        key={key}
+        name={`${prefix}.${key}`}
+        schema={fieldSchema}
+        form={form}
+        i18nPrefix={i18nPrefix}
+      />
+    ));
+    const rowStyle =
+      rowIdx > 0 ? { borderTop: "1px solid var(--mantine-color-default-border)" } : undefined;
+    if (row.length === 1) {
+      return (
+        <Box key={row[0].key} style={rowStyle}>
+          {fields[0]}
+        </Box>
+      );
+    }
+    return (
+      <SimpleGrid
+        key={`row-${rowIdx}-${row[0].key}`}
+        cols={{ base: 1, sm: 2 }}
+        spacing="md"
+        style={rowStyle}
+      >
+        {fields}
+      </SimpleGrid>
+    );
+  });
 
   return (
     <Stack
@@ -222,29 +316,7 @@ export function SchemaForm({
         form.handleSubmit();
       }}
     >
-      <Stack gap={0}>
-        {Object.entries(properties).map(([fieldKey, fieldSchema], idx) => {
-          if (typeof fieldSchema === "boolean") return null;
-          return (
-            <Box
-              key={fieldKey}
-              style={
-                idx === 0
-                  ? undefined
-                  : { borderTop: "1px solid var(--mantine-color-default-border)" }
-              }
-            >
-              <FieldRouter
-                name={`${prefix}.${fieldKey}`}
-                schema={fieldSchema}
-                form={form}
-                i18nPrefix={i18nPrefix}
-              />
-            </Box>
-          );
-        })}
-      </Stack>
-
+      <Stack gap={0}>{fieldBlocks}</Stack>
       {actions}
     </Stack>
   );
