@@ -1,5 +1,6 @@
 """ORGANIZE 的文件后处理 (下载图到库路径, 移文件, 写 NFO)."""
 
+import asyncio
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ from ..organize import MoveMode, ResolvedPaths, discover_subtitles, execute_orga
 from ..organize.link import create_video_link
 from ..parsing import FileInfo, parse_file_info
 from ..utils.extensions import MEDIA_EXTENSIONS, TRASH_DIRNAME, compile_skip_patterns, is_undersized_video
-from ._common import iter_media_files
+from ._common import aiter_media_files
 from .models import CleanupPayload, CleanupResult, OrganizePayload, OrganizeResult
 from .protocol import TaskHandler, TaskResult
 
@@ -350,7 +351,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
     async def handle(self, payload: OrganizePayload) -> TaskResult[OrganizeResult]:
         scan_dir = Path(payload.path)
-        if not scan_dir.is_dir():
+        if not await asyncio.to_thread(scan_dir.is_dir):
             return TaskResult(success=False, error=f"Not a directory: {payload.path}")
 
         # 获取 Library 用于路径模板
@@ -361,7 +362,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
         # 落盘前清掉本库失效索引, 避免 dest 碰撞名被幽灵行占用而撞 path UNIQUE.
         for mf in await self._repo.list_media_files(library_id=library.id, limit=None):
-            if mf.id is not None and not Path(mf.path).exists(follow_symlinks=False):
+            if mf.id is not None and not await asyncio.to_thread(Path(mf.path).exists, follow_symlinks=False):
                 await self._repo.delete_media_file(mf.id)
 
         recursive = payload.recursive if payload.recursive is not None else True
@@ -374,7 +375,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         skipped = 0
         failed = 0
 
-        for file_path in iter_media_files(
+        async for file_path in aiter_media_files(
             scan_dir,
             recursive=recursive,
             patterns=payload.patterns,
@@ -459,7 +460,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         trailer_res = compile_skip_patterns([library.trailer_pattern])
         trash_dir = Path(library.path) / TRASH_DIRNAME
         trashed = 0
-        for file_path in iter_media_files(
+        async for file_path in aiter_media_files(
             scan_dir,
             recursive=recursive,
             patterns=None,

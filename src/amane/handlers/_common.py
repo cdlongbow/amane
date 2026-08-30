@@ -1,13 +1,18 @@
 """
 handler 间共享的可复用单元.
 
-- iter_media_files: 目录遍历 + 媒体文件过滤 (REFRESH / ORGANIZE)
-- register_media_file: 注册 MediaFile + 计算落库 oshash (WATCHER 发现 / REFRESH 扫描)
+- iter_media_files / aiter_media_files: 目录遍历 + 媒体文件过滤 (REFRESH / ORGANIZE)
+- register_media_file: 注册 MediaFile (WATCHER 发现 / REFRESH 扫描); 不计算 oshash
+- ensure_oshash: 按需计算并落库指纹 (仅 Stash 系刮削前调用)
 - finalize_media_file: 标记 MediaFile 为已刮削并关联 Metadata (SCRAPE)
 
 库目录落盘 (apply_file_operations) 在 file.py, 仅 ORGANIZE 调用.
 """
 
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..db import MediaFileStatus
@@ -15,11 +20,13 @@ from ..utils.extensions import MEDIA_EXTENSIONS, compile_skip_patterns, is_in_tr
 from ..utils.oshash import compute_oshash_async
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
-    from pathlib import Path
+    from collections.abc import AsyncIterator, Iterator, Sequence
 
     from ..db.models import MediaFile
     from ..db.repository import Repository
+
+# 每批在工作线程里推进的 glob 条目数: 让出事件循环, 又避免每文件一次 to_thread.
+_WALK_BATCH = 256
 
 
 def _maybe_file(f: Path) -> bool:
@@ -74,14 +81,56 @@ def iter_media_files(
         yield file_path
 
 
+async def aiter_media_files(
+    scan_dir: Path,
+    *,
+    recursive: bool,
+    patterns: list[str] | None,
+    skip_patterns: Sequence[str | None] | None = None,
+    min_file_size: int = 0,
+    media_extensions: frozenset[str] | None = None,
+) -> AsyncIterator[Path]:
+    """``iter_media_files`` 的异步封装: glob/stat 在线程池分批推进, 不堵事件循环."""
+    iterator = iter_media_files(
+        scan_dir,
+        recursive=recursive,
+        patterns=patterns,
+        skip_patterns=skip_patterns,
+        min_file_size=min_file_size,
+        media_extensions=media_extensions,
+    )
+
+    def _next_batch() -> list[Path]:
+        batch: list[Path] = []
+        for _ in range(_WALK_BATCH):
+            try:
+                batch.append(next(iterator))
+            except StopIteration:
+                break
+        return batch
+
+    while True:
+        batch = await asyncio.to_thread(_next_batch)
+        if not batch:
+            return
+        for path in batch:
+            yield path
+
+
 async def register_media_file(repo: Repository, library_id: int, path: Path) -> MediaFile:
-    """创建 MediaFile 记录并落库 oshash (计算失败留 None, 不阻断注册)."""
-    media = await repo.create_media_file(library_id=library_id, path=str(path))
-    media_hash = await compute_oshash_async(path)
-    if media_hash is not None:
-        assert media.id is not None
-        return await repo.update_media_file(media.id, oshash=media_hash) or media
-    return media
+    """创建 MediaFile 记录. oshash 留给刮削按需计算, 注册不读文件内容."""
+    return await repo.create_media_file(library_id=library_id, path=str(path))
+
+
+async def ensure_oshash(repo: Repository, media: MediaFile) -> str | None:
+    """已有指纹直接返回; 否则计算并落库. 失败留 None, 不阻断刮削."""
+    if media.oshash is not None:
+        return media.oshash
+    media_hash = await compute_oshash_async(Path(media.path))
+    if media_hash is None or media.id is None:
+        return None
+    updated = await repo.update_media_file(media.id, oshash=media_hash)
+    return updated.oshash if updated is not None else media_hash
 
 
 async def finalize_media_file(repo: Repository, media_file_id: int | None, metadata_id: int | None) -> None:

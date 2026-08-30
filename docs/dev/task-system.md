@@ -1,6 +1,6 @@
 # 任务系统
 
-> 提交: `697b7c0`
+> 提交: `a7ce29f`
 >
 > 入口: `src/amane/handlers/`, `src/amane/scheduler/worker.py`. Payload 结构、handler 步骤都在源码; 本文只解释**为什么**这么编排.
 > 数据所有权见 [data-model.md](data-model.md), 启动顺序见 [architecture.md](architecture.md), 日志隔离见 [observability.md](observability.md).
@@ -51,7 +51,9 @@
 
 组合示例: `scan={"add"}, scrape=set()` → 仅注册不刮削; `scan={"add"}, scrape={"pending"}` → 注册 + 刮削; `scan={"remove"}` → 仅清理失效记录. 落盘另交 ORGANIZE.
 
-文件注册 (watcher 发现与 REFRESH 扫描共用 `register_media_file`) 时同步计算并落库 oshash 指纹 (Stash 系站点匹配用): 计算失败 (文件 < 128 KiB / 不可读) 留 `None`, 不阻断注册; 扫描时对既有缺失指纹的条目回填. fan-out 与 oshash 回填必须 `list_media_files(..., limit=None)`: 默认 50 是 `GET /media` 的列表分页, 不是批量任务上限.
+扫描遍历走 `aiter_media_files` (线程池分批 glob/stat), 与库内索引的差集在 Python 做 (`list_media_files` 一次拉齐). 不把整棵树的路径塞进 SQL `IN` / `NOT IN`: `NOT IN` 按批拆会把其它批里真实存在的文件误判为失效. 仅 `remove` 时对库内记录 `exists`, 不扫磁盘树. fan-out 必须 `list_media_files(..., limit=None)`: 默认 50 是 `GET /media` 的列表分页, 不是批量任务上限.
+
+文件注册 (watcher 发现与 REFRESH 扫描共用 `register_media_file`) 只写路径, 不算 oshash. 指纹只在 SCRAPE 时按需计算: 本次实例化的爬虫 `profile().uses_file_hash` (ThePornDB) 且 `MediaFile.oshash` 为空, 才 `ensure_oshash`; 失败留 `None`, 不阻断刮削.
 
 REFRESH 永远在某个 library 下运行 (提交不接受裸 path). "不入库只刮削"由 `ScrapeSubmission` 的 by-number 纯查询路径表达, 与 REFRESH 正交.
 
@@ -101,7 +103,7 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 | 单元 | 位置 | 复用方 | 职责 |
 | ------ | ------ | -------- | ------ |
-| `iter_media_files` | `handlers/_common.py` | REFRESH / ORGANIZE | 目录遍历 + patterns/扩展名过滤 + 库级 `trailer_pattern` / 黑名单 / `min_file_size` |
+| `iter_media_files` / `aiter_media_files` | `handlers/_common.py` | REFRESH / ORGANIZE | 目录遍历 + patterns/扩展名过滤 + 库级 `trailer_pattern` / 黑名单 / `min_file_size`; 异步封装在线程池分批推进 glob/stat, 不堵事件循环 |
 | `finalize_media_file` | `handlers/_common.py` | SCRAPE (缓存/主路径) | 标记 SCRAPED + 关联 Metadata |
 | `apply_file_operations` | `handlers/file.py` | ORGANIZE | 取 MediaFile→取 Library→渲染路径→执行 file ops |
 

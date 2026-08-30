@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -7,8 +8,7 @@ import structlog
 from ..db import TaskType
 from ..parsing import parse_file_info
 from ..utils.extensions import MEDIA_EXTENSIONS
-from ..utils.oshash import compute_oshash_async
-from ._common import iter_media_files, register_media_file
+from ._common import aiter_media_files, register_media_file
 from .models import RefreshPayload, RefreshResult, ScanMode, ScrapePayload
 from .protocol import FollowupTask, TaskHandler, TaskResult
 
@@ -17,9 +17,11 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+_WALK_LOG_EVERY = 500
+
 
 class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
-    """以 Library 为单位, 按需扫描文件索引 (注册新文件/清理失效/回填 oshash) 并 fan-out SCRAPE."""
+    """以 Library 为单位, 按需扫描文件索引 (注册新文件/清理失效) 并 fan-out SCRAPE."""
 
     def __init__(self, repo: Repository, media_extensions: Sequence[str] | None = None):
         super().__init__(payload_t=RefreshPayload, result_t=RefreshResult)
@@ -28,7 +30,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
 
     async def handle(self, payload: RefreshPayload) -> TaskResult[RefreshResult]:
         scan_dir = Path(payload.path)
-        if not scan_dir.is_dir():
+        if not await asyncio.to_thread(scan_dir.is_dir):
             return TaskResult(success=False, error=f"Not a directory: {payload.path}")
 
         library = await self._repo.get_library(payload.library_id)
@@ -37,53 +39,55 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
 
         added = removed = scrape = 0
 
-        # 扫描文件并添加/清理数据库条目
+        existing = await self._repo.list_media_files(library_id=payload.library_id, limit=None)
+        existing_by_path = {f.path: f for f in existing}
+
         if payload.scan:
-            disk_files = set(
-                map(
-                    str,
-                    iter_media_files(
-                        scan_dir,
-                        recursive=payload.recursive if payload.recursive is not None else True,
-                        patterns=payload.patterns,
-                        skip_patterns=skip_patterns,
-                        min_file_size=min_file_size,
-                        media_extensions=self._media_extensions,
-                    ),
-                )
-            )
+            want_add = ScanMode.add in payload.scan
+            want_remove = ScanMode.remove in payload.scan
+            # remove 且同时 add: 一次遍历收集 seen, 再做集合差.
+            # 仅 remove: 不走整树 glob, 对库内记录逐条 exists (O(索引) 而非 O(磁盘树)).
+            seen: set[str] | None = set() if want_add and want_remove else None
 
-            # 清理无效条目 (即数据库中存在但本地已不存在的)
-            if ScanMode.remove in payload.scan:
-                invalid = await self._repo.get_invalid(disk_files, library_id=payload.library_id)
-                logger.info("remove invalid db entries", count=len(invalid))
-                for media in invalid:
-                    assert media.id is not None
-                    await self._repo.delete_media_file(media.id)
-                removed += len(invalid)
+            if want_add:
+                logger.info("scan walking started", path=payload.path)
+                walked = 0
+                async for file_path in aiter_media_files(
+                    scan_dir,
+                    recursive=payload.recursive if payload.recursive is not None else True,
+                    patterns=payload.patterns,
+                    skip_patterns=skip_patterns,
+                    min_file_size=min_file_size,
+                    media_extensions=self._media_extensions,
+                ):
+                    path_str = str(file_path)
+                    walked += 1
+                    if seen is not None:
+                        seen.add(path_str)
+                    if walked % _WALK_LOG_EVERY == 0:
+                        logger.info("scan walking", path=payload.path, seen=walked, added=added)
+                    if path_str not in existing_by_path:
+                        media = await register_media_file(self._repo, payload.library_id, file_path)
+                        existing_by_path[path_str] = media
+                        added += 1
+                if added:
+                    logger.info("new files discovered", path=payload.path, count=added)
 
-            # 添加新发现的文件
-            valid = await self._repo.get_valid(disk_files)
-            new_files = disk_files - {f.path for f in valid}
-            if ScanMode.add in payload.scan and new_files:
-                logger.info("new files discovered", path=payload.path, count=len(new_files))
-                for path in new_files:
-                    await register_media_file(self._repo, payload.library_id, Path(path))
-                added += len(new_files)
-
-        # 存量条目回填 oshash (仅补缺失, 供 ThePornDB 等指纹匹配站点使用)
-        if payload.scan:
-            backfilled = 0
-            for f in await self._repo.list_media_files(library_id=payload.library_id, limit=None):
-                if f.oshash is None:
-                    media_id = f.id
-                    assert media_id is not None
-                    media_hash = await compute_oshash_async(Path(f.path))
-                    if media_hash is not None:
-                        await self._repo.update_media_file(media_id, oshash=media_hash)
-                        backfilled += 1
-            if backfilled:
-                logger.info("oshash backfilled", count=backfilled)
+            if want_remove:
+                if seen is not None:
+                    missing = [f for f in existing if f.path not in seen]
+                else:
+                    missing = []
+                    for f in existing:
+                        still_there = await asyncio.to_thread(Path(f.path).exists)
+                        if not still_there:
+                            missing.append(f)
+                if missing:
+                    logger.info("remove invalid db entries", count=len(missing))
+                    for media in missing:
+                        assert media.id is not None
+                        await self._repo.delete_media_file(media.id)
+                    removed += len(missing)
 
         media_files = await self._repo.list_media_files(
             library_id=payload.library_id, status=payload.scrape, limit=None

@@ -66,7 +66,7 @@ class ThePornDBCrawler(Crawler):
 
     @classmethod
     def profile(cls) -> CrawlerProfile:
-        return CrawlerProfile(name=SiteName.THEPORNDB, base_url="https://theporndb.net/graphql")
+        return CrawlerProfile(name=SiteName.THEPORNDB, base_url="https://theporndb.net/graphql", uses_file_hash=True)
 
     async def fetch(self, query: SearchQuery, options: FetchOptions | None = None) -> MediaMetadata | None:
         token = self.config.api_token if self.config else None

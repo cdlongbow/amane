@@ -70,3 +70,13 @@ class TestEnumConsistency:
         )
         assert from_profile == MULTI_LANGUAGE_SITES
         assert frozenset(FILM_METADATA_SITES) >= MULTI_LANGUAGE_SITES
+
+    def test_file_hash_flag_is_stash_film_crawlers(self):
+        """uses_file_hash 只出现在需要指纹匹配的影片站 (当前 ThePornDB)."""
+        flagged = frozenset(
+            SiteName(name)
+            for name in registry.sites()
+            if (cls := registry.get(name)) is not None and cls.profile().uses_file_hash
+        )
+        assert flagged == frozenset({SiteName.THEPORNDB})
+        assert flagged <= frozenset(FILM_METADATA_SITES)

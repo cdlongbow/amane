@@ -45,6 +45,8 @@ class CrawlerProfile:
     """是否消费 FetchOptions.language (聚合展开 (site, lang) 节点)."""
     genders: frozenset[ActorGender] | None = None
     """演员爬虫的性别覆盖; 影片爬虫为 None."""
+    uses_file_hash: bool = False
+    """True 时刮削前按需计算 oshash (Stash 指纹匹配). 默认不在扫描期算."""
 
     def effective_capabilities(self) -> frozenset[SourceCapability]:
         return self.capabilities or frozenset({SourceCapability.FILM_METADATA})

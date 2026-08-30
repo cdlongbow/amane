@@ -489,6 +489,28 @@ class TestRefreshHandler:
         assert await repo.get_media_file_by_path(str(tmp_path / "MIDV-123.mp4")) is not None
         assert await repo.get_media_file_by_path(str(tmp_path / "note.nfo")) is None
 
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_remove_only_checks_db_paths(self, repo: Repository, tmp_path):
+        """仅 remove 不对整树 glob, 对库内路径 exists: 磁盘上没有的记录删掉, 还在的保留."""
+        lib = await repo.create_library(name="t", path=str(tmp_path))
+        assert lib.id is not None
+        keep = tmp_path / "MIDV-123.mp4"
+        keep.write_bytes(b"\x00" * 100)
+        await repo.create_media_file(lib.id, path=str(keep))
+        gone = await repo.create_media_file(lib.id, path=str(tmp_path / "missing.mp4"))
+        assert gone.id is not None
+
+        result = await RefreshHandler(repo=repo).handle(
+            RefreshPayload(library_id=lib.id, path=str(tmp_path), scan={ScanMode.remove}, scrape=set())
+        )
+
+        assert result.success is True
+        assert result.result is not None
+        assert result.result.added == 0
+        assert result.result.removed == 1
+        assert await repo.get_media_file_by_path(str(keep)) is not None
+        assert await repo.get_media_file_by_path(str(tmp_path / "missing.mp4")) is None
+
     @pytest.mark.parametrize(
         ("scan_modes", "scrape_statuses", "expected_scrape_tasks"),
         [

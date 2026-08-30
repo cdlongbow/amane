@@ -15,7 +15,7 @@ import pytest
 from helpers import AsyncTaskRunner
 from pydantic import ValidationError
 
-from amane.config import HotSettings
+from amane.config import HotSettings, ScrapingConfig
 from amane.crawlers.base import Crawler
 from amane.crawlers.factory import CrawlerFactory
 from amane.crawlers.models import MediaMetadata
@@ -81,6 +81,32 @@ class FailingCrawler(Crawler):
 
     async def _scrape(self, url: str, options=None) -> MediaMetadata | None:
         raise ConnectionError("Network unreachable")
+
+
+class HashCrawler(Crawler):
+    """声明 uses_file_hash, 记录本次 SearchQuery.file_hash."""
+
+    @classmethod
+    def profile(cls):
+        from amane.crawlers.base import CrawlerProfile
+
+        return CrawlerProfile(name=SiteName.THEPORNDB, base_url="https://fake.example.com", uses_file_hash=True)
+
+    def __init__(self, metadata: MediaMetadata):
+        self._profile = self.profile()
+        self.name = self._profile.name
+        self._metadata = metadata
+        self.seen_hash: str | None = None
+
+    async def fetch(self, query, options=None) -> MediaMetadata | None:
+        self.seen_hash = query.file_hash
+        return self._metadata
+
+    async def _search(self, query, options=None) -> str | None:
+        return "https://fake.example.com/v"
+
+    async def _scrape(self, url: str, options=None) -> MediaMetadata | None:
+        return self._metadata
 
 
 class PassActorHandler(TaskHandler[ActorScrapePayload, dict]):
@@ -201,25 +227,10 @@ class TestRefreshHandler:
         assert scrapes[0].payload["number"] == "MIDV-123"
 
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_refresh_computes_oshash(self, repo: Repository, tmp_path: Path):
-        """REFRESH 注册文件时计算 oshash 落库 (≥128KiB 的文件)"""
+    async def test_refresh_does_not_compute_oshash(self, repo: Repository, tmp_path: Path):
+        """REFRESH 只注册路径, 不读文件内容算指纹."""
         video = tmp_path / "MIDV-456.mkv"
         video.write_bytes(bytes(range(256)) * (65536 * 2 // 256))
-
-        result = await RefreshHandler(repo).handle(RefreshPayload(library_id=1, path=str(tmp_path)))
-
-        assert result.success is True
-        assert result.result is not None
-        assert result.result.added == 1
-        media = await repo.get_media_file_by_path(str(video))
-        assert media is not None
-        assert media.oshash == "a0601fdf9f610000"
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_refresh_small_file_no_oshash(self, repo: Repository, tmp_path: Path):
-        """小文件 (<128KiB) 无法计算指纹: 注册不阻断, oshash 留 None"""
-        video = tmp_path / "MIDV-789.mp4"
-        video.write_bytes(b"\x00" * 100)
 
         result = await RefreshHandler(repo).handle(RefreshPayload(library_id=1, path=str(tmp_path)))
 
@@ -231,18 +242,18 @@ class TestRefreshHandler:
         assert media.oshash is None
 
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_refresh_backfills_missing_oshash(self, repo: Repository, tmp_path: Path):
-        """存量条目 (无 oshash) 在扫描时回填"""
+    async def test_refresh_does_not_backfill_oshash(self, repo: Repository, tmp_path: Path):
+        """存量缺失指纹的条目扫描时也不回填."""
         video = tmp_path / "OLD-001.mkv"
         video.write_bytes(bytes(range(256)) * (65536 * 2 // 256))
-        await repo.create_media_file(library_id=1, path=str(video))  # 旧记录, 无 oshash
+        await repo.create_media_file(library_id=1, path=str(video))
 
         result = await RefreshHandler(repo).handle(RefreshPayload(library_id=1, path=str(tmp_path)))
 
         assert result.success is True
         media = await repo.get_media_file_by_path(str(video))
         assert media is not None
-        assert media.oshash == "a0601fdf9f610000"
+        assert media.oshash is None
 
 
 # --- 测试: SCRAPE 任务 ---
@@ -304,6 +315,50 @@ class TestScrapeHandler:
         assert result.success is False
         assert result.error is not None
         assert "no crawlers" in result.error.lower()
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_scrape_computes_oshash_for_stash_crawler(
+        self, repo: Repository, resource_store, fake_metadata, tmp_path: Path
+    ):
+        """路由里有 uses_file_hash 的站时, 刮削前计算并落库指纹."""
+        video = tmp_path / "MIDV-123.mkv"
+        video.write_bytes(bytes(range(256)) * (65536 * 2 // 256))
+        media = await repo.create_media_file(library_id=1, path=str(video))
+        crawler = HashCrawler(fake_metadata)
+        factory = AsyncMock(spec=CrawlerFactory)
+        factory.get_crawlers.return_value = {"theporndb": crawler}
+        handler = ScrapeHandler(
+            repo,
+            factory,
+            resource_store,
+            pipeline_config=HotSettings(
+                scraping=ScrapingConfig(content_routes={ContentType.CENSORED: [SiteName.THEPORNDB]})
+            ),
+        )
+        result = await handler.handle(
+            ScrapePayload(number="MIDV-123", media_file_id=media.id, content_type=ContentType.CENSORED)
+        )
+        assert result.success is True
+        assert crawler.seen_hash == "a0601fdf9f610000"
+        assert media.id is not None
+        stored = await repo.get_media_file(media.id)
+        assert stored is not None
+        assert stored.oshash == "a0601fdf9f610000"
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_scrape_skips_oshash_without_stash_crawler(self, repo: Repository, handler, tmp_path: Path):
+        """默认 javdb 路由不算指纹."""
+        video = tmp_path / "MIDV-123.mp4"
+        video.write_bytes(bytes(range(256)) * (65536 * 2 // 256))
+        media = await repo.create_media_file(library_id=1, path=str(video))
+        result = await handler.handle(
+            ScrapePayload(number="MIDV-123", media_file_id=media.id, content_type=ContentType.CENSORED)
+        )
+        assert result.success is True
+        assert media.id is not None
+        stored = await repo.get_media_file(media.id)
+        assert stored is not None
+        assert stored.oshash is None
 
 
 # --- 测试: 端到端流水线 ---

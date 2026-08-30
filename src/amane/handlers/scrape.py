@@ -1,18 +1,19 @@
 """聚合引擎见 amane.aggregate."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Protocol
 
 from structlog.contextvars import bind_contextvars
 
 from ..aggregate import SCALAR_FIELDS, AggregatedMetadata, CrawlerLike, FieldLanguage, aggregate, compile_priority
+from ..crawlers.base import Crawler
 from ..crawlers.models import SearchQuery
 from ..crawlers.site_roles import MULTI_LANGUAGE_SOURCE_IDS
 from ..db.models import TaskType
 from ..enums import MetadataField
 from ..media import materialize_images
 from ..observability import current
-from ._common import finalize_media_file
+from ._common import ensure_oshash, finalize_media_file
 from .models import ActorScrapePayload, CacheKind, ScrapePayload, ScrapeResult
 from .protocol import FollowupTask, TaskHandler, TaskResult
 
@@ -25,6 +26,11 @@ if TYPE_CHECKING:
 
 # 进度: 聚合按已满足标量字段计数; 其后固定两步 (物化图片 / 持久化).
 _PROGRESS_POST_STEPS = 2
+
+
+def _crawlers_need_oshash(crawlers: Mapping[str, CrawlerLike]) -> bool:
+    """本次实际实例化的爬虫是否声明需要文件指纹 (Stash 系)."""
+    return any(isinstance(crawler, Crawler) and type(crawler).profile().uses_file_hash for crawler in crawlers.values())
 
 
 class CrawlerFactoryLike(Protocol):
@@ -93,10 +99,14 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         if payload.media_file_id:
             file = await self._repo.get_media_file(media_id=payload.media_file_id)
 
+        file_hash = file.oshash if file else None
+        if file is not None and file_hash is None and _crawlers_need_oshash(crawlers):
+            file_hash = await ensure_oshash(self._repo, file)
+
         q = SearchQuery(
             payload.number,
             file.path if file else None,
-            file.oshash if file else None,
+            file_hash,
             payload.content_type,
         )
 

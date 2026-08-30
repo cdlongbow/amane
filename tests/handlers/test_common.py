@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from amane.db import MediaFileStatus
-from amane.handlers._common import finalize_media_file, iter_media_files
+from amane.handlers._common import aiter_media_files, ensure_oshash, finalize_media_file, iter_media_files
 
 if TYPE_CHECKING:
     from amane.db.repository import Repository
@@ -113,6 +113,51 @@ class TestIterMediaFiles:
         (tree / "a.mp4").write_bytes(b"tiny")
         result = {p.name for p in iter_media_files(tree, recursive=True, patterns=None, min_file_size=0)}
         assert "a.mp4" in result
+
+    @pytest.mark.asyncio
+    async def test_aiter_matches_sync_across_batches(self, tree, monkeypatch: pytest.MonkeyPatch):
+        """异步分批遍历与同步生成器产出同一组路径."""
+        import amane.handlers._common as common
+
+        monkeypatch.setattr(common, "_WALK_BATCH", 1)
+        expected = {p.name for p in iter_media_files(tree, recursive=True, patterns=None)}
+        got = {p.name async for p in aiter_media_files(tree, recursive=True, patterns=None)}
+        assert got == expected
+
+
+class TestEnsureOshash:
+    """按需计算指纹; 已有值不重算, 失败留 None."""
+
+    @pytest.mark.asyncio
+    async def test_computes_and_persists(self, repo: Repository, tmp_path):
+        video = tmp_path / "MIDV-123.mkv"
+        video.write_bytes(bytes(range(256)) * (65536 * 2 // 256))
+        media = await repo.create_media_file(library_id=1, path=str(video))
+        assert media.id is not None
+        assert await ensure_oshash(repo, media) == "a0601fdf9f610000"
+        stored = await repo.get_media_file(media.id)
+        assert stored is not None
+        assert stored.oshash == "a0601fdf9f610000"
+
+    @pytest.mark.asyncio
+    async def test_reuses_existing(self, repo: Repository):
+        media = await repo.create_media_file(library_id=1, path="/nope.mp4")
+        assert media.id is not None
+        await repo.update_media_file(media.id, oshash="already")
+        media = await repo.get_media_file(media.id)
+        assert media is not None
+        assert await ensure_oshash(repo, media) == "already"
+
+    @pytest.mark.asyncio
+    async def test_tiny_file_stays_none(self, repo: Repository, tmp_path):
+        video = tmp_path / "MIDV-123.mp4"
+        video.write_bytes(b"tiny")
+        media = await repo.create_media_file(library_id=1, path=str(video))
+        assert media.id is not None
+        assert await ensure_oshash(repo, media) is None
+        stored = await repo.get_media_file(media.id)
+        assert stored is not None
+        assert stored.oshash is None
 
 
 class TestFinalizeMediaFile:

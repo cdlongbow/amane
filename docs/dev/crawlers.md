@@ -1,6 +1,6 @@
 # 爬虫开发
 
-> 提交: `6b932a5`
+> 提交: `a7ce29f`
 >
 > 入口: `src/amane/crawlers/`. 本文解释爬虫架构、HTTP 层设计、限速机制, 以及添加新爬虫的完整步骤.
 > 测试约定见 [crawler-testing.md](crawler-testing.md). 默认路由与站点覆盖见 [content-routes.md](content-routes.md).
@@ -26,7 +26,7 @@ CrawlerFactory (缓存实例)
 
 - 演员站与影片站共用 HttpClient / 限速; 实现在 `crawlers/actor/`, 只注册 `actor_registry` (可以不在影片 `registry`). **双料站** = 同一 `SiteName` 在影片 / 演员注册表各有一个类, 共用 `site_config`; 不要在 `site_roles` 里手写双料名单.
 - gFriends 额外依赖 `data_dir` (Filetree 缓存) 与 `actor_scraping.gfriends_repo`.
-- **能力声明**在 `CrawlerProfile`: 演员爬虫必须显式 `capabilities` (`ACTOR_PROFILE` / `ACTOR_IMAGE`) 与 `genders`; 影片爬虫空 `capabilities` 视为 `film_metadata`, 消费 `FetchOptions.language` 的设 `multi_language=True`. `site_roles` 只从两个注册表推导配置 schema 用的站点列表 (档案序 = `actor_registry.register` 序); 聚合引擎只对推导出的 `MULTI_LANGUAGE_SITES` 展开 `(site, lang)` 节点. Handler 按 `Actor.gender` 对 `profile().genders` 裁站, 见 [task-system.md](task-system.md). 演员聚合契约见 [config.md](config.md) `actor_scraping`.
+- **能力声明**在 `CrawlerProfile`: 演员爬虫必须显式 `capabilities` (`ACTOR_PROFILE` / `ACTOR_IMAGE`) 与 `genders`; 影片爬虫空 `capabilities` 视为 `film_metadata`, 消费 `FetchOptions.language` 的设 `multi_language=True`. Stash 指纹匹配站设 `uses_file_hash=True`, 刮削前才计算 oshash, 扫描不读文件内容. `site_roles` 只从两个注册表推导配置 schema 用的站点列表 (档案序 = `actor_registry.register` 序); 聚合引擎只对推导出的 `MULTI_LANGUAGE_SITES` 展开 `(site, lang)` 节点. Handler 按 `Actor.gender` 对 `profile().genders` 裁站, 见 [task-system.md](task-system.md). 演员聚合契约见 [config.md](config.md) `actor_scraping`.
 - 生日 / 发行日输出均为 `YYYY-MM-DD` (`normalize_calendar_date`); 非法文本丢弃, 不写脏串.
 
 ## Crawler 基类

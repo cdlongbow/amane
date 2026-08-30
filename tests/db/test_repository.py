@@ -102,6 +102,30 @@ class TestMediaFileRepo:
         assert {f.path for f in result} == {"/video/A.mp4", "/video/B.mp4"}
 
     @pytest.mark.asyncio(loop_scope="function")
+    async def test_get_valid_chunks_union(self, repo: Repository, monkeypatch: pytest.MonkeyPatch):
+        """路径多于 SQL_IN_CHUNK_SIZE 时分批 IN, 并集完整、不含缺失路径."""
+        from amane.db.repos import media as media_mod
+
+        monkeypatch.setattr(media_mod, "SQL_IN_CHUNK_SIZE", 2)
+        paths = [f"/video/{i}.mp4" for i in range(5)]
+        for path in paths:
+            await repo.create_media_file(library_id=1, path=path)
+        result = await repo.get_valid([*paths, "/video/missing.mp4"])
+        assert {f.path for f in result} == set(paths)
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_get_invalid_empty_disk_returns_library(self, repo: Repository):
+        """disk_paths 为空且指定 library 时, 该库全部记录视为失效."""
+        lib = await repo.create_library(name="empty-disk", path="/e")
+        assert lib.id is not None
+        keep_other = await repo.create_library(name="other", path="/o")
+        assert keep_other.id is not None
+        gone = await repo.create_media_file(library_id=lib.id, path="/e/1.mp4")
+        await repo.create_media_file(library_id=keep_other.id, path="/o/1.mp4")
+        invalid = await repo.get_invalid([], library_id=lib.id)
+        assert {f.id for f in invalid} == {gone.id}
+
+    @pytest.mark.asyncio(loop_scope="function")
     async def test_get_invalid_scoped_to_library(self, repo: Repository):
         """失效清理按 library_id 收窄, 不把其它库的文件当成无效."""
         lib_a = await repo.create_library(name="a", path="/a")

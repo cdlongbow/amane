@@ -16,6 +16,9 @@ from ..repo_types import (
 )
 from .base import RepositoryMixinBase
 
+# SQLite 绑定变量上限 (旧编译 999 / 3.32+ 默认 32766). 500 给语句里其它占位留余量.
+SQL_IN_CHUNK_SIZE = 500
+
 
 def _apply_path_phase(media: MediaFile) -> None:
     """用当前 path 覆盖文件相位列. path 是真值, 这些列是投影."""
@@ -64,26 +67,32 @@ class MediaRepoMixin(RepositoryMixinBase):
             return result.first()
 
     async def get_valid(self, disk_paths: Iterable[str]) -> Sequence[MediaFile]:
-        """获取 disk_paths 与数据库现有条目的交集."""
-        if not disk_paths:
+        """获取 disk_paths 与数据库现有条目的交集. 路径按 SQL_IN_CHUNK_SIZE 分批 IN, 避开绑定变量上限."""
+        paths = list(disk_paths)
+        if not paths:
             return []
+        found: list[MediaFile] = []
         async with self._session() as session:
-            stmt = select(MediaFile).where(col(MediaFile.path).in_(disk_paths))
-            result = await session.exec(stmt)
-            return result.all()
+            for offset in range(0, len(paths), SQL_IN_CHUNK_SIZE):
+                chunk = paths[offset : offset + SQL_IN_CHUNK_SIZE]
+                stmt = select(MediaFile).where(col(MediaFile.path).in_(chunk))
+                result = await session.exec(stmt)
+                found.extend(result.all())
+        return found
 
     async def get_invalid(self, disk_paths: Iterable[str], library_id: int | None = None) -> Sequence[MediaFile]:
-        """获取数据库中路径不在 disk_paths 的条目. library_id 收窄到单库, 避免扫 A 误删 B."""
-        async with self._session() as session:
-            stmt = select(MediaFile)
-            if library_id is not None:
-                stmt = stmt.where(col(MediaFile.library_id) == library_id)
-            if disk_paths:
-                stmt = stmt.where(col(MediaFile.path).not_in(disk_paths))
-            elif library_id is None:
-                return []
-            result = await session.exec(stmt)
-            return result.all()
+        """获取数据库中路径不在 disk_paths 的条目. library_id 收窄到单库, 避免扫 A 误删 B.
+
+        在 Python 做集合差, 不走 SQL NOT IN: 数万路径的 NOT IN 不能按批拆
+        (每批 NOT IN 会把其它批里真实存在的路径误判为失效).
+        """
+        if library_id is None and not disk_paths:
+            return []
+        files = await self.list_media_files(library_id=library_id, limit=None)
+        disk = frozenset(disk_paths)
+        if not disk:
+            return files
+        return [f for f in files if f.path not in disk]
 
     async def list_media_files(
         self,
