@@ -1,6 +1,6 @@
 # 前端架构
 
-> 提交: `f4b39c1`
+> 提交: `92f1d38`
 >
 > 入口: `web/src/`. 组件清单从源码可见; 本文只写信息架构、跨模块约定与踩坑.
 
@@ -61,7 +61,7 @@ Settings、任务提交、定时创建、metadata 编辑共用 `components/schem
 | 导航态 (筛选 / 排序 / page / view) | URL search |
 | 列表密度 / 列宽 / 主题 | Zustand (`amane-web`) |
 
-`/logs` 进入后滚到 scroller 真正的底 (`scrollTo` MAX, 不是 `scrollToIndex` LAST+end — 单行末项 align end 会把下边距裁掉). `initialTopMostItemIndex` 只用末项下标; `alignToBottom` 把「跳到末项后视口里只剩一条」的短列表贴底. `followOutput` 开着时回调恒返回 `auto`, 不用 `smooth`.
+`/logs` 进入后滚到 scroller 真正的底 (`scrollTo` MAX, 不是 `scrollToIndex` LAST+end — 单行末项 align end 会把下边距裁掉). `initialTopMostItemIndex` 只用末项下标. 内容不足一屏时从顶部排布 (`alignToBottom` 会把短列表贴底, 禁止启用). `followOutput` 开着时回调恒返回 `auto`, 不用 `smooth`.
 
 OpenAPI 字符串联合若需运行时迭代, 集中放 `lib/exhaustive-maps.ts`, 禁止在路由里再手抄一份.
 

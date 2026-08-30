@@ -83,7 +83,6 @@ function LogVirtuoso({
       ref={virtuosoRef}
       style={{ height: "100%" }}
       data={data}
-      alignToBottom
       atBottomThreshold={200}
       initialTopMostItemIndex={data.length - 1}
       followOutput={autoScroll ? () => "auto" : false}
