@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import TypeAdapter
 
-from ...aggregate import RAW_TO_DB_FIELD, SCALAR_FIELD_NAMES
+from ...aggregate import compute_merge_updates
 from ...db.models import MetadataSortField, SavedQueryEntity, SortOrder, TaskType
 from ...db.repos.media import file_phase_of
 from ...handlers import ScrapePayload
@@ -319,7 +319,7 @@ async def merge_metadata(metadata_id: int, req: MergeRequest, repo: RepoDep) -> 
         raise HTTPException(status_code=404, detail="Metadata not found")
 
     try:
-        updates = _compute_merge_updates(metadata.raw, metadata.field_sources, req.selections)
+        updates = compute_merge_updates(metadata.raw, metadata.field_sources, req.selections)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
@@ -330,32 +330,3 @@ async def merge_metadata(metadata_id: int, req: MergeRequest, repo: RepoDep) -> 
     assert updated is not None
     logger.info("metadata merged", metadata_id=metadata_id, selections=req.selections)
     return to_resp(MetadataResponse, updated)
-
-
-def _compute_merge_updates(
-    raw: dict[str, dict[str, object]], field_sources: dict[str, str], selections: dict[str, str]
-) -> dict[str, object]:
-    """从 raw 数据和用户的来源选择计算合并后的 updates dict (供 ``repo.update_metadata``)."""
-    updates: dict[str, object] = {}
-    field_sources_updates: dict[str, str] = {}
-
-    for field, source in selections.items():
-        if source not in raw:
-            raise ValueError(f"source '{source}' not found in raw data")
-        if field not in raw[source]:
-            raise ValueError(f"field '{field}' not found for source '{source}'")
-
-        value = raw[source][field]
-        if value is None:
-            continue
-
-        db_field = RAW_TO_DB_FIELD.get(field, field)
-        updates[db_field] = {source: value} if db_field != field else value
-
-        if field in SCALAR_FIELD_NAMES:
-            field_sources_updates[field] = source
-
-    if field_sources_updates:
-        updates["field_sources"] = {**field_sources, **field_sources_updates}
-
-    return updates

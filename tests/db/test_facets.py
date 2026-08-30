@@ -124,6 +124,26 @@ class TestUserTagsAndComments:
     async def test_attach_missing_returns_false(self, repo: Repository) -> None:
         assert await repo.attach_user_tag(1, 1) is False
 
+    async def test_batch_attach_detach_user_tag(self, repo: Repository) -> None:
+        tag = await repo.create_user_tag("watched")
+        assert tag.id is not None
+        m1 = await repo.upsert_metadata(number="BT-001")
+        m2 = await repo.upsert_metadata(number="BT-002")
+        assert m1.id is not None and m2.id is not None
+
+        affected, missing = await repo.batch_attach_user_tag([m1.id, m2.id, 9999], tag.id)
+        assert (affected, missing) == (2, 1)
+        again, _ = await repo.batch_attach_user_tag([m1.id], tag.id)
+        assert again == 1
+        none, all_miss = await repo.batch_attach_user_tag([m1.id], 9999)
+        assert (none, all_miss) == (0, 1)
+
+        det_ok, det_miss = await repo.batch_detach_user_tag([m1.id, m2.id], tag.id)
+        assert (det_ok, det_miss) == (2, 0)
+        # m2 已卸下, 再卸一次计入 missing
+        _, again_miss = await repo.batch_detach_user_tag([m2.id], tag.id)
+        assert again_miss == 1
+
 
 class TestFacetFilterCombine:
     async def test_keyword_and_actor_filter(self, repo: Repository) -> None:

@@ -656,6 +656,27 @@ class TestMetadataRepo:
         assert updated_media.status == MediaFileStatus.PENDING
 
     @pytest.mark.asyncio(loop_scope="function")
+    async def test_batch_delete_metadata_counts_and_cascades(self, repo: Repository):
+        m1 = await repo.upsert_metadata(number="BD-001")
+        m2 = await repo.upsert_metadata(number="BD-002")
+        assert m1.id is not None and m2.id is not None
+        media = await repo.create_media_file(library_id=1, path="/video/BD-001.mp4", number="BD-001")
+        assert media.id is not None
+        await repo.update_media_file(media.id, status=MediaFileStatus.SCRAPED, metadata_id=m1.id)
+
+        deleted, missing = await repo.batch_delete_metadata([m1.id, m2.id, 9999])
+        assert (deleted, missing) == (2, 1)
+        assert await repo.get_metadata(m1.id) is None
+        assert await repo.get_metadata(m2.id) is None
+        updated = await repo.get_media_file(media.id)
+        assert updated is not None
+        assert updated.metadata_id is None
+        assert updated.status == MediaFileStatus.PENDING
+
+        zero, all_miss = await repo.batch_delete_metadata([8888, 7777])
+        assert (zero, all_miss) == (0, 2)
+
+    @pytest.mark.asyncio(loop_scope="function")
     async def test_get_media_by_metadata_id(self, repo: Repository):
         meta = await repo.upsert_metadata(number="ABC-001", title="Test")
         assert meta.id is not None

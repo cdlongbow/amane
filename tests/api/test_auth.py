@@ -59,75 +59,27 @@ async def token_client(tmp_path: Path):
 
 class TestTokenAuth:
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_no_token_rejected(self, token_client):
+    async def test_bearer_cookie_and_exemptions(self, token_client):
         client, _ = token_client
-        resp = await client.get("libraries")
-        assert resp.status_code == 401
+        assert (await client.get("libraries")).status_code == 401
+        assert (await client.get("libraries", headers={"Authorization": "Bearer wrong"})).status_code == 401
+        assert (await client.get("system/release")).status_code == 401
+        unauthorized = await client.get("libraries")
+        assert unauthorized.status_code == 401
+        assert "set-cookie" not in unauthorized.headers
+        assert (await client.get("health")).status_code == 200
+        assert (await client.get("libraries", headers={"Cookie": f"amane_token={TOKEN}"})).status_code == 200
+        assert (await client.get("libraries", headers={"Cookie": "amane_token=wrong"})).status_code == 401
 
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_wrong_token_rejected(self, token_client):
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Authorization": "Bearer wrong"})
-        assert resp.status_code == 401
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_valid_token_accepted(self, token_client):
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Authorization": f"Bearer {TOKEN}"})
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_cookie_set_on_header_auth(self, token_client):
-        """Bearer 认证成功 → 下发 HttpOnly SameSite=Lax cookie (子资源用)."""
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Authorization": f"Bearer {TOKEN}"})
-        assert resp.status_code == 200
-        set_cookie = resp.headers.get("set-cookie", "")
+        ok = await client.get("libraries", headers={"Authorization": f"Bearer {TOKEN}"})
+        assert ok.status_code == 200
+        set_cookie = ok.headers.get("set-cookie", "")
         assert f"amane_token={TOKEN}" in set_cookie
         assert "HttpOnly" in set_cookie
         assert "SameSite=lax" in set_cookie
         assert "Path=/api" in set_cookie
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_cookie_auth_accepted(self, token_client):
-        """无 header, 仅凭 cookie (模拟 <img> 子资源) 通过."""
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Cookie": f"amane_token={TOKEN}"})
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_cookie_lifecycle(self, token_client):
-        """真实流程: header 认证落下 cookie, 后续裸请求 (无 header) 凭 cookie 通过."""
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Authorization": f"Bearer {TOKEN}"})
-        assert resp.status_code == 200
-        resp = await client.get("libraries")
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_wrong_cookie_rejected(self, token_client):
-        client, _ = token_client
-        resp = await client.get("libraries", headers={"Cookie": "amane_token=wrong"})
-        assert resp.status_code == 401
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_cookie_not_set_on_unauthorized(self, token_client):
-        client, _ = token_client
-        resp = await client.get("libraries")
-        assert resp.status_code == 401
-        assert "set-cookie" not in resp.headers
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_health_exempt(self, token_client):
-        client, _ = token_client
-        resp = await client.get("health")
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_update_requires_token(self, token_client):
-        client, _ = token_client
-        resp = await client.get("system/release")
-        assert resp.status_code == 401
+        # header 认证落下 cookie 后, jar 里的后续裸请求通过
+        assert (await client.get("libraries")).status_code == 200
 
     def test_ws_token_enforced(self):
         """WS 校验用最小 app 测 (TestClient 与完整中间件链的 WS 交互有已知

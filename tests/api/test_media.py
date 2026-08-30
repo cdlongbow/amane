@@ -1,11 +1,9 @@
-"""/media 端点测试"""
+"""/media HTTP 接线: 状态码、JSON 形状、422. 列表筛选见 tests/db/test_repository.py."""
 
 from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-
-from amane.db.models import MediaFileStatus
 
 if TYPE_CHECKING:
     from httpx2 import AsyncClient
@@ -20,59 +18,22 @@ async def _seed_library(repo: Repository) -> None:
         await repo.create_library(name="default", path="/")
 
 
-class TestListMedia:
+class TestMediaHttp:
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_list_filter_search(self, client: AsyncClient, repo: Repository):
+    async def test_list_get_update_delete(self, client: AsyncClient, repo: Repository):
         empty = await client.get("media")
         assert empty.status_code == 200
         assert empty.json()["items"] == []
         assert empty.json()["total"] == 0
+        assert (await client.get("media?definition=not-a-def")).status_code == 422
 
-        await repo.create_media_file(library_id=1, path="/video/a.mp4", number="ABC-001")
-        await repo.create_media_file(library_id=1, path="/other/b.mkv", number="DEF-002")
-        listed = await client.get("media")
-        assert listed.json()["total"] == 2
-
-        m1 = await repo.create_media_file(library_id=1, path="/a.mp4")
-        await repo.create_media_file(library_id=1, path="/b.mp4")
-        assert m1.id is not None
-        await repo.update_media_file(m1.id, status=MediaFileStatus.SCRAPED)
-        pending = await client.get("media?status=pending")
-        assert pending.json()["total"] == 3
-
-        for i in range(5):
-            await repo.create_media_file(library_id=1, path=f"/video/{i}.mp4")
-        page = await client.get("media?limit=2&offset=0")
-        assert len(page.json()["items"]) == 2
-        assert page.json()["total"] == 9
-
-        by_path = await client.get("media?search=other")
-        assert by_path.json()["total"] == 1
-        assert by_path.json()["items"][0]["path"] == "/other/b.mkv"
-        by_num = await client.get("media?search=ABC")
-        assert by_num.json()["total"] == 1
-        assert by_num.json()["items"][0]["number"] == "ABC-001"
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_list_phase_filters_and_fields(self, client: AsyncClient, repo: Repository):
-        await repo.create_media_file(library_id=1, path="/video/MIDV-001-C.mp4")
-        await repo.create_media_file(library_id=1, path="/video/HEYZO-1234.mp4")
+        media = await repo.create_media_file(library_id=1, path="/video/MIDV-001-C.mp4", number="XYZ-001")
         listed = await client.get("media?search=MIDV-001")
+        assert listed.status_code == 200
         item = listed.json()["items"][0]
         assert item["has_subtitle"] is True
         assert item["content_type"] == "censored"
-        heyzo = await client.get("media?uncensored=true")
-        assert heyzo.json()["total"] == 1
-        assert heyzo.json()["items"][0]["content_type"] == "uncensored"
-        assert heyzo.json()["items"][0]["mosaic"] is None
-        bad = await client.get("media?definition=not-a-def")
-        assert bad.status_code == 422
 
-
-class TestGetMedia:
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_get_update_delete(self, client: AsyncClient, repo: Repository):
-        media = await repo.create_media_file(library_id=1, path="/video/x.mp4", number="XYZ-001")
         got = await client.get(f"media/{media.id}")
         assert got.status_code == 200
         assert got.json()["number"] == "XYZ-001"

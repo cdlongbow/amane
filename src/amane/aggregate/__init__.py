@@ -19,6 +19,7 @@ from .engine import (
     compute_waves,
     execute_graph,
 )
+from .merge import compute_merge_updates
 from .models import AggregatedMetadata, AggregateResult, SourcedScore
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "aggregate",
     "build_graph",
     "compile_priority",
+    "compute_merge_updates",
     "compute_waves",
     "execute_graph",
     "merge_actor_metadata",

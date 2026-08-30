@@ -1,7 +1,7 @@
 # 加测试
 
-> 提交: `5d76eff`
->
+> 提交: `a182153`
+
 > 怎么跑见 `just test`. 爬虫 TOML 见 [crawler-testing.md](crawler-testing.md). 夹具路径见下; 什么算测试、什么禁止加见文末.
 
 能用现成 fixture 就不要自建引擎: `repo` / `resource_store` (`tests/conftest.py`) 已拷 head schema; HTTP 走 `client` 或 `make_app` (`tests/api/conftest.py`), 后者会 `copy_schema` 并把 `worker.poll_interval` 压到配置下限.
@@ -12,7 +12,20 @@ GET `/config` 全量相等用 `hot_for_tests()`, 不要和裸 `HotSettings()` �
 
 真文件系统的 watcher 集成: 把 `observer_timeout` / `check_interval` 收到 0.1 / 0.05 (默认 1s); 否定断言用短 `wait_for(duration=…)`, 不要秒级 sleep.
 
-`client` 每次进入都付一次 FastAPI lifespan. 同一资源的 CRUD / 校验 / 空列表放进**同一个**测试函数, 用循环跑表, 不要 `@pytest.mark.parametrize` 乘 `client`. 建库默认会入队 REFRESH, 不测扫描时显式 `scan=False`. 分类 rename/merge/delete/规则的语义在 `tests/db/test_facets.py`; `tests/api/test_facets_write.py` 只断言 HTTP 状态码与 JSON. 必须独占 worker 的 (claim、复用活跃任务) 才用 `stop_worker`. 解析 / 爬虫 / 纯函数测试本来就不走 lifespan, 不必为墙钟去合并.
+## 测哪一层
+
+语义在哪一层实现, 就在哪一层测. HTTP 集成要有, 但不要用 `client` 去覆盖 repo / 纯函数已经覆盖的表.
+
+| 语义 | 测这里 | HTTP 只留 |
+|------|--------|-----------|
+| 分类 rename/merge/delete/规则 | `tests/db/test_facets.py` | `tests/api/test_facets_write.py` 状态码与 JSON |
+| 演员字段筛选 / `ActorBrowseParams` 校验 | `tests/db/test_actor_browse.py` | `tests/api/test_actors.py` 列表剥字段、详情/PATCH/刮削 |
+| metadata/media/task 列表筛选、级联删除、任务链 | `tests/db/test_repository.py` / `test_task_links.py` | 空列表、422、响应里的 DTO 字段 (如 `file_phase` / `child_count`) |
+| 来源 merge (`compute_merge_updates`) | `tests/aggregate/test_merge_updates.py` | 400/404/422 与一次写库 |
+| 任务 batch 计数/跳过链/取消 fallback | `tests/db/test_task_batch.py` (`execute_task_batch`, 无 lifespan) | `POST /tasks/batch` 接线 |
+| feed item 搜索/状态/分组 | `tests/db/test_feeds.py` | CRUD、poll、按 feed 配置入队刮削 |
+
+`client` 每次进入都付一次 FastAPI lifespan. 同一资源的 CRUD / 校验 / 空列表放进**同一个**测试函数, 用循环跑表, 不要 `@pytest.mark.parametrize` 乘 `client`. 建库默认会入队 REFRESH, 不测扫描时显式 `scan=False`. 必须独占 worker 的 (claim、复用活跃任务) 才用 `stop_worker`. 解析 / 爬虫 / 纯函数测试本来就不走 lifespan, 不必为墙钟去合并.
 
 CI: Ubuntu 执行完整 `just ci` (含 generate / 前端 / coverage). Windows 执行 `just ci-windows` (pytest, 无 Node). 盘符、原生分隔符、跨盘 `commonpath` 并不都标 `skipif`, 因此 Windows 仍跑全套 Python 测试, 而非仅 win32 用例; 前端与类型检查与 OS 无关, 无需在 Windows 安装 pnpm/Node.
 

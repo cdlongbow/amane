@@ -74,9 +74,9 @@ async def test_restart_sets_exit_code_when_supervised(tmp_path: Path) -> None:
         assert app.state.exit_code == EXIT_RESTART
 
 
-@pytest.mark.parametrize(
-    ("snapshot", "expect"),
-    [
+@pytest.mark.asyncio(loop_scope="function")
+async def test_check_release(client: HttpxClient, app: FastAPI) -> None:
+    cases: list[tuple[ReleaseSnapshot, dict[str, object]]] = [
         (ReleaseSnapshot(None, None), {"latest": None, "html_url": None, "newer": False}),
         (
             ReleaseSnapshot("v99.0.0", "https://github.com/sqzw-x/amane/releases/tag/v99.0.0"),
@@ -86,23 +86,18 @@ async def test_restart_sets_exit_code_when_supervised(tmp_path: Path) -> None:
                 "newer": True,
             },
         ),
-    ],
-    ids=["none", "newer"],
-)
-@pytest.mark.asyncio(loop_scope="function")
-async def test_check_release(
-    client: HttpxClient,
-    app: FastAPI,
-    snapshot: ReleaseSnapshot,
-    expect: dict[str, object],
-) -> None:
-    async def _fetch(*, proxy: str | None = None, url: str | None = None) -> ReleaseSnapshot:
-        return snapshot
+    ]
+    for snapshot, expect in cases:
 
-    app.state.runtime.release_checker.fetch = _fetch
-    resp = await client.get("system/release")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["current"]
-    for key, value in expect.items():
-        assert data[key] == value
+        async def _fetch(
+            *, proxy: str | None = None, url: str | None = None, _snap: ReleaseSnapshot = snapshot
+        ) -> ReleaseSnapshot:
+            return _snap
+
+        app.state.runtime.release_checker.fetch = _fetch
+        resp = await client.get("system/release")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["current"]
+        for key, value in expect.items():
+            assert data[key] == value

@@ -328,3 +328,53 @@ async def test_list_children_key_and_status_counts(repo: Repository):
     mixed = await repo.child_status_counts([parent.id])
     assert mixed[parent.id][TaskStatus.DONE] == 1
     assert mixed[parent.id][TaskStatus.QUEUED] == 1
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_list_tasks_roots_only_hides_children(repo: Repository):
+    parent = await repo.create_task(task_type=TaskType.REFRESH, payload={"library_id": 1})
+    assert parent.id is not None
+    claimed = await repo.claim_next_task()
+    assert claimed is not None and claimed.id == parent.id
+    assert claimed.id is not None
+    children = await repo.complete_task_with_followups(
+        claimed.id, result={}, followups=[("scrape", TaskType.SCRAPE, {"number": "MIDV-123"}, 0)]
+    )
+    child = children[0]
+    assert child.id is not None
+
+    listed = await repo.list_tasks(roots_only=True)
+    ids = {t.id for t in listed}
+    assert parent.id in ids
+    assert child.id not in ids
+    assert await repo.count_tasks(roots_only=True) == 1
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_list_tasks_roots_only_filter_matches_children(repo: Repository):
+    """status/type 命中子任务时, roots_only 仍返回链根 (列表只显示一层)."""
+    parent = await repo.create_task(task_type=TaskType.REFRESH, payload={"library_id": 1})
+    assert parent.id is not None
+    claimed = await repo.claim_next_task()
+    assert claimed is not None and claimed.id == parent.id
+    assert claimed.id is not None
+    children = await repo.complete_task_with_followups(
+        claimed.id, result={}, followups=[("scrape", TaskType.SCRAPE, {"number": "MIDV-123"}, 0)]
+    )
+    child = children[0]
+    assert child.id is not None
+    standalone = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "STD-1"})
+    assert standalone.id is not None
+
+    queued = await repo.list_tasks(statuses=[TaskStatus.QUEUED], roots_only=True)
+    queued_ids = {t.id for t in queued}
+    assert parent.id in queued_ids
+    assert standalone.id in queued_ids
+    assert child.id not in queued_ids
+    assert await repo.count_tasks(statuses=[TaskStatus.QUEUED], roots_only=True) == 2
+
+    scrape = await repo.list_tasks(task_types=[TaskType.SCRAPE], roots_only=True)
+    scrape_ids = {t.id for t in scrape}
+    assert parent.id in scrape_ids
+    assert standalone.id in scrape_ids
+    assert child.id not in scrape_ids

@@ -7,7 +7,7 @@ from typing import Any, Literal, cast
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.aggregate import RAW_TO_DB_FIELD, SCALAR_FIELD_NAMES
+from amane.aggregate import compute_merge_updates
 from amane.db.models import TaskType
 from amane.db.repo_types import MetadataFields
 from amane.handlers.models import CacheKind, ScrapePayload
@@ -36,29 +36,6 @@ _AGENT_PATCH_KEYS = frozenset(
         "source_urls",
     }
 )
-
-
-def _compute_merge_updates(
-    raw: dict[str, dict[str, object]], field_sources: dict[str, str], selections: dict[str, str]
-) -> dict[str, object]:
-    """按 selections (字段 -> 来源) 从 raw 数据提取值构造合并更新. 重命名字段以 {source: value} 保留来源, 标量字段来源并入 field_sources."""
-    updates: dict[str, object] = {}
-    field_sources_updates: dict[str, str] = {}
-    for field, source in selections.items():
-        if source not in raw:
-            raise ValueError(f"source '{source}' not found in raw data")
-        if field not in raw[source]:
-            raise ValueError(f"field '{field}' not found for source '{source}'")
-        value = raw[source][field]
-        if value is None:
-            continue
-        db_field = RAW_TO_DB_FIELD.get(field, field)
-        updates[db_field] = {source: value} if db_field != field else value
-        if field in SCALAR_FIELD_NAMES:
-            field_sources_updates[field] = source
-    if field_sources_updates:
-        updates["field_sources"] = {**field_sources, **field_sources_updates}
-    return updates
 
 
 def build_metadata_ops_capability() -> Capability[AgentDeps]:
@@ -159,7 +136,7 @@ def build_metadata_ops_capability() -> Capability[AgentDeps]:
         if metadata is None:
             return {"error": f"metadata {metadata_id} 不存在"}
         try:
-            updates = _compute_merge_updates(metadata.raw, metadata.field_sources, selections)
+            updates = compute_merge_updates(metadata.raw, metadata.field_sources, selections)
         except ValueError as exc:
             return {"error": str(exc)}
         if not updates:
