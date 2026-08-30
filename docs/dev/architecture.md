@@ -1,6 +1,6 @@
 # 系统架构
 
-> 提交: `4fcd4ac`
+> 提交: `b3af0d1`
 >
 > 本文只解释**为什么**这样划分以及**何时会失效**. 字段、签名、目录清单去源码中读.
 > 配置系统见 [config.md](config.md), 数据模型见 [data-model.md](data-model.md), 任务流程见 [task-system.md](task-system.md).
