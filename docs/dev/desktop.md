@@ -1,6 +1,6 @@
 # 桌面形态: 菜单栏 / 托盘
 
-> 提交: `e8b40a9`
+> 提交: `385760c`
 >
 > 本文解释桌面形态的进程边界、IPC 契约与打包方式. UI 相关配置 (路径/开关) 走壳进程环境变量, **不进** [config.md](config.md) 的 Cold/Hot 分层.
 
@@ -107,5 +107,7 @@ Windows: `scripts/build_windows_app.ps1` (`just windows-app`). 必须在 Windows
 1. PyInstaller onedir, `--name Amane.Server`
 2. `dotnet publish -r win-x64` Native AOT `Amane.exe`
 3. 目录: `Amane.exe` + `onedir/Amane.Server.exe` + `web/dist`
+
+两边 PyInstaller 都要 `--add-data` 打进 `amane/db/migrations` 与 `amane/media/watermarks` (Docker wheel 靠 hatch `force-include`).
 
 开发回路: `just dev` 起服务 + `just bar-run` (macOS) / `just windows-bar` (Windows) 只开托盘.

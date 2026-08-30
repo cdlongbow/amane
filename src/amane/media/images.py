@@ -6,15 +6,19 @@
 - 判定纯函数 (`probe_size` / `should_crop_poster` / `needs_upscale` /
   `validate_crop_box`): 仅依赖图像尺寸与基本类型参数, 无 I/O 副作用之外的依赖, 便于表测试.
   阈值由调用方从 config 取出后传入.
+- 封面角标: 包内 PNG 叠到库路径副本; 高度/四角由调用方从 Hot `watermark` 传入.
 (图片下载已统一由 ResourceStore 承担, 见 media/resource_store.py.)
 """
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import structlog
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
+from ..enums import WatermarkCorner, WatermarkKind
 from ..parsing import FileInfo, Mosaic, file_shows_uncensored
+from .watermarks import load_stamp
 
 logger = structlog.get_logger()
 
@@ -159,25 +163,97 @@ def crop_box(
         return False
 
 
-_FONT_CANDIDATES = (
-    Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
-    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-    Path(r"C:\Windows\Fonts\arialbd.ttf"),
+# 按图高缩放, 海报与封面同高时一样大.
+_DEFAULT_SCALE = 0.08
+_SCALE_MIN = 0.03
+_SCALE_MAX = 0.25
+_STAMP_MIN_HEIGHT = 16
+
+_FIXED_KINDS: frozenset[str] = frozenset(
+    (WatermarkKind.SUBTITLE, WatermarkKind.UNCENSORED, WatermarkKind.CRACKED, WatermarkKind.LEAKED)
 )
-
-# (label, fill RGB) 自上而下: 中字 / 无码 / 破解 / 流出 / 清晰度
-_SUBTITLE_BADGE = ("SUB", (220, 90, 40))
-_UNCENSORED_BADGE = ("U", (190, 35, 45))
-_CRACKED_BADGE = ("CRACK", (120, 50, 160))
-_LEAKED_BADGE = ("LEAK", (30, 130, 90))
-_DEFINITION_COLOR = (30, 90, 170)
+_RIGHT_CORNERS = frozenset((WatermarkCorner.TOP_RIGHT, WatermarkCorner.BOTTOM_RIGHT))
+_BOTTOM_CORNERS = frozenset((WatermarkCorner.BOTTOM_LEFT, WatermarkCorner.BOTTOM_RIGHT))
 
 
-def _badge_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for candidate in _FONT_CANDIDATES:
-        if candidate.is_file():
-            return ImageFont.truetype(str(candidate), size)
-    return ImageFont.load_default()
+def _stamp_stems(
+    *,
+    has_subtitle: bool,
+    uncensored: bool,
+    mosaic: Mosaic | None,
+    definition: str | None,
+) -> list[str]:
+    """相位 → PNG 主干, 顺序: 中字 / 无码 / 破解 / 流出 / 清晰度."""
+    stems: list[str] = []
+    if has_subtitle:
+        stems.append("subtitle")
+    if uncensored:
+        stems.append("uncensored")
+    if mosaic is Mosaic.CRACKED:
+        stems.append("cracked")
+    elif mosaic is Mosaic.LEAKED:
+        stems.append("leaked")
+    if definition:
+        stems.append(definition.casefold())
+    return stems
+
+
+def _stamp_kind(stem: str) -> WatermarkKind:
+    if stem in _FIXED_KINDS:
+        return WatermarkKind(stem)
+    return WatermarkKind.DEFINITION
+
+
+def _corner_for(stem: str, corners: Mapping[WatermarkKind, WatermarkCorner] | None) -> WatermarkCorner:
+    kind = _stamp_kind(stem)
+    if corners is None:
+        return WatermarkCorner.TOP_LEFT
+    return corners.get(kind, WatermarkCorner.TOP_LEFT)
+
+
+def _fit_stamp(stamp: Image.Image, target_h: int) -> Image.Image | None:
+    """裁掉透明边再按高度缩放. 无可见像素则跳过."""
+    rgba = stamp.convert("RGBA")
+    bbox = rgba.getbbox()
+    if bbox is None:
+        return None
+    cropped = rgba.crop(bbox)
+    width, height = cropped.size
+    if height <= 0 or width <= 0:
+        return None
+    new_h = target_h
+    new_w = max(1, round(width * new_h / height))
+    return cropped.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+
+def _paste_stamps(
+    img: Image.Image,
+    stamps_by_corner: dict[WatermarkCorner, list[Image.Image]],
+    *,
+    pad: int,
+    gap: int,
+) -> None:
+    """同角按列表顺序向内叠: 上角往下, 下角往上; 右角右对齐."""
+    width, height = img.size
+    for corner, stamps in stamps_by_corner.items():
+        if not stamps:
+            continue
+        right = corner in _RIGHT_CORNERS
+        if corner in _BOTTOM_CORNERS:
+            y = height - pad
+            for stamp in stamps:
+                stamp_w, stamp_h = stamp.size
+                y -= stamp_h
+                x = width - pad - stamp_w if right else pad
+                img.paste(stamp, (x, y), stamp)
+                y -= gap
+        else:
+            y = pad
+            for stamp in stamps:
+                stamp_w, stamp_h = stamp.size
+                x = width - pad - stamp_w if right else pad
+                img.paste(stamp, (x, y), stamp)
+                y += stamp_h + gap
 
 
 def apply_cover_watermarks(
@@ -188,20 +264,13 @@ def apply_cover_watermarks(
     mosaic: Mosaic | None,
     definition: str | None,
     jpeg_quality: int = _DEFAULT_JPEG_QUALITY,
+    watermark_dir: Path | None = None,
+    scale: float = _DEFAULT_SCALE,
+    corners: Mapping[WatermarkKind, WatermarkCorner] | None = None,
 ) -> bool:
-    """在库路径封面/海报左上角叠角标. 无标记则不动. 不改 Resource 原图."""
-    badges: list[tuple[str, tuple[int, int, int]]] = []
-    if has_subtitle:
-        badges.append(_SUBTITLE_BADGE)
-    if uncensored:
-        badges.append(_UNCENSORED_BADGE)
-    if mosaic is Mosaic.CRACKED:
-        badges.append(_CRACKED_BADGE)
-    elif mosaic is Mosaic.LEAKED:
-        badges.append(_LEAKED_BADGE)
-    if definition:
-        badges.append((definition, _DEFINITION_COLOR))
-    if not badges:
+    """在库路径封面/海报叠 PNG 角标. 无标记或无图则不动. 不改 Resource 原图."""
+    stems = _stamp_stems(has_subtitle=has_subtitle, uncensored=uncensored, mosaic=mosaic, definition=definition)
+    if not stems:
         return False
     try:
         with Image.open(path) as src:
@@ -209,21 +278,22 @@ def apply_cover_watermarks(
         width, height = img.size
         if width <= 0 or height <= 0:
             return False
-        font_size = max(14, min(width, height) // 16)
-        font = _badge_font(font_size)
-        draw = ImageDraw.Draw(img)
-        pad = max(4, font_size // 5)
-        gap = max(4, font_size // 6)
-        x = pad
-        y = pad
-        for label, color in badges:
-            left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
-            text_w = right - left
-            text_h = bottom - top
-            box = (x, y, x + text_w + pad * 2, y + text_h + pad * 2)
-            draw.rounded_rectangle(box, radius=max(2, pad), fill=(*color, 210))
-            draw.text((x + pad - left, y + pad - top), label, font=font, fill=(255, 255, 255, 255))
-            y = box[3] + gap
+        ratio = min(_SCALE_MAX, max(_SCALE_MIN, scale))
+        target_h = max(_STAMP_MIN_HEIGHT, round(height * ratio))
+        pad = max(4, target_h // 8)
+        gap = max(4, target_h // 10)
+        grouped: dict[WatermarkCorner, list[Image.Image]] = {corner: [] for corner in WatermarkCorner}
+        for stem in stems:
+            raw = load_stamp(stem, watermark_dir)
+            if raw is None:
+                continue
+            fitted = _fit_stamp(raw, target_h)
+            if fitted is None:
+                continue
+            grouped[_corner_for(stem, corners)].append(fitted)
+        if not any(grouped.values()):
+            return False
+        _paste_stamps(img, grouped, pad=pad, gap=gap)
         rgb = img.convert("RGB")
         rgb.save(path, quality=jpeg_quality)
         return True
@@ -232,7 +302,15 @@ def apply_cover_watermarks(
         return False
 
 
-def apply_cover_watermarks_from_info(path: Path, info: FileInfo, *, jpeg_quality: int = _DEFAULT_JPEG_QUALITY) -> bool:
+def apply_cover_watermarks_from_info(
+    path: Path,
+    info: FileInfo,
+    *,
+    jpeg_quality: int = _DEFAULT_JPEG_QUALITY,
+    watermark_dir: Path | None = None,
+    scale: float = _DEFAULT_SCALE,
+    corners: Mapping[WatermarkKind, WatermarkCorner] | None = None,
+) -> bool:
     """按 FileInfo 给库路径封面加水印."""
     return apply_cover_watermarks(
         path,
@@ -241,4 +319,7 @@ def apply_cover_watermarks_from_info(path: Path, info: FileInfo, *, jpeg_quality
         mosaic=info.mosaic,
         definition=info.definition,
         jpeg_quality=jpeg_quality,
+        watermark_dir=watermark_dir,
+        scale=scale,
+        corners=corners,
     )

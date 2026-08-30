@@ -65,6 +65,14 @@ package = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/amane"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/amane/media/watermarks/subtitle.png" = "amane/media/watermarks/subtitle.png"
+"src/amane/media/watermarks/uncensored.png" = "amane/media/watermarks/uncensored.png"
+"src/amane/media/watermarks/cracked.png" = "amane/media/watermarks/cracked.png"
+"src/amane/media/watermarks/leaked.png" = "amane/media/watermarks/leaked.png"
+"src/amane/media/watermarks/4k.png" = "amane/media/watermarks/4k.png"
+"src/amane/media/watermarks/8k.png" = "amane/media/watermarks/8k.png"
+
 [tool.hatch.build.targets.sdist]
 exclude = ["tests/", "docs/", "scripts/", "web/", ".github/"]
 

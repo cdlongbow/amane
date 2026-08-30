@@ -13,7 +13,8 @@
     "watcher": "File Monitoring",
     "logging": "Logging",
     "sr": "Super Resolution",
-    "llm": "LLM Translation"
+    "llm": "LLM Translation",
+    "watermark": "Watermark"
   },
   "config": {
     "loadError": "Failed to load configuration"
@@ -581,6 +582,34 @@
       },
       "psql_path": {
         "label": "psql Path"
+      }
+    },
+    "watermark": {
+      "enabled": {
+        "label": "Enable watermark"
+      },
+      "scale": {
+        "label": "Watermark size",
+        "description": "Fraction of the image height"
+      },
+      "corners": {
+        "label": "Watermark position",
+        "description": "Multiple in the same corner stack in order: subtitle → uncensored → cracked → leaked → definition",
+        "options": {
+          "subtitle": "Subtitle",
+          "uncensored": "Uncensored",
+          "cracked": "Cracked",
+          "leaked": "Leaked",
+          "definition": "Definition"
+        },
+        "$": {
+          "options": {
+            "top_left": "Top left",
+            "top_right": "Top right",
+            "bottom_left": "Bottom left",
+            "bottom_right": "Bottom right"
+          }
+        }
       }
     },
     "actor_scraping": {

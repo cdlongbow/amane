@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from PIL import Image
 
-from amane.config import HotSettings
+from amane.config import HotSettings, WatermarkConfig
 from amane.db.models import MediaFile, Metadata
 from amane.handlers.file import execute_file_operations
 from amane.media import ResourceStore
 from amane.organize import MoveMode, ResolvedPaths
+from amane.parsing import ContentType, FileInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -166,3 +167,39 @@ async def test_missing_internal_resource_falls_back_to_crop(resource_store: Reso
     )
     assert result.success is True
     assert paths.poster.exists()  # 裁剪兜底
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.asyncio
+async def test_watermark_respects_enabled(resource_store: ResourceStore, tmp_path: Path, enabled: bool):
+    client = cast("WebClient", FakeClient())
+    src = tmp_path / "src" / "MIDV-123-C.mp4"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"movie")
+
+    user_dir = tmp_path / "watermarks"
+    user_dir.mkdir()
+    Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+
+    mf = MediaFile(path=str(src), library_id=1)
+    meta = Metadata(number="MIDV-123", thumb_urls=["https://s/t.jpg"])
+    paths = _paths(tmp_path / "out")
+    result = await execute_file_operations(
+        media_file=mf,
+        metadata=meta,
+        paths=paths,
+        move_mode=MoveMode.COPY,
+        resource_store=resource_store,
+        web_client=client,
+        config=HotSettings(watermark=WatermarkConfig(enabled=enabled, scale=0.2)),
+        file_info=FileInfo(number="MIDV-123", content_type=ContentType.CENSORED, prefix="MIDV", has_subtitle=True),
+        watermark_dir=user_dir,
+    )
+    assert result.success is True
+    with Image.open(paths.thumb) as img:
+        pixel = img.convert("RGB").getpixel((20, 20))
+    assert isinstance(pixel, tuple)
+    if enabled:
+        assert pixel[0] > 180 and pixel[2] < 80
+    else:
+        assert pixel[2] > 180 and pixel[0] < 80

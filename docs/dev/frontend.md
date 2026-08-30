@@ -1,6 +1,6 @@
 # 前端架构
 
-> 提交: `847de27`
+> 提交: `385760c`
 >
 > 入口: `web/src/`. 组件清单从源码可见; 本文只写信息架构、跨模块约定与踩坑.
 
@@ -65,7 +65,7 @@ OpenAPI 字符串联合若需运行时迭代, 集中放 `lib/exhaustive-maps.ts`
 
 ## 图片
 
-外站图经 `/api/resources/proxy` (`proxyImageUrl`). `<img>` 不能带 Authorization, 鉴权靠 cookie. 裁切基准是 `thumb_urls[0]` 对应的 **Resource 本地文件** (与后端 `acquire` 同一份), 只提交像素坐标, 不上传 blob. 片库海报角标 (中字/无码/破解/流出/清晰度) 是 CSS overlay, 读列表聚合 `file_phase`, 不改 Resource 像素. 无码 = mosaic 标记或片种 uncensored.
+外站图经 `/api/resources/proxy` (`proxyImageUrl`). `<img>` 不能带 Authorization, 鉴权靠 cookie. 裁切基准是 `thumb_urls[0]` 对应的 **Resource 本地文件** (与后端 `acquire` 同一份), 只提交像素坐标, 不上传 blob. 片库海报 / 详情封面相位水印是 CSS overlay (`FilePhaseOverlay`), 读列表聚合 `file_phase`, 不改 Resource 像素. 无码 = mosaic 标记或片种 uncensored. 四角: 左上马赛克 (无码/破解/流出), 右上评分, 左下中字+清晰度 (出演墙还叠当时年龄), 右下发行日. 表格/文件列表仍用彩色 `FilePhaseBadges`, 不走 overlay.
 
 `FanartLightbox` 必须 `Portal` 到 `document.body`. Modal 打开态带 `transform` (`fade-down` 的 `translateY(0)`), 会把 `position: fixed` 的包含块收成弹窗本身, 大图被 content `overflow-y: auto` 裁切. Lightbox 拦截 mousedown/click 冒泡, 避免点预览被 Modal 当成 click-outside.
 

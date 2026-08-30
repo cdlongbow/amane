@@ -4,20 +4,14 @@ import { Link } from "@tanstack/react-router";
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActorResponse } from "@/client/types.gen";
+import { OverlayChip, OverlayChipLabel } from "@/components/media/overlay-chip";
+import { ProxyImage } from "@/components/media/proxy-image";
 import { ageFromBirthday } from "@/lib/format-birthday";
 import { proxyImageUrl } from "@/lib/utils";
-import { ProxyImage } from "@/components/media/proxy-image";
 
 interface ActorCardProps {
   item: ActorResponse;
 }
-
-const OVERLAY_CHIP = {
-  zIndex: 1,
-  borderRadius: "var(--mantine-radius-xl)",
-  background: "rgba(0, 0, 0, 0.72)",
-  backdropFilter: "blur(6px)",
-} as const;
 
 /** 海报墙性别符号角标: 仅已知性别渲染, unknown 不显示 (避免满墙灰色符号噪音). */
 const GENDER_CHIP = {
@@ -77,52 +71,28 @@ export const ActorCard = memo(function ActorCard({ item }: ActorCardProps) {
               </Center>
             )}
           </AspectRatio>
-          <Group
-            gap={3}
-            wrap="nowrap"
-            pos="absolute"
-            top={6}
-            right={6}
-            px={6}
-            py={3}
-            style={OVERLAY_CHIP}
-          >
-            <IconMovie size={11} color="var(--mantine-color-grape-3)" />
-            <Text size="xs" c="white" fw={700} lh={1}>
-              {item.count}
-            </Text>
-          </Group>
+          <Box pos="absolute" top={6} right={6}>
+            <OverlayChip>
+              <IconMovie size={11} color="var(--mantine-color-grape-3)" />
+              <OverlayChipLabel>{item.count}</OverlayChipLabel>
+            </OverlayChip>
+          </Box>
           {genderChip != null && (
-            <Group
-              wrap="nowrap"
-              pos="absolute"
-              top={6}
-              left={6}
-              px={7}
-              py={3}
-              style={OVERLAY_CHIP}
-              title={t(genderChip.label)}
-              aria-label={t(genderChip.label)}
-            >
-              <genderChip.Icon size={12} color={genderChip.color} />
-            </Group>
+            <Box pos="absolute" top={6} left={6}>
+              <OverlayChip title={t(genderChip.label)} aria-label={t(genderChip.label)}>
+                <genderChip.Icon size={12} color={genderChip.color} />
+              </OverlayChip>
+            </Box>
           )}
           {age != null && (
-            <Group
-              gap={4}
-              wrap="nowrap"
-              pos="absolute"
-              bottom={6}
-              right={6}
-              px={7}
-              py={3}
-              style={OVERLAY_CHIP}
-            >
-              <IconCalendar size={12} color="var(--mantine-color-cyan-3)" />
-              <Text size="xs" c="white" fw={700} lh={1} ff="monospace" lts={0.3}>
-                {t("actors.ageShort", { age })}
-              </Text>
-            </Group>
+            <Box pos="absolute" bottom={6} right={6}>
+              <OverlayChip>
+                <IconCalendar size={12} color="var(--mantine-color-cyan-3)" />
+                <OverlayChipLabel ff="monospace" lts={0.3}>
+                  {t("actors.ageShort", { age })}
+                </OverlayChipLabel>
+              </OverlayChip>
+            </Box>
           )}
         </Box>
         <Stack gap={4} p="xs">

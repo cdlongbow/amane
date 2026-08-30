@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from PIL import Image
 
+from amane.enums import WatermarkCorner, WatermarkKind
 from amane.media import (
     apply_cover_watermarks,
     crop_box,
@@ -186,3 +187,155 @@ class TestCoverWatermarks:
         assert dest.read_bytes() != before
         with Image.open(dest) as img:
             assert img.size == (200, 280)
+
+    def test_skips_when_definition_has_no_stamp(self, tmp_path: Path):
+        dest = tmp_path / "cover.jpg"
+        Image.new("RGB", (200, 280), "blue").save(dest)
+        before = dest.read_bytes()
+        assert (
+            apply_cover_watermarks(dest, has_subtitle=False, uncensored=False, mosaic=None, definition="1080p") is False
+        )
+        assert dest.read_bytes() == before
+
+    def test_user_stamp_overrides_builtin(self, tmp_path: Path):
+        dest = tmp_path / "cover.jpg"
+        Image.new("RGB", (200, 280), "blue").save(dest)
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+        assert apply_cover_watermarks(
+            dest, has_subtitle=True, uncensored=False, mosaic=None, definition=None, watermark_dir=user_dir
+        )
+        with Image.open(dest) as img:
+            pixel = img.convert("RGB").getpixel((6, 6))
+            assert isinstance(pixel, tuple) and len(pixel) >= 3
+            assert pixel[0] > 200 and pixel[1] < 50 and pixel[2] < 50
+
+    def test_corrupt_user_stamp_falls_back_to_builtin(self, tmp_path: Path):
+        dest = tmp_path / "cover.jpg"
+        Image.new("RGB", (200, 280), "blue").save(dest)
+        before = dest.read_bytes()
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        (user_dir / "subtitle.png").write_bytes(b"not a png")
+        assert apply_cover_watermarks(
+            dest, has_subtitle=True, uncensored=False, mosaic=None, definition=None, watermark_dir=user_dir
+        )
+        assert dest.read_bytes() != before
+
+    def test_missing_cover_returns_false(self, tmp_path: Path):
+        assert (
+            apply_cover_watermarks(
+                tmp_path / "missing.jpg", has_subtitle=True, uncensored=False, mosaic=None, definition=None
+            )
+            is False
+        )
+
+    def test_scale_shrinks_stamp(self, tmp_path: Path):
+        """图高 × scale 为角标高度; 大 scale 覆盖到的像素在小 scale 下仍是底色."""
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+
+        def paint(scale: float) -> Path:
+            dest = tmp_path / f"cover-{scale}.jpg"
+            Image.new("RGB", (800, 538), "blue").save(dest)
+            apply_cover_watermarks(
+                dest,
+                has_subtitle=True,
+                uncensored=False,
+                mosaic=None,
+                definition=None,
+                watermark_dir=user_dir,
+                scale=scale,
+            )
+            return dest
+
+        big = Image.open(paint(0.2)).convert("RGB")
+        small = Image.open(paint(0.08)).convert("RGB")
+        probe = (40, 80)
+        big_px = big.getpixel(probe)
+        small_px = small.getpixel(probe)
+        assert isinstance(big_px, tuple) and isinstance(small_px, tuple)
+        assert big_px[0] > 180 and big_px[2] < 80
+        assert small_px[2] > 180 and small_px[0] < 80
+
+    def test_same_height_keeps_stamp_size(self, tmp_path: Path):
+        """等高校宽不同的封面/海报, 角标高度相同."""
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+
+        def paint(name: str, size: tuple[int, int]) -> Image.Image:
+            dest = tmp_path / f"{name}.jpg"
+            Image.new("RGB", size, "blue").save(dest)
+            apply_cover_watermarks(
+                dest,
+                has_subtitle=True,
+                uncensored=False,
+                mosaic=None,
+                definition=None,
+                watermark_dir=user_dir,
+                scale=0.2,
+            )
+            return Image.open(dest).convert("RGB")
+
+        thumb = paint("thumb", (800, 538))
+        poster = paint("poster", (376, 538))
+        # 538 * 0.2 ≈ 108, pad ≈ 13 → y=20 在角标内; y=160 在角标外
+        for img in (thumb, poster):
+            inside = img.getpixel((20, 20))
+            outside = img.getpixel((20, 160))
+            assert isinstance(inside, tuple) and isinstance(outside, tuple)
+            assert inside[0] > 180 and inside[2] < 80
+            assert outside[2] > 180 and outside[0] < 80
+        thumb.close()
+        poster.close()
+
+    def test_corner_top_right(self, tmp_path: Path):
+        dest = tmp_path / "cover.jpg"
+        Image.new("RGB", (400, 300), "blue").save(dest)
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+        apply_cover_watermarks(
+            dest,
+            has_subtitle=True,
+            uncensored=False,
+            mosaic=None,
+            definition=None,
+            watermark_dir=user_dir,
+            scale=0.2,
+            corners={WatermarkKind.SUBTITLE: WatermarkCorner.TOP_RIGHT},
+        )
+        with Image.open(dest) as img:
+            rgb = img.convert("RGB")
+            left = rgb.getpixel((12, 20))
+            right = rgb.getpixel((380, 30))
+            assert isinstance(left, tuple) and isinstance(right, tuple)
+            assert left[2] > 180 and left[0] < 80
+            assert right[0] > 180 and right[2] < 80
+
+    def test_corner_bottom_left(self, tmp_path: Path):
+        dest = tmp_path / "cover.jpg"
+        Image.new("RGB", (400, 300), "blue").save(dest)
+        user_dir = tmp_path / "watermarks"
+        user_dir.mkdir()
+        Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(user_dir / "subtitle.png")
+        apply_cover_watermarks(
+            dest,
+            has_subtitle=True,
+            uncensored=False,
+            mosaic=None,
+            definition=None,
+            watermark_dir=user_dir,
+            scale=0.2,
+            corners={WatermarkKind.SUBTITLE: WatermarkCorner.BOTTOM_LEFT},
+        )
+        with Image.open(dest) as img:
+            rgb = img.convert("RGB")
+            top = rgb.getpixel((20, 20))
+            bottom = rgb.getpixel((20, 280))
+            assert isinstance(top, tuple) and isinstance(bottom, tuple)
+            assert top[2] > 180 and top[0] < 80
+            assert bottom[0] > 180 and bottom[2] < 80

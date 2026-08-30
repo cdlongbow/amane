@@ -13,7 +13,8 @@
     "watcher": "文件监控",
     "logging": "日志",
     "sr": "图像超分",
-    "llm": "LLM 翻译"
+    "llm": "LLM 翻译",
+    "watermark": "水印"
   },
   "config": {
     "loadError": "加载配置失败"
@@ -581,6 +582,34 @@
       },
       "psql_path": {
         "label": "psql 路径"
+      }
+    },
+    "watermark": {
+      "enabled": {
+        "label": "启用水印"
+      },
+      "scale": {
+        "label": "水印大小",
+        "description": "相对图片高度的比例"
+      },
+      "corners": {
+        "label": "水印位置",
+        "description": "同角多个按中字 → 无码 → 破解 → 流出 → 清晰度顺序叠加",
+        "options": {
+          "subtitle": "中字",
+          "uncensored": "无码",
+          "cracked": "破解",
+          "leaked": "流出",
+          "definition": "清晰度"
+        },
+        "$": {
+          "options": {
+            "top_left": "左上",
+            "top_right": "右上",
+            "bottom_left": "左下",
+            "bottom_right": "右下"
+          }
+        }
       }
     },
     "actor_scraping": {

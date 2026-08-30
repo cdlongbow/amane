@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from ..config import HotSettings
+from ..config import HotSettings, WatermarkConfig
 from ..enums import DownloadableResource, LinkMode
 from ..media import ResourceStore, apply_cover_watermarks_from_info, crop_poster
 from ..media import write_nfo as write_nfo_file
@@ -55,6 +55,7 @@ async def execute_file_operations(
     library: Library | None = None,
     file_info: FileInfo | None = None,
     safe_dirs: Sequence[Path] | None = (),
+    watermark_dir: Path | None = None,
 ) -> FileOperationsResult:
     """
     执行文件后处理: 图片下载, 文件整理, NFO 生成.
@@ -73,6 +74,7 @@ async def execute_file_operations(
         library: 有则整理同目录字幕文件; None 跳过
         file_info: 源文件解析 (分集配对); library 非空且此项为空时从 source 现算
         safe_dirs: 字幕绝对路径模板允许落地的可信目录
+        watermark_dir: 用户角标覆盖目录 (`{data_dir}/watermarks`); None 只用包内置
 
     Returns:
         FileOperationsResult 包含是否成功和目标路径
@@ -90,7 +92,16 @@ async def execute_file_operations(
         image_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("downloading images via store", number=metadata.number)
         kinds = set(copy_resources) if copy_resources is not None else set(DownloadableResource)
-        await _download_images_via_store(metadata, resource_store, web_client, paths, config, kinds, file_info=info)
+        await _download_images_via_store(
+            metadata,
+            resource_store,
+            web_client,
+            paths,
+            config,
+            kinds,
+            file_info=info,
+            watermark_dir=watermark_dir,
+        )
 
     # 2. 先发现同目录字幕 (视频挪走前), 再移动/复制视频
     subtitles: list[Path] = []
@@ -148,6 +159,7 @@ async def apply_file_operations(
     copy_resources: Sequence[DownloadableResource] | None = None,
     web_client: WebClient | None = None,
     safe_dirs: Sequence[Path] | None = (),
+    watermark_dir: Path | None = None,
 ) -> FileOperationsResult | None:
     """ORGANIZE 的 file operations 编排.
 
@@ -165,6 +177,7 @@ async def apply_file_operations(
         copy_resources: 要复制到库路径的资源类型; None 表示全部
         web_client: HTTP 客户端
         safe_dirs: 绝对路径模板允许落地的可信目录集
+        watermark_dir: 用户角标覆盖目录; None 只用包内置
 
     Returns:
         FileOperationsResult (含目标路径或错误); 前置条件不满足时返回 None
@@ -197,6 +210,7 @@ async def apply_file_operations(
         library=library,
         file_info=file_info,
         safe_dirs=safe_dirs,
+        watermark_dir=watermark_dir,
     )
 
 
@@ -230,6 +244,7 @@ async def _download_images_via_store(
     config: HotSettings | None,
     kinds: set[DownloadableResource],
     file_info: FileInfo | None = None,
+    watermark_dir: Path | None = None,
 ) -> None:
     """把 metadata 引用的资源复制到库路径 (优先用 Resource 已有文件; 缺失则现场 acquire)."""
     thumb_local = None
@@ -277,12 +292,27 @@ async def _download_images_via_store(
                     shutil.copy2(p, paths.extrafanart_dir / f"{i + 1}.jpg")
 
     # 角标叠在库路径副本上 (fanart 保持干净原图). 裁剪已从无水印 thumb 完成.
-    if file_info is not None:
+    wm = config.watermark if config is not None else WatermarkConfig()
+    if wm.enabled and file_info is not None:
         jpeg_quality = config.scraping.jpeg_quality if config is not None else 95
         if paths.thumb.exists():
-            apply_cover_watermarks_from_info(paths.thumb, file_info, jpeg_quality=jpeg_quality)
+            apply_cover_watermarks_from_info(
+                paths.thumb,
+                file_info,
+                jpeg_quality=jpeg_quality,
+                watermark_dir=watermark_dir,
+                scale=wm.scale,
+                corners=wm.corners,
+            )
         if paths.poster.exists():
-            apply_cover_watermarks_from_info(paths.poster, file_info, jpeg_quality=jpeg_quality)
+            apply_cover_watermarks_from_info(
+                paths.poster,
+                file_info,
+                jpeg_quality=jpeg_quality,
+                watermark_dir=watermark_dir,
+                scale=wm.scale,
+                corners=wm.corners,
+            )
 
 
 class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
@@ -308,6 +338,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         resource_store: ResourceStore,
         web_client: WebClient | None = None,
         safe_dirs: Sequence[Path] | None = (),
+        watermark_dir: Path | None = None,
     ):
         super().__init__(payload_t=OrganizePayload, result_t=OrganizeResult)
         self._repo = repo
@@ -315,6 +346,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         self._web_client = web_client
         self._resource_store = resource_store
         self._safe_dirs = safe_dirs
+        self._watermark_dir = watermark_dir
 
     async def handle(self, payload: OrganizePayload) -> TaskResult[OrganizeResult]:
         scan_dir = Path(payload.path)
@@ -377,6 +409,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                 copy_resources=copy_resources,
                 web_client=self._web_client,
                 safe_dirs=self._safe_dirs,
+                watermark_dir=self._watermark_dir,
             )
             if fop_result is None:
                 skipped += 1

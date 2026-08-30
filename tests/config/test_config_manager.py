@@ -16,10 +16,11 @@ from amane.config import (
     DownloadableResource,
     HotSettings,
     ScrapingConfig,
+    WatermarkConfig,
     WorkerConfig,
 )
 from amane.config.manager import LANG_METADATA_FIELD_SET
-from amane.enums import Language, MetadataField, SiteName
+from amane.enums import Language, MetadataField, SiteName, WatermarkCorner, WatermarkKind
 from amane.parsing import ContentType
 
 # ---------------------------------------------------------------------------
@@ -332,6 +333,30 @@ class TestFrozenKeyDictCompleteness:
     def test_non_dict_rejected(self, field: str):
         with pytest.raises(ValidationError):
             ScrapingConfig.model_validate({field: "javdb"})
+
+
+class TestWatermarkConfig:
+    def test_defaults(self) -> None:
+        cfg = WatermarkConfig()
+        assert cfg.enabled is False
+        assert cfg.scale == 0.08
+        assert set(cfg.corners) == set(WatermarkKind)
+        assert all(corner is WatermarkCorner.TOP_LEFT for corner in cfg.corners.values())
+
+    def test_partial_corners_fills_rest(self) -> None:
+        cfg = WatermarkConfig.model_validate({"corners": {"definition": "top_right", "gone": "bottom_left"}})
+        assert cfg.corners[WatermarkKind.DEFINITION] is WatermarkCorner.TOP_RIGHT
+        assert cfg.corners[WatermarkKind.SUBTITLE] is WatermarkCorner.TOP_LEFT
+        assert "gone" not in cfg.corners
+
+    @pytest.mark.parametrize("scale", [0.02, 0.3])
+    def test_scale_out_of_range(self, scale: float) -> None:
+        with pytest.raises(ValidationError):
+            WatermarkConfig(scale=scale)
+
+    def test_invalid_corner_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            WatermarkConfig.model_validate({"corners": {"subtitle": "middle"}})
 
 
 # ---------------------------------------------------------------------------

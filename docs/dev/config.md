@@ -1,6 +1,6 @@
 # 配置系统
 
-> 提交: `6b932a5`
+> 提交: `697b7c0`
 >
 > 入口: `src/amane/config/`. 本文解释分层设计动机、热重载机制和添加新配置的约定.
 > 启动编排见 [architecture.md](architecture.md).
@@ -91,3 +91,10 @@ Cold 配置同样加到 `manager.py::ColdSettings`, 无需 UI — 只通过 `AMA
 - **`gfriends_repo`**: gFriends 仓库 URL; Filetree 缓存在 `data_dir`, 由工厂注入爬虫.
 
 跨角色站点写入会被 section validator 拒绝; Schema 侧 `site_list_schema` 只暴露对应能力子集. 发请求前仍按 `Actor.gender` 与站点性别覆盖再裁一刀 (见 [crawlers.md](crawlers.md) / [task-system.md](task-system.md)).
+
+## `watermark` (Hot)
+
+ORGANIZE 落盘封面才画, 不改 Resource. 片库 CSS overlay 不读 `enabled`.
+
+- **`scale`**: 角标高度 = 图高 × scale. 不按宽、不按 PNG 原图像素. 海报与封面同高时视觉一样大.
+- **`corners`**: `x-frozen-keys` 五类 → 四角. 同角按中字 / 无码 / 破解 / 流出 / 清晰度向内叠 (上往下、下往上, 右角右对齐). 不配间距、不配横排. PNG 覆盖仍是 `{data_dir}/watermarks/{stem}.png`.

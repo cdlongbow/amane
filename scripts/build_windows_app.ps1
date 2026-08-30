@@ -50,6 +50,7 @@ New-Item -ItemType Directory -Force -Path $Work, $Out | Out-Null
     --paths (Join-Path $Root "src") `
     --add-data "$(Join-Path $Root 'web\dist');web/dist" `
     --add-data "$(Join-Path $Root 'src\amane\db\migrations');amane/db/migrations" `
+    --add-data "$(Join-Path $Root 'src\amane\media\watermarks');amane/media/watermarks" `
     --add-data "$(Join-Path $Root 'alembic.ini');." `
     --collect-submodules amane `
     --exclude-module patchright `

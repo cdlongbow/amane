@@ -30,6 +30,7 @@ from ..handlers import (
     UpscaleHandler,
 )
 from ..llm import TranslationCache, build_translator
+from ..media.watermarks import user_watermark_dir
 from ..net.http import RateLimiters, WebClient
 from ..plugins.manager import PluginManager
 from ..plugins.packaging import install_plugin_path, install_plugin_zip, uninstall_plugin_tree
@@ -335,7 +336,14 @@ def build_handlers(
             plugin_manager.multi_language_sources if plugin_manager is not None else None,
         ),
         TaskType.ACTOR_SCRAPE: ActorScrapeHandler(repo, factory, resource_store, hot, web_client),
-        TaskType.ORGANIZE: OrganizeHandler(repo, hot, resource_store, web_client, safe_dirs),
+        TaskType.ORGANIZE: OrganizeHandler(
+            repo,
+            hot,
+            resource_store,
+            web_client,
+            safe_dirs,
+            watermark_dir=user_watermark_dir(state_dir) if state_dir is not None else None,
+        ),
         TaskType.CLEANUP: CleanupHandler(repo=repo, resource_store=resource_store),
         TaskType.UPSCALE: UpscaleHandler(resource_store, hot),
         TaskType.RESCRAPE: RescrapeHandler(repo),

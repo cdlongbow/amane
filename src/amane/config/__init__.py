@@ -17,6 +17,7 @@ from .manager import (
     SiteConfig,
     SrConfig,
     WatcherConfig,
+    WatermarkConfig,
     WorkerConfig,
 )
 
@@ -39,5 +40,6 @@ __all__ = [
     "SiteConfig",
     "SrConfig",
     "WatcherConfig",
+    "WatermarkConfig",
     "WorkerConfig",
 ]

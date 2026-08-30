@@ -1,6 +1,6 @@
 # 数据模型
 
-> 提交: `80b4aa6`
+> 提交: `697b7c0`
 >
 > 表结构、字段类型、便捷属性都在 `src/amane/db/models.py`. 本文只解释**为什么**这么建模、所有权关系、生命周期与已知陷阱.
 
@@ -29,7 +29,7 @@
 
 文件相位 (`content_type` / `mosaic` / `has_subtitle` / `definition`) 是 **path 的投影**, 只落在 `MediaFile`: 创建与改 path 时用同一次 `parse_file_info` 回填, 不进对外 PATCH. `cd` 仍只用于 ORGANIZE 分集配对, 不落库. `content_type` 是番号/目录片种 (刮削路由); `mosaic` 是这份文件的无码/破解/流出标记. 无码展示与筛选是 `mosaic=uncensored OR content_type=uncensored` (HEYZO 正片不必带 `-U`; 有码号的 `-U` 仍是 censored 片种). `ContentType.chinese` 是国产, 不是中字 — 中字只看 `has_subtitle`. Metadata 列表的角标/筛选走关联 EXISTS / 页级聚合 (`file_phase`): 任一挂载文件具备即亮; `definition` 取最高档. 没有挂载文件的 Metadata 不会命中这些筛选, 也没有角标. `{mosaic?}` 模板不用片种兜底, 避免 HEYZO 被整理出文件名里没有的 `-uncensored`.
 
-ORGANIZE 复制到库路径的 poster/thumb 按**源文件** FileInfo 叠角标 (不改 Resource 原图, 不改 fanart). 列始终跟当前 path: 模板若写出标记, 二次整理仍能反推.
+ORGANIZE 复制到库路径的 poster/thumb 在 `watermark.enabled` 时按**源文件** FileInfo 叠 PNG 角标 (不改 Resource 原图, 不改 fanart). 高度 = 图高 × `watermark.scale`; 各类别贴 `watermark.corners` 指定的角, 同角向内叠. 包内置 `subtitle` / `uncensored` / `cracked` / `leaked` / `4k` / `8k`; `{data_dir}/watermarks/{stem}.png` 同名覆盖, 损坏则回退内置, 缺文件跳过该枚 (清晰度 stem = `definition.casefold()`, 用户可自放 `1080p.png`). 列始终跟当前 path: 模板若写出标记, 二次整理仍能反推.
 
 `Metadata.number` 的唯一约束与 `get_metadata_by_number` / `upsert_metadata` 查重均忽略大小写; 命中已有行时不改写库内 `number` 字符串 (保留首次写入的大小写). 新建时按调用方传入原样落库.
 

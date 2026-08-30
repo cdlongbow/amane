@@ -1,5 +1,3 @@
-"""Cold (环境变量) / Hot (TOML 可热更新) 分层."""
-
 import contextlib
 import os
 import tempfile
@@ -23,7 +21,14 @@ from ..crawlers.site_roles import (
     site_list_value_schema,
 )
 from ..crawlers.sites.official import Manufacturer
-from ..enums import DownloadableResource, Language, MetadataField, SiteName
+from ..enums import (
+    DownloadableResource,
+    Language,
+    MetadataField,
+    SiteName,
+    WatermarkCorner,
+    WatermarkKind,
+)
 from ..parsing import ContentType
 from ..plugins.models import PluginConfig
 from ..sr import SrPreset
@@ -443,6 +448,23 @@ def _reorder_route(eligible: list[Any], order: list[str]) -> list[str]:
     return ordered + leftover
 
 
+class WatermarkConfig(BaseModel):
+    enabled: bool = False
+    scale: float = Field(default=0.08, ge=0.03, le=0.25)
+    """角标高度 = 图高 × scale."""
+
+    corners: dict[WatermarkKind, WatermarkCorner] = Field(
+        default_factory=lambda: dict.fromkeys(WatermarkKind, WatermarkCorner.TOP_LEFT),
+        json_schema_extra={"x-frozen-keys": True},
+    )
+    """各类别贴在哪个角. 缺 key 补左上; 未知 key 丢弃."""
+
+    @field_validator("corners", mode="before")
+    @classmethod
+    def _complete_corners(cls, v: Any) -> Any:
+        return _complete_frozen_dict(v, dict.fromkeys(WatermarkKind, WatermarkCorner.TOP_LEFT))
+
+
 class NetworkConfig(BaseModel):
     """网络配置."""
 
@@ -706,12 +728,13 @@ class HotSettings(BaseModel):
     actor_scraping: ActorScrapingConfig = ActorScrapingConfig()
     agent: AgentConfig = AgentConfig()
     network: NetworkConfig = NetworkConfig()
-    worker: WorkerConfig = WorkerConfig()
-    watcher: WatcherConfig = WatcherConfig()
-    logging: LoggingConfig = LoggingConfig()
     sr: SrConfig = SrConfig()
+    watermark: WatermarkConfig = WatermarkConfig()
     llm: LLMConfig = LLMConfig()
     r18: R18Config = R18Config()
+    watcher: WatcherConfig = WatcherConfig()
+    worker: WorkerConfig = WorkerConfig()
+    logging: LoggingConfig = LoggingConfig()
     plugins: dict[str, PluginConfig] = Field(default_factory=dict, json_schema_extra={"x-hidden": True})
 
 

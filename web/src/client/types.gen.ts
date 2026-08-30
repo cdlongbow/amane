@@ -1143,12 +1143,13 @@ export type HotSettings = {
     actor_scraping?: ActorScrapingConfig;
     agent?: AgentConfig;
     network?: NetworkConfig;
-    worker?: WorkerConfig;
-    watcher?: WatcherConfig;
-    logging?: LoggingConfig;
     sr?: SrConfig;
+    watermark?: WatermarkConfig;
     llm?: LlmConfig;
     r18?: R18Config;
+    watcher?: WatcherConfig;
+    worker?: WorkerConfig;
+    logging?: LoggingConfig;
     /**
      * Plugins
      */
@@ -3292,6 +3293,40 @@ export type WatcherConfig = {
      */
     media_extensions?: Array<string>;
 };
+
+/**
+ * WatermarkConfig
+ */
+export type WatermarkConfig = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Scale
+     */
+    scale?: number;
+    /**
+     * Corners
+     */
+    corners?: {
+        [key in WatermarkKind]?: WatermarkCorner;
+    };
+};
+
+/**
+ * WatermarkCorner
+ *
+ * 角标锚点. 同角多枚按相位顺序向内叠 (上往下 / 下往上), 右角右对齐.
+ */
+export type WatermarkCorner = 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+
+/**
+ * WatermarkKind
+ *
+ * 整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p.
+ */
+export type WatermarkKind = 'subtitle' | 'uncensored' | 'cracked' | 'leaked' | 'definition';
 
 /**
  * WorkerConfig

@@ -100,3 +100,22 @@ class MetadataField(StrEnum):
     TRAILER_URLS = "trailer_urls"
     EXTRAFANART = "extrafanart"
     SCORE = "score"
+
+
+class WatermarkKind(StrEnum):
+    """整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p."""
+
+    SUBTITLE = "subtitle"
+    UNCENSORED = "uncensored"
+    CRACKED = "cracked"
+    LEAKED = "leaked"
+    DEFINITION = "definition"
+
+
+class WatermarkCorner(StrEnum):
+    """角标锚点. 同角多枚按相位顺序向内叠 (上往下 / 下往上), 右角右对齐."""
+
+    TOP_LEFT = "top_left"
+    TOP_RIGHT = "top_right"
+    BOTTOM_LEFT = "bottom_left"
+    BOTTOM_RIGHT = "bottom_right"

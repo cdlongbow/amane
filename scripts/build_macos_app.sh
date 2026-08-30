@@ -46,6 +46,7 @@ mkdir -p "$WORK" "$(dirname "$OUT")"
   --paths "$ROOT/src" \
   --add-data "$ROOT/web/dist:web/dist" \
   --add-data "$ROOT/src/amane/db/migrations:amane/db/migrations" \
+  --add-data "$ROOT/src/amane/media/watermarks:amane/media/watermarks" \
   --add-data "$ROOT/alembic.ini:." \
   --collect-submodules amane \
   --exclude-module patchright \

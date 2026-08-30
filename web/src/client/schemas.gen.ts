@@ -2292,39 +2292,6 @@ export const HotSettingsSchema = {
                 default_rate_limit: 5
             }
         },
-        worker: {
-            $ref: '#/components/schemas/WorkerConfig',
-            default: {
-                concurrency: 10,
-                poll_interval: 2,
-                shutdown_timeout: 0
-            }
-        },
-        watcher: {
-            $ref: '#/components/schemas/WatcherConfig',
-            default: {
-                use_polling: false,
-                debounce_seconds: 3,
-                media_extensions: [
-                    '.mp4',
-                    '.mkv',
-                    '.avi',
-                    '.wmv',
-                    '.flv',
-                    '.mov',
-                    '.ts',
-                    '.iso',
-                    '.strm'
-                ]
-            }
-        },
-        logging: {
-            $ref: '#/components/schemas/LoggingConfig',
-            default: {
-                level: 'INFO',
-                debug_capture: false
-            }
-        },
         sr: {
             $ref: '#/components/schemas/SrConfig',
             default: {
@@ -2334,6 +2301,20 @@ export const HotSettingsSchema = {
                 preset: 'waifu-photo-2x',
                 output_format: 'jpg',
                 tta: false
+            }
+        },
+        watermark: {
+            $ref: '#/components/schemas/WatermarkConfig',
+            default: {
+                enabled: false,
+                scale: 0.08,
+                corners: {
+                    cracked: 'top_left',
+                    definition: 'top_left',
+                    leaked: 'top_left',
+                    subtitle: 'top_left',
+                    uncensored: 'top_left'
+                }
             }
         },
         llm: {
@@ -2358,6 +2339,39 @@ export const HotSettingsSchema = {
                 read_password: 'r18dev_readonly',
                 read_timeout: 30,
                 psql_path: 'psql'
+            }
+        },
+        watcher: {
+            $ref: '#/components/schemas/WatcherConfig',
+            default: {
+                use_polling: false,
+                debounce_seconds: 3,
+                media_extensions: [
+                    '.mp4',
+                    '.mkv',
+                    '.avi',
+                    '.wmv',
+                    '.flv',
+                    '.mov',
+                    '.ts',
+                    '.iso',
+                    '.strm'
+                ]
+            }
+        },
+        worker: {
+            $ref: '#/components/schemas/WorkerConfig',
+            default: {
+                concurrency: 10,
+                poll_interval: 2,
+                shutdown_timeout: 0
+            }
+        },
+        logging: {
+            $ref: '#/components/schemas/LoggingConfig',
+            default: {
+                level: 'INFO',
+                debug_capture: false
             }
         },
         plugins: {
@@ -6514,6 +6528,61 @@ export const WatcherConfigSchema = {
     type: 'object',
     title: 'WatcherConfig',
     description: '文件监控配置.'
+} as const;
+
+export const WatermarkConfigSchema = {
+    properties: {
+        enabled: {
+            type: 'boolean',
+            title: 'Enabled',
+            default: false
+        },
+        scale: {
+            type: 'number',
+            maximum: 0.25,
+            minimum: 0.03,
+            title: 'Scale',
+            default: 0.08
+        },
+        corners: {
+            additionalProperties: {
+                $ref: '#/components/schemas/WatermarkCorner'
+            },
+            propertyNames: {
+                $ref: '#/components/schemas/WatermarkKind'
+            },
+            type: 'object',
+            title: 'Corners',
+            'x-frozen-keys': true
+        }
+    },
+    type: 'object',
+    title: 'WatermarkConfig'
+} as const;
+
+export const WatermarkCornerSchema = {
+    type: 'string',
+    enum: [
+        'top_left',
+        'top_right',
+        'bottom_left',
+        'bottom_right'
+    ],
+    title: 'WatermarkCorner',
+    description: '角标锚点. 同角多枚按相位顺序向内叠 (上往下 / 下往上), 右角右对齐.'
+} as const;
+
+export const WatermarkKindSchema = {
+    type: 'string',
+    enum: [
+        'subtitle',
+        'uncensored',
+        'cracked',
+        'leaked',
+        'definition'
+    ],
+    title: 'WatermarkKind',
+    description: '整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p.'
 } as const;
 
 export const WorkerConfigSchema = {
