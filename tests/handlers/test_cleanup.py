@@ -1,5 +1,8 @@
 """CLEANUP handler - 悬空 MediaFile 索引 / 未引用 Resource 回收; 不删 Metadata."""
 
+import asyncio
+import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -17,7 +20,6 @@ from amane.media.pipeline import RESOURCE_URL_PREFIX
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
-    from pathlib import Path
 
 
 @pytest_asyncio.fixture
@@ -76,6 +78,40 @@ async def test_removes_missing_media_files_keeps_metadata(cleanup_env):
     assert result.result.files_removed == 1
     assert await repo.get_media_file(mf.id) is None
     assert await repo.get_metadata(meta.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_missing_file_exists_does_not_block_event_loop(cleanup_env, monkeypatch):
+    """exists 在线程池: 库路径在 FUSE 上时 CLEANUP 不能阻塞事件循环."""
+    repo, store, tmp_path = cleanup_env
+    lib = await repo.create_library(name="L", path=str(tmp_path / "lib"))
+    assert lib.id is not None
+    ghost = tmp_path / "gone.mp4"
+    await repo.create_media_file(lib.id, path=str(ghost))
+
+    order: list[str] = []
+    real_exists = Path.exists
+
+    def slow_exists(self, *args, **kwargs):
+        order.append("exists_start")
+        time.sleep(0.2)
+        order.append("exists_end")
+        return real_exists(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", slow_exists)
+
+    async def marker() -> None:
+        await asyncio.sleep(0.05)
+        order.append("marker")
+
+    handler = CleanupHandler(repo, store)
+    result, _ = await asyncio.gather(
+        handler.handle(CleanupPayload(remove_missing_files=True, remove_unreferenced_resources=False)),
+        marker(),
+    )
+    assert result.success
+    assert "marker" in order
+    assert order.index("marker") < order.index("exists_end")
 
 
 @pytest.mark.asyncio

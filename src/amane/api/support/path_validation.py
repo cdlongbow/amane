@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi import HTTPException, status
 
 from ...utils.path import is_any_descendant
+from ...utils.threads import in_thread
 
 
 def _resolve_under_safe_dirs(raw_path: str, safe_dirs: list[Path] | None) -> Path:
@@ -44,6 +45,7 @@ def _resolve_under_safe_dirs(raw_path: str, safe_dirs: list[Path] | None) -> Pat
     return resolved
 
 
+@in_thread
 def check_directory_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
     """校验目录路径; 失败抛 ``ValueError`` (供 Agent 工具等非 HTTP 调用方)."""
     resolved = _resolve_under_safe_dirs(raw_path, safe_dirs)
@@ -52,6 +54,7 @@ def check_directory_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
     return resolved
 
 
+@in_thread
 def check_plugin_install_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
     """Resolve a plugin source: directory or ``.zip`` file inside ``safe_dirs``."""
     resolved = _resolve_under_safe_dirs(raw_path, safe_dirs)
@@ -73,7 +76,7 @@ def _http_from_path_error(exc: ValueError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
 
-def validate_directory_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
+async def validate_directory_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
     """
     校验用户提交的目录路径, 返回 resolve 后的 ``Path``.
 
@@ -84,14 +87,14 @@ def validate_directory_path(raw_path: str, safe_dirs: list[Path] | None) -> Path
         HTTPException(500): safe_dirs 未配置
     """
     try:
-        return check_directory_path(raw_path, safe_dirs)
+        return await check_directory_path(raw_path, safe_dirs)
     except ValueError as exc:
         raise _http_from_path_error(exc) from exc
 
 
-def validate_plugin_install_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
+async def validate_plugin_install_path(raw_path: str, safe_dirs: list[Path] | None) -> Path:
     """校验插件安装源路径 (目录或 zip), 返回 resolve 后的 ``Path``."""
     try:
-        return check_plugin_install_path(raw_path, safe_dirs)
+        return await check_plugin_install_path(raw_path, safe_dirs)
     except ValueError as exc:
         raise _http_from_path_error(exc) from exc

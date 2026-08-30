@@ -44,7 +44,7 @@ async def list_libraries(repo: RepoDep) -> LibraryListResponse:
 async def create_library(req: LibraryCreateRequest, repo: RepoDep, runtime: RuntimeDep) -> LibraryResponse:
     """添加新的媒体库, 可选触发初始扫描并热添加到监控器"""
     # 路径校验: 必须存在, 是目录, 在 safe_dirs 内
-    validate_directory_path(req.path, runtime.safe_dirs)
+    await validate_directory_path(req.path, runtime.safe_dirs)
 
     name = req.name or Path(req.path).name
 
@@ -126,7 +126,7 @@ async def update_library(
 
     # 仅当 path 字段被显式更新时才校验 -- 其它字段更新不需要重新检查路径
     if "path" in updates and updates["path"] is not None:
-        validate_directory_path(updates["path"], runtime.safe_dirs)
+        await validate_directory_path(updates["path"], runtime.safe_dirs)
 
     lib = await repo.update_library(library_id, **updates)
     if lib is None:

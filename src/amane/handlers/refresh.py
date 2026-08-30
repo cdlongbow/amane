@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -8,6 +7,7 @@ import structlog
 from ..db import TaskType
 from ..parsing import parse_file_info
 from ..utils.extensions import MEDIA_EXTENSIONS
+from ..utils.threads import path_exists, path_is_dir
 from ._common import aiter_media_files, register_media_file
 from .models import RefreshPayload, RefreshResult, ScanMode, ScrapePayload
 from .protocol import FollowupTask, TaskHandler, TaskResult
@@ -30,7 +30,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
 
     async def handle(self, payload: RefreshPayload) -> TaskResult[RefreshResult]:
         scan_dir = Path(payload.path)
-        if not await asyncio.to_thread(scan_dir.is_dir):
+        if not await path_is_dir(scan_dir):
             return TaskResult(success=False, error=f"Not a directory: {payload.path}")
 
         library = await self._repo.get_library(payload.library_id)
@@ -79,7 +79,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
                 else:
                     missing = []
                     for f in existing:
-                        still_there = await asyncio.to_thread(Path(f.path).exists)
+                        still_there = await path_exists(Path(f.path))
                         if not still_there:
                             missing.append(f)
                 if missing:

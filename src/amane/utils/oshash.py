@@ -7,12 +7,13 @@ oshash 是 Stash 系站点 (ThePornDB 等) 的 open-subtitles 风格指纹:
 
 from __future__ import annotations
 
-import asyncio
 import io
 import struct
 from typing import TYPE_CHECKING
 
 import structlog
+
+from .threads import in_thread
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,12 +28,12 @@ _UNPACK = struct.Struct("<q")
 _MIN_FILE_SIZE = CHUNK_SIZE * 2
 
 
+@in_thread
 def compute_oshash(path: Path) -> str | None:
     """计算文件 oshash, 与 ``oshash`` 包实现一致.
 
     不可用文件 (< 128 KiB / 无法读取) 返回 ``None`` 而非抛异常 —
-    .strm 占位文件等对象本就没有指纹. 同步阻塞 (最多读 128 KiB), 只应在
-    工作线程中调用.
+    .strm 占位文件等对象本就没有指纹.
     """
     try:
         file_size = path.stat().st_size
@@ -68,8 +69,3 @@ def _sum_chunk(data: bytes, file_hash: int) -> int:
         (unpacked,) = _UNPACK.unpack_from(data, i)
         file_hash = (file_hash + unpacked) & 0xFFFFFFFFFFFFFFFF
     return file_hash
-
-
-async def compute_oshash_async(path: Path) -> str | None:
-    """``compute_oshash`` 的异步包装: 投递到默认线程池, 避免阻塞事件循环."""
-    return await asyncio.to_thread(compute_oshash, path)

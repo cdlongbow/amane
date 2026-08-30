@@ -8,6 +8,7 @@ import structlog
 
 from ..enums import MoveMode
 from ..parsing import detect_cd
+from ..utils.threads import in_thread
 from .file import execute_organize
 from .path_templates import resolve_subtitle_path
 
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+@in_thread
 def discover_subtitles(
     video_path: Path,
     extensions: Sequence[str],
@@ -50,6 +52,7 @@ def discover_subtitles(
     return found
 
 
+@in_thread
 def place_subtitles(
     sources: Sequence[Path],
     video_source: Path,
@@ -73,7 +76,7 @@ def place_subtitles(
             file_info=file_info,
             safe_dirs=safe_dirs,
         )
-        result = execute_organize(
+        result = execute_organize.sync(
             source=sub,
             target_dir=dest.parent,
             target_stem=dest.stem,

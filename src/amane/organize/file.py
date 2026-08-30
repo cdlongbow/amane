@@ -4,6 +4,7 @@ from pathlib import Path
 import structlog
 
 from amane.enums import MoveMode
+from amane.utils.threads import in_thread
 
 logger = structlog.get_logger()
 
@@ -15,6 +16,7 @@ class OrganizeResult:
     error: str | None = None
 
 
+@in_thread
 def execute_organize(
     source: Path,
     target_dir: Path,

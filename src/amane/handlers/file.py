@@ -1,6 +1,5 @@
 """ORGANIZE 的文件后处理 (下载图到库路径, 移文件, 写 NFO)."""
 
-import asyncio
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -15,10 +14,19 @@ from ..media import ResourceStore, apply_cover_watermarks_from_info, crop_poster
 from ..media import write_nfo as write_nfo_file
 from ..media.pipeline import RESOURCE_URL_PREFIX
 from ..net.http import WebClient
-from ..organize import MoveMode, ResolvedPaths, discover_subtitles, execute_organize, place_subtitles, resolve_paths
+from ..organize import (
+    MoveMode,
+    ResolvedPaths,
+    discover_subtitles,
+    execute_organize,
+    place_subtitles,
+    resolve_paths,
+)
+from ..organize.file import OrganizeResult as DiskOrganizeResult
 from ..organize.link import create_video_link
 from ..parsing import FileInfo, parse_file_info
 from ..utils.extensions import MEDIA_EXTENSIONS, TRASH_DIRNAME, compile_skip_patterns, is_undersized_video
+from ..utils.threads import in_thread, path_exists, path_is_dir
 from ._common import aiter_media_files
 from .models import CleanupPayload, CleanupResult, OrganizePayload, OrganizeResult
 from .protocol import TaskHandler, TaskResult
@@ -81,7 +89,7 @@ async def execute_file_operations(
         FileOperationsResult 包含是否成功和目标路径
     """
     source_path = Path(media_file.path)
-    if not source_path.exists():
+    if not await path_exists(source_path):
         logger.warning("source file missing", path=str(source_path))
         return FileOperationsResult(success=False, error=f"Source file not found: {media_file.path}")
 
@@ -89,8 +97,6 @@ async def execute_file_operations(
 
     # 1. 下载图片到 paths 指定的位置 (水印打在库路径副本上, 不改 Resource 原图)
     if web_client and download_images:
-        image_dir = paths.thumb.parent
-        image_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("downloading images via store", number=metadata.number)
         kinds = set(copy_resources) if copy_resources is not None else set(DownloadableResource)
         await _download_images_via_store(
@@ -107,21 +113,19 @@ async def execute_file_operations(
     # 2. 先发现同目录字幕 (视频挪走前), 再移动/复制视频
     subtitles: list[Path] = []
     if library is not None:
-        subtitles = discover_subtitles(source_path, library.subtitle_extensions, info.cd)
+        subtitles = await discover_subtitles(source_path, library.subtitle_extensions, info.cd)
 
-    target_dir = paths.video.parent
-    target_stem = paths.video.stem
-    org_result = execute_organize(
+    org_result = await execute_organize(
         source=source_path,
-        target_dir=target_dir,
-        target_stem=target_stem,
+        target_dir=paths.video.parent,
+        target_stem=paths.video.stem,
         mode=move_mode,
     )
 
     # 3. 视频就位后写链接 (strm / 软链接); 失败仍带 dest 以便回写 MediaFile.path
     if org_result.success and org_result.dest and paths.link is not None:
         mode = LinkMode(library.link_mode) if library is not None else LinkMode.STRM
-        link_result = create_video_link(org_result.dest, paths.link, mode)
+        link_result = await create_video_link(org_result.dest, paths.link, mode)
         if not link_result.success:
             return FileOperationsResult(success=False, dest=org_result.dest, error=link_result.error)
 
@@ -130,7 +134,7 @@ async def execute_file_operations(
         await write_nfo_file(metadata, paths.nfo)
 
     if org_result.success and org_result.dest and library is not None and subtitles:
-        place_subtitles(
+        await place_subtitles(
             subtitles,
             video_source=source_path,
             video_dest=org_result.dest,
@@ -237,36 +241,32 @@ async def _acquire_first_local(urls: list[str], store: ResourceStore, client: We
     return None
 
 
-async def _download_images_via_store(
-    metadata: Metadata,
-    store: ResourceStore,
-    client: WebClient,
+@in_thread
+def _place_library_images(
     paths: ResolvedPaths,
-    config: HotSettings | None,
+    *,
+    thumb_local: Path | None,
+    poster_local: Path | None,
+    trailer_local: Path | None,
+    extrafanart: Sequence[Path],
     kinds: set[DownloadableResource],
-    file_info: FileInfo | None = None,
-    watermark_dir: Path | None = None,
+    config: HotSettings | None,
+    file_info: FileInfo | None,
+    watermark_dir: Path | None,
 ) -> None:
-    """把 metadata 引用的资源复制到库路径 (优先用 Resource 已有文件; 缺失则现场 acquire)."""
-    thumb_local = None
-    if DownloadableResource.thumb in kinds:
-        thumb_urls = metadata.thumb_urls
-        thumb_local = await _acquire_first_local(thumb_urls, store, client) if thumb_urls else None
-        if thumb_local:
-            paths.thumb.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(thumb_local, paths.thumb)
-            # Fanart = thumb (JAV convention)
-            paths.fanart.parent.mkdir(parents=True, exist_ok=True)
-            if not paths.fanart.exists():
-                shutil.copy2(thumb_local, paths.fanart)
+    """把已 acquire 的本地资源复制到库路径并叠水印."""
+    if thumb_local is not None and DownloadableResource.thumb in kinds:
+        paths.thumb.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(thumb_local, paths.thumb)
+        paths.fanart.parent.mkdir(parents=True, exist_ok=True)
+        if not paths.fanart.exists():
+            shutil.copy2(thumb_local, paths.fanart)
 
     if DownloadableResource.poster in kinds:
-        poster_urls = metadata.poster_urls
-        poster_local = await _acquire_first_local(poster_urls, store, client) if poster_urls else None
-        if poster_local:
+        if poster_local is not None:
             paths.poster.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(poster_local, paths.poster)
-        elif thumb_local and config and config.scraping.crop_poster:
+        elif thumb_local is not None and config is not None and config.scraping.crop_poster:
             paths.poster.parent.mkdir(parents=True, exist_ok=True)
             crop_poster(
                 paths.thumb,
@@ -275,24 +275,15 @@ async def _download_images_via_store(
                 jpeg_quality=config.scraping.jpeg_quality,
             )
 
-    if DownloadableResource.trailer in kinds:
-        trailer_urls = metadata.trailer_urls
-        trailer_local = await _acquire_first_local(trailer_urls, store, client) if trailer_urls else None
-        if trailer_local:
-            paths.trailer.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(trailer_local, paths.trailer)
+    if trailer_local is not None and DownloadableResource.trailer in kinds:
+        paths.trailer.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(trailer_local, paths.trailer)
 
-    if DownloadableResource.extrafanart in kinds:
-        extrafanart_by_site = metadata.extrafanart_urls
-        if extrafanart_by_site:
-            priority = list(extrafanart_by_site.keys())
-            downloaded = await store.acquire_extrafanart(extrafanart_by_site, priority, client)
-            if downloaded:
-                paths.extrafanart_dir.mkdir(parents=True, exist_ok=True)
-                for i, p in enumerate(downloaded):
-                    shutil.copy2(p, paths.extrafanart_dir / f"{i + 1}.jpg")
+    if extrafanart and DownloadableResource.extrafanart in kinds:
+        paths.extrafanart_dir.mkdir(parents=True, exist_ok=True)
+        for i, p in enumerate(extrafanart):
+            shutil.copy2(p, paths.extrafanart_dir / f"{i + 1}.jpg")
 
-    # 角标叠在库路径副本上 (fanart 保持干净原图). 裁剪已从无水印 thumb 完成.
     wm = config.watermark if config is not None else WatermarkConfig()
     if wm.enabled and file_info is not None:
         jpeg_quality = config.scraping.jpeg_quality if config is not None else 95
@@ -314,6 +305,68 @@ async def _download_images_via_store(
                 scale=wm.scale,
                 corners=wm.corners,
             )
+
+
+async def _download_images_via_store(
+    metadata: Metadata,
+    store: ResourceStore,
+    client: WebClient,
+    paths: ResolvedPaths,
+    config: HotSettings | None,
+    kinds: set[DownloadableResource],
+    file_info: FileInfo | None = None,
+    watermark_dir: Path | None = None,
+) -> None:
+    """把 metadata 引用的资源复制到库路径 (优先用 Resource 已有文件; 缺失则现场 acquire)."""
+    thumb_local = None
+    if DownloadableResource.thumb in kinds:
+        thumb_urls = metadata.thumb_urls
+        thumb_local = await _acquire_first_local(thumb_urls, store, client) if thumb_urls else None
+
+    poster_local = None
+    if DownloadableResource.poster in kinds:
+        poster_urls = metadata.poster_urls
+        poster_local = await _acquire_first_local(poster_urls, store, client) if poster_urls else None
+
+    trailer_local = None
+    if DownloadableResource.trailer in kinds:
+        trailer_urls = metadata.trailer_urls
+        trailer_local = await _acquire_first_local(trailer_urls, store, client) if trailer_urls else None
+
+    extrafanart: list[Path] = []
+    if DownloadableResource.extrafanart in kinds:
+        extrafanart_by_site = metadata.extrafanart_urls
+        if extrafanart_by_site:
+            priority = list(extrafanart_by_site.keys())
+            extrafanart = await store.acquire_extrafanart(extrafanart_by_site, priority, client)
+
+    await _place_library_images(
+        paths,
+        thumb_local=thumb_local,
+        poster_local=poster_local,
+        trailer_local=trailer_local,
+        extrafanart=extrafanart,
+        kinds=kinds,
+        config=config,
+        file_info=file_info,
+        watermark_dir=watermark_dir,
+    )
+
+
+@in_thread
+def _trash_if_unwanted(
+    file_path: Path,
+    trash_dir: Path,
+    *,
+    blacklisted: bool,
+    is_trailer: bool,
+    min_file_size: int,
+    media_extensions: frozenset[str],
+) -> DiskOrganizeResult | None:
+    undersized = (not is_trailer) and is_undersized_video(file_path, min_file_size, media_extensions=media_extensions)
+    if not blacklisted and not undersized:
+        return None
+    return execute_organize.sync(source=file_path, target_dir=trash_dir, target_stem=file_path.stem, mode=MoveMode.MOVE)
 
 
 class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
@@ -351,7 +404,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
     async def handle(self, payload: OrganizePayload) -> TaskResult[OrganizeResult]:
         scan_dir = Path(payload.path)
-        if not await asyncio.to_thread(scan_dir.is_dir):
+        if not await path_is_dir(scan_dir):
             return TaskResult(success=False, error=f"Not a directory: {payload.path}")
 
         # 获取 Library 用于路径模板
@@ -362,7 +415,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
         # 落盘前清掉本库失效索引, 避免 dest 碰撞名被幽灵行占用而撞 path UNIQUE.
         for mf in await self._repo.list_media_files(library_id=library.id, limit=None):
-            if mf.id is not None and not await asyncio.to_thread(Path(mf.path).exists, follow_symlinks=False):
+            if mf.id is not None and not await path_exists(Path(mf.path), follow_symlinks=False):
                 await self._repo.delete_media_file(mf.id)
 
         recursive = payload.recursive if payload.recursive is not None else True
@@ -468,15 +521,17 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
             media_extensions=media_extensions,
         ):
             blacklisted = trash_res is not None and any(r.search(file_path.name) for r in trash_res)
-            trailer = trailer_res is not None and any(r.search(file_path.name) for r in trailer_res)
-            undersized = (not trailer) and is_undersized_video(
-                file_path, min_file_size, media_extensions=media_extensions
+            is_trailer = trailer_res is not None and any(r.search(file_path.name) for r in trailer_res)
+            result = await _trash_if_unwanted(
+                file_path,
+                trash_dir,
+                blacklisted=blacklisted,
+                is_trailer=is_trailer,
+                min_file_size=min_file_size,
+                media_extensions=media_extensions,
             )
-            if not blacklisted and not undersized:
+            if result is None:
                 continue
-            result = execute_organize(
-                source=file_path, target_dir=trash_dir, target_stem=file_path.stem, mode=MoveMode.MOVE
-            )
             if not result.success:
                 logger.warning("unwanted file trash failed", path=str(file_path), error=result.error)
                 continue
@@ -534,6 +589,12 @@ async def _collect_live_resource_refs(repo: Repository) -> tuple[set[str], set[s
     return live_urls, live_hashes
 
 
+@in_thread
+def _missing_media_ids(rows: Sequence[tuple[int, str]]) -> list[int]:
+    """磁盘上不存在的 MediaFile id. 路径可能在 FUSE/NAS."""
+    return [media_id for media_id, path in rows if not Path(path).exists(follow_symlinks=False)]
+
+
 class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
     """处理 CLEANUP 任务 - 清理悬空引用.
 
@@ -561,7 +622,9 @@ class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
                 if not batch:
                     break
                 missing_ids.extend(
-                    mf.id for mf in batch if mf.id is not None and not Path(mf.path).exists(follow_symlinks=False)
+                    await _missing_media_ids(
+                        [(mf.id, mf.path) for mf in batch if mf.id is not None],
+                    )
                 )
                 offset += len(batch)
                 if len(batch) < page:

@@ -51,7 +51,7 @@ async def install_plugin(
         raise HTTPException(status_code=422, detail="请提供 zip 文件或服务器路径（不能同时提供）")
     try:
         if source_path:
-            resolved = validate_plugin_install_path(source_path, runtime.safe_dirs)
+            resolved = await validate_plugin_install_path(source_path, runtime.safe_dirs)
             manager = await runtime.install_plugin_from_path(resolved)
         else:
             if file is None or not filename.lower().endswith(".zip"):

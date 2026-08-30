@@ -3,10 +3,12 @@
 from pathlib import Path
 
 from amane.enums import LinkMode
+from amane.utils.threads import in_thread
 
 from .file import OrganizeResult
 
 
+@in_thread
 def create_video_link(target: Path, link_path: Path, mode: LinkMode) -> OrganizeResult:
     """在 link_path 创建指向 target 的 strm 或软链接.
 

@@ -1,6 +1,6 @@
 # 系统架构
 
-> 提交: `07c29df`
+> 提交: `4fcd4ac`
 >
 > 本文只解释**为什么**这样划分以及**何时会失效**. 字段、签名、目录清单去源码中读.
 > 配置系统见 [config.md](config.md), 数据模型见 [data-model.md](data-model.md), 任务流程见 [task-system.md](task-system.md).
@@ -60,3 +60,4 @@ EventBus → 日志 → 来源插件发现 → 主 DB engine + Repository → r1
 - **限速** — per-host 漏桶; 优先级与实现见 [crawlers.md](crawlers.md).
 - **Resource** — URL → 本地文件, 一等存储非 LRU; 见 [data-model.md](data-model.md).
 - **日志** — 三流 + 任务 Recorder; 见 [observability.md](observability.md).
+- **事件循环上的磁盘 I/O** — HTTP 与 Worker 共用 FastAPI 事件循环. 用户媒体目录与浏览路径 (含 FUSE/NAS) 上的 glob/stat/scandir/copy/move 用 `@in_thread` (`utils/threads.py`), 调用方 `await fn(...)`; 已在工作线程里用 `.sync`. 否则会阻塞健康检查和其它请求. `data_dir` (Resource、配置、日志) 由进程自己管理, 同步读写. 细则见 [task-system.md](task-system.md).

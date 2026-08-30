@@ -16,14 +16,14 @@ from amane.api.support.path_validation import check_directory_path, check_plugin
 )
 def test_check_directory_path_rejects_empty(raw: str, safe_dirs: list[Path] | None, match: str):
     with pytest.raises(ValueError, match=match):
-        check_directory_path(raw, safe_dirs)
+        check_directory_path.sync(raw, safe_dirs)
 
 
 def test_check_directory_path_empty_list_unconfigured(tmp_path: Path):
     existing = tmp_path / "dir"
     existing.mkdir()
     with pytest.raises(ValueError, match="No safe directories configured"):
-        check_directory_path(str(existing), [])
+        check_directory_path.sync(str(existing), [])
 
 
 def test_check_directory_path_allow_all_and_restricted(tmp_path: Path):
@@ -34,20 +34,20 @@ def test_check_directory_path_allow_all_and_restricted(tmp_path: Path):
     as_file = inside / "f.txt"
     as_file.write_text("x")
 
-    assert check_directory_path(str(outside), None) == outside.resolve()
-    assert check_directory_path(str(inside), [inside]) == inside.resolve()
+    assert check_directory_path.sync(str(outside), None) == outside.resolve()
+    assert check_directory_path.sync(str(inside), [inside]) == inside.resolve()
 
     with pytest.raises(ValueError, match="outside the configured safe directories"):
-        check_directory_path(str(outside), [inside])
+        check_directory_path.sync(str(outside), [inside])
     with pytest.raises(ValueError, match="does not exist"):
-        check_directory_path(str(inside / "nope"), None)
+        check_directory_path.sync(str(inside / "nope"), None)
     with pytest.raises(ValueError, match="Not a directory"):
-        check_directory_path(str(as_file), None)
+        check_directory_path.sync(str(as_file), None)
 
 
 def test_check_plugin_install_path_allow_all_zip(tmp_path: Path):
     z = tmp_path / "plugin.zip"
     z.write_bytes(b"PK")
-    assert check_plugin_install_path(str(z), None) == z.resolve()
+    assert check_plugin_install_path.sync(str(z), None) == z.resolve()
     with pytest.raises(ValueError, match="outside the configured safe directories"):
-        check_plugin_install_path(str(z), [tmp_path / "files"])
+        check_plugin_install_path.sync(str(z), [tmp_path / "files"])

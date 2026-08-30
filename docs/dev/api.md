@@ -1,6 +1,6 @@
 # API 层
 
-> 提交: `ecbc041`
+> 提交: `4fcd4ac`
 >
 > 入口: `src/amane/api/routes/`. 契约在 `api/models/` (与 routes 对齐). 端点签名从源码或 `web/openapi.json` 读 (`just generate`); 本文只写划分、约定与易错点.
 > 启动见 [architecture.md](architecture.md), 模型见 [data-model.md](data-model.md), 任务提交见 [task-system.md](task-system.md).
@@ -12,7 +12,7 @@
 | `app.py` / `deps.py` / `middleware.py` / `spa.py` | HTTP 宿主与 DI |
 | `routes/` | 按资源一个模块 |
 | `models/` | 与 routes 同名的请求/响应 |
-| `support/` | `http_cache` / `path_validation` / `task_resolve` / `task_batch` |
+| `support/` | `http_cache` / `path_validation` / `task_resolve` / `task_batch`. `path_validation` 的 resolve/exists/is_dir 经 `@in_thread` |
 
 ## 路由划分
 
@@ -33,7 +33,7 @@
 | `schedules` | `/schedules` | cron CRUD + trigger |
 | `config` | `/config` | HotSettings + schema |
 | `plugins` | `/plugins` | 外部影片来源插件目录、安装/卸载/热扫描、配置 schema 与启用状态 |
-| `files` | `/files` | 目录浏览 (`?path=`) |
+| `files` | `/files` | 目录浏览 (`?path=`); resolve/scandir/stat 经 `@in_thread`, 避免 FUSE 堵事件循环 |
 | `resources` | `/resources` | 本地资源 + `GET /proxy` |
 | `agent` | `/agent`, `/saved-queries` | 见 [agent.md](agent.md) |
 | `ws` | `/ws` | EventBus 广播 |

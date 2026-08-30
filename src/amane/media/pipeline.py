@@ -10,6 +10,7 @@
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import structlog
@@ -27,8 +28,6 @@ from .images import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from ..config import HotSettings, SrConfig
     from ..db.models import Resource
     from ..net.http import WebClient

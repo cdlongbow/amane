@@ -26,16 +26,16 @@ class TestComputeOshash:
     def test_matches_oshash_package(self, tmp_path: Path, size: int, expected: str):
         p = tmp_path / "video.mkv"
         p.write_bytes(_rep_256(size))
-        assert compute_oshash(p) == expected
+        assert compute_oshash.sync(p) == expected
 
     @pytest.mark.parametrize("size", [0, 1, 65536, 131071])
     def test_too_small_returns_none(self, tmp_path: Path, size: int):
         p = tmp_path / "small.mp4"
         p.write_bytes(b"\x00" * size)
-        assert compute_oshash(p) is None
+        assert compute_oshash.sync(p) is None
 
     def test_missing_file_returns_none(self, tmp_path: Path):
-        assert compute_oshash(tmp_path / "nope.mp4") is None
+        assert compute_oshash.sync(tmp_path / "nope.mp4") is None
 
     @pytest.mark.skipif(sys.platform == "win32", reason="创建符号链接需要特权, 行为不稳定")
     def test_symlink_to_valid_file(self, tmp_path: Path):
@@ -43,13 +43,13 @@ class TestComputeOshash:
         target.write_bytes(_rep_256(65536 * 2))
         link = tmp_path / "link.mkv"
         link.symlink_to(target)
-        assert compute_oshash(link) == "a0601fdf9f610000"
+        assert compute_oshash.sync(link) == "a0601fdf9f610000"
 
     def test_empty_content_known_value(self, tmp_path: Path):
         """全零文件: 只有文件大小进入 hash, 首尾块贡献为 0."""
         p = tmp_path / "zeros.mkv"
         p.write_bytes(b"\x00" * (65536 * 2))
-        assert compute_oshash(p) == f"{65536 * 2:016x}"
+        assert compute_oshash.sync(p) == f"{65536 * 2:016x}"
 
     def test_unreadable_file_returns_none(self, tmp_path: Path):
         if os.name == "nt":
@@ -58,6 +58,6 @@ class TestComputeOshash:
         p.write_bytes(_rep_256(65536 * 2))
         p.chmod(0)
         try:
-            assert compute_oshash(p) is None
+            assert compute_oshash.sync(p) is None
         finally:
             p.chmod(0o644)

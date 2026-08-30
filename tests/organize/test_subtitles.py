@@ -114,5 +114,5 @@ def test_discover_subtitles(case: _Case, tmp_path: Path) -> None:
     for rel in case.files:
         _touch(folder / rel)
     video = folder / case.video
-    found = discover_subtitles(video, case.extensions, case.video_cd)
+    found = discover_subtitles.sync(video, case.extensions, case.video_cd)
     assert [p.name for p in found] == list(case.expected)

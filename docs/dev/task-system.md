@@ -1,6 +1,6 @@
 # 任务系统
 
-> 提交: `a7ce29f`
+> 提交: `4fcd4ac`
 >
 > 入口: `src/amane/handlers/`, `src/amane/scheduler/worker.py`. Payload 结构、handler 步骤都在源码; 本文只解释**为什么**这么编排.
 > 数据所有权见 [data-model.md](data-model.md), 启动顺序见 [architecture.md](architecture.md), 日志隔离见 [observability.md](observability.md).
@@ -105,7 +105,9 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 | ------ | ------ | -------- | ------ |
 | `iter_media_files` / `aiter_media_files` | `handlers/_common.py` | REFRESH / ORGANIZE | 目录遍历 + patterns/扩展名过滤 + 库级 `trailer_pattern` / 黑名单 / `min_file_size`; 异步封装在线程池分批推进 glob/stat, 不堵事件循环 |
 | `finalize_media_file` | `handlers/_common.py` | SCRAPE (缓存/主路径) | 标记 SCRAPED + 关联 Metadata |
-| `apply_file_operations` | `handlers/file.py` | ORGANIZE | 取 MediaFile→取 Library→渲染路径→执行 file ops |
+| `apply_file_operations` | `handlers/file.py` | ORGANIZE | 取 MediaFile→取 Library→渲染路径→执行 file ops; 库路径 I/O 经 `@in_thread` |
+
+库路径 (含 FUSE/NAS) 与用户浏览路径上的磁盘调用不能跑在事件循环上, 见 [architecture.md](architecture.md). 整段同步 I/O 用 `@in_thread`, 调用方 `await fn(...)`; 已在工作线程内 (例如 `place_subtitles` 里再 `execute_organize`) 用 `.sync`, 不要再进一次线程池. `aiter_media_files` 是生成器, 按批 `to_thread`. Watchdog 的 `stat` 在 observer 线程, 不经过事件循环. Resource / `data_dir` 由进程自己管理, 同步读写.
 
 **分层动机**: `_common.py` 只放无 `execute_file_operations` 依赖的轻量单元 (纯函数, 依赖全参数注入); `apply_file_operations` 因封装 `execute_file_operations` 而与之相邻放在 `file.py`, 避免循环导入. 前置条件不满足时返回 `None` 表示跳过. 图片下载统一经 `ResourceStore` (强制注入).
 

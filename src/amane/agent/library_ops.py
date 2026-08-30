@@ -114,7 +114,7 @@ def build_library_ops_capability() -> Capability[AgentDeps]:
             },
         )
         try:
-            check_directory_path(path, ctx.deps.bridge.safe_dirs)
+            await check_directory_path(path, ctx.deps.bridge.safe_dirs)
         except ValueError as exc:
             return {"error": str(exc)}
         display = name or Path(path).name
@@ -171,7 +171,7 @@ def build_library_ops_capability() -> Capability[AgentDeps]:
                 return {"error": f"无效的 automation: {patch['automation']}"}
         if "path" in patch and patch["path"] is not None:
             try:
-                check_directory_path(str(patch["path"]), ctx.deps.bridge.safe_dirs)
+                await check_directory_path(str(patch["path"]), ctx.deps.bridge.safe_dirs)
             except ValueError as exc:
                 return {"error": str(exc)}
         lib = await ctx.deps.repo.update_library(library_id, **cast(LibraryUpdates, patch))

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from ...utils.path import is_any_descendant
+from ...utils.threads import in_thread
 from ..deps import RuntimeDep
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -62,7 +63,11 @@ async def list_files(
     show_hidden: Annotated[bool, Query(description="Whether to include hidden files (dotfiles).")] = False,
 ) -> FileListResponse:
     """列出目录内容. 仅允许访问启动时确定的安全目录内的路径; ``safe_dirs is None`` 时不限制."""
-    safe_dirs = runtime.safe_dirs
+    return await _list_files_sync(path, base, show_hidden, runtime.safe_dirs)
+
+
+@in_thread
+def _list_files_sync(path: str, base: str | None, show_hidden: bool, safe_dirs: list[Path] | None) -> FileListResponse:
     if safe_dirs is not None and not safe_dirs:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No safe directories configured.")
 

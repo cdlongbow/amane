@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from ..db import MediaFileStatus
 from ..utils.extensions import MEDIA_EXTENSIONS, compile_skip_patterns, is_in_trash, is_undersized_video
-from ..utils.oshash import compute_oshash_async
+from ..utils.oshash import compute_oshash
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator, Sequence
@@ -126,7 +126,7 @@ async def ensure_oshash(repo: Repository, media: MediaFile) -> str | None:
     """已有指纹直接返回; 否则计算并落库. 失败留 None, 不阻断刮削."""
     if media.oshash is not None:
         return media.oshash
-    media_hash = await compute_oshash_async(Path(media.path))
+    media_hash = await compute_oshash(Path(media.path))
     if media_hash is None or media.id is None:
         return None
     updated = await repo.update_media_file(media.id, oshash=media_hash)
