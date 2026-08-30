@@ -2,6 +2,7 @@ import { Badge, Group, Text } from "@mantine/core";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
+import { LogKvPairs } from "@/components/log/log-kv";
 import { type LogEntry, logLevelMantineColor, useLogStore } from "@/stores/logs";
 
 interface TaskLogViewProps {
@@ -76,7 +77,10 @@ function TaskLogRow({ entry }: { entry: LogEntry }) {
         {entry.level}
       </Badge>
       <Text size="xs" style={{ flex: 1, wordBreak: "break-word" }}>
-        {entry.message}
+        <Text component="span" fw={700}>
+          {entry.message}
+        </Text>
+        <LogKvPairs entry={entry} />
       </Text>
     </Group>
   );

@@ -13,10 +13,12 @@ import { IconAlertCircle, IconInfoCircle, IconSearch, IconTrash } from "@tabler/
 import { createFileRoute } from "@tanstack/react-router";
 import type { ParseKeys } from "i18next";
 import { filter, LiqeError, parse } from "liqe";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { APP_SHELL_MAIN_HEIGHT } from "@/components/layout/app-shell-metrics";
 import { exhaustiveRecord } from "@/lib/exhaustive";
+import { LogKvPairs } from "@/components/log/log-kv";
 import {
   LOG_LEVELS,
   type LogEntry,
@@ -27,6 +29,17 @@ import {
 import { useUIStore } from "@/stores/ui";
 
 export const Route = createFileRoute("/logs")({ component: LogsPage });
+
+/** 进入页 / 打开自动滚动: 滚到 scroller 真正的底, 而不是把末项 align end (单行会裁掉下边距). */
+function pinLogList(ref: RefObject<VirtuosoHandle | null>) {
+  ref.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER });
+}
+
+function LogListFooter() {
+  return <div style={{ height: 8 }} />;
+}
+
+const LOG_VIRTUOSO_COMPONENTS = { Footer: LogListFooter };
 
 const LEVEL_I18N_KEY = exhaustiveRecord<LogLevel>()({
   DEBUG: "logs:levels.debug",
@@ -55,10 +68,37 @@ function renderLogRow(_index: number, entry: LogEntry) {
   return <LogRow entry={entry} />;
 }
 
-function LogRow({ entry }: { entry: LogEntry }) {
-  const extra = Object.entries(entry).filter(
-    ([k]) => !["id", "timestamp", "level", "source", "message"].includes(k),
+function LogVirtuoso({
+  data,
+  autoScroll,
+  virtuosoRef,
+}: {
+  data: LogEntry[];
+  autoScroll: boolean;
+  virtuosoRef: RefObject<VirtuosoHandle | null>;
+}) {
+  const didPinBottom = useRef(false);
+  return (
+    <Virtuoso
+      ref={virtuosoRef}
+      style={{ height: "100%" }}
+      data={data}
+      alignToBottom
+      atBottomThreshold={200}
+      initialTopMostItemIndex={data.length - 1}
+      followOutput={autoScroll ? () => "auto" : false}
+      components={LOG_VIRTUOSO_COMPONENTS}
+      itemsRendered={() => {
+        if (didPinBottom.current) return;
+        didPinBottom.current = true;
+        pinLogList(virtuosoRef);
+      }}
+      itemContent={renderLogRow}
+    />
   );
+}
+
+function LogRow({ entry }: { entry: LogEntry }) {
   return (
     <Group
       gap="sm"
@@ -89,14 +129,10 @@ function LogRow({ entry }: { entry: LogEntry }) {
         {entry.source}
       </Text>
       <Text size="sm" style={{ flex: 1, wordBreak: "break-word" }}>
-        {entry.message}
-        {extra.length > 0 && (
-          <Text component="span" size="xs" c="dimmed" ml={6}>
-            {extra
-              .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`)
-              .join(" ")}
-          </Text>
-        )}
+        <Text component="span" fw={700}>
+          {entry.message}
+        </Text>
+        <LogKvPairs entry={entry} />
       </Text>
     </Group>
   );
@@ -112,6 +148,7 @@ function LogsPage() {
   const setLevelFilter = useUIStore((s) => s.setLogLevelFilter);
 
   const [query, setQuery] = useState("");
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   function toggleLevel(level: LogLevel) {
     setLevelFilter(
@@ -137,15 +174,20 @@ function LogsPage() {
     return { items: byLevel.filter((e) => matchesText(e, q)), error: null };
   }, [entries, levelFilter, query, t]);
 
+  function handleAutoScrollChange(checked: boolean) {
+    setAutoScroll(checked);
+    if (checked) pinLogList(virtuosoRef);
+  }
+
   return (
-    <Stack gap="md" h="calc(100vh - 100px)">
-      <Group justify="space-between" wrap="wrap">
+    <Stack gap="md" style={{ height: APP_SHELL_MAIN_HEIGHT, overflow: "hidden" }}>
+      <Group justify="space-between" wrap="wrap" style={{ flexShrink: 0 }}>
         <Title order={2}>{t("title")}</Title>
         <Group gap="xs">
           <Switch
             label={t("actions.autoScroll")}
             checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.currentTarget.checked)}
+            onChange={(e) => handleAutoScrollChange(e.currentTarget.checked)}
           />
           <Button
             size="xs"
@@ -159,7 +201,7 @@ function LogsPage() {
         </Group>
       </Group>
 
-      <Group gap="xs">
+      <Group gap="xs" style={{ flexShrink: 0 }}>
         <TextInput
           flex={1}
           leftSection={<IconSearch size={16} />}
@@ -175,7 +217,7 @@ function LogsPage() {
         />
       </Group>
 
-      <Group gap="xs">
+      <Group gap="xs" style={{ flexShrink: 0 }}>
         {LOG_LEVELS.map((level) => (
           <Button
             key={level}
@@ -192,7 +234,7 @@ function LogsPage() {
       <div
         style={{
           flex: 1,
-          minHeight: 300,
+          minHeight: 0,
           border: "1px solid var(--mantine-color-default-border)",
           borderRadius: "var(--mantine-radius-md)",
         }}
@@ -205,12 +247,7 @@ function LogsPage() {
             </Text>
           </Group>
         ) : (
-          <Virtuoso
-            style={{ height: "100%" }}
-            data={filtered}
-            followOutput={autoScroll ? "smooth" : false}
-            itemContent={renderLogRow}
-          />
+          <LogVirtuoso data={filtered} autoScroll={autoScroll} virtuosoRef={virtuosoRef} />
         )}
       </div>
     </Stack>

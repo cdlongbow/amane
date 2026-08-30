@@ -1,6 +1,6 @@
 # 前端架构
 
-> 提交: `385760c`
+> 提交: `f4b39c1`
 >
 > 入口: `web/src/`. 组件清单从源码可见; 本文只写信息架构、跨模块约定与踩坑.
 
@@ -25,7 +25,7 @@
 
 ## 列表分页
 
-片库 / 演员 / 分类的 **list**、订阅源、`/libraries/$id` 文件表走 `BrowsePageShell fill`: 标题/搜索不滚, 剩余高度交给 children. 视口高度是 `APP_SHELL_MAIN_HEIGHT` (header + 上下 padding), `/feeds` 阅读器与 `/tasks` 共用, 不要再手写一份 calc. `/tasks` 页头 (状态/类型筛选) 留在 ListToolbar 外, 表体才走 ListToolbar; 阅读器虚滚自管, 不套 ListToolbar. 库详情的扫描/整理/配置/删除在 ListToolbar `trailing` (表体右上), 与左侧多选批处理相对.
+片库 / 演员 / 分类的 **list**、订阅源、`/libraries/$id` 文件表走 `BrowsePageShell fill`: 标题/搜索不滚, 剩余高度交给 children. 视口高度是 `APP_SHELL_MAIN_HEIGHT` (header + 上下 padding), `/feeds` 阅读器、`/tasks` 与 `/logs` 共用, 不要再手写一份 calc. `/tasks` 页头 (状态/类型筛选) 留在 ListToolbar 外, 表体才走 ListToolbar; 阅读器虚滚自管, 不套 ListToolbar. 库详情的扫描/整理/配置/删除在 ListToolbar `trailing` (表体右上), 与左侧多选批处理相对.
 
 `ListToolbar` 是表体壳: 顶栏 (多选 / 规则入口) 不滚, 表体内滚, **唯一**分页钉在视口底; 翻页把表体滚回顶部. `grid` / `cloud` 禁止 fill — 演员墙 `VirtuosoGrid` 用 `useWindowScroll`. ListToolbar 的 overflow 区要求父级有界高度; 非 fill 页拿它当壳, `flex` + `minHeight: 0` 会把表高塌成 0.
 
@@ -60,6 +60,8 @@ Settings、任务提交、定时创建、metadata 编辑共用 `components/schem
 | 对话增量 | SSE (与 WS 正交) |
 | 导航态 (筛选 / 排序 / page / view) | URL search |
 | 列表密度 / 列宽 / 主题 | Zustand (`amane-web`) |
+
+`/logs` 进入后滚到 scroller 真正的底 (`scrollTo` MAX, 不是 `scrollToIndex` LAST+end — 单行末项 align end 会把下边距裁掉). `initialTopMostItemIndex` 只用末项下标; `alignToBottom` 把「跳到末项后视口里只剩一条」的短列表贴底. `followOutput` 开着时回调恒返回 `auto`, 不用 `smooth`.
 
 OpenAPI 字符串联合若需运行时迭代, 集中放 `lib/exhaustive-maps.ts`, 禁止在路由里再手抄一份.
 
