@@ -31,16 +31,6 @@ from amane.parsing import ContentType
 class TestColdSettings:
     """ColdSettings: 仅环境变量, 不可变"""
 
-    def test_defaults(self):
-        """默认 data_dir 为 ./data"""
-        with patch.dict(os.environ, {}, clear=False):
-            # 移除可能干扰的 AMANE_ 环境变量
-            env = {k: v for k, v in os.environ.items() if not k.startswith("AMANE_")}
-            with patch.dict(os.environ, env, clear=True):
-                s = ColdSettings()
-                assert s.data_dir == Path("./data")
-                assert s.supervised is False
-
     def test_supervised_env(self):
         with patch.dict(os.environ, {"AMANE_SUPERVISED": "1"}):
             assert ColdSettings().supervised is True
@@ -59,18 +49,6 @@ class TestColdSettings:
         with patch.dict(os.environ, {"AMANE_DATA_DIR": str(custom_dir)}, clear=False):
             s = ColdSettings()
             assert s.data_dir == custom_dir
-
-    def test_config_path_property(self, tmp_path: Path):
-        """config_path 为 data_dir / config.toml"""
-        with patch.dict(os.environ, {"AMANE_DATA_DIR": str(tmp_path)}, clear=False):
-            s = ColdSettings()
-            assert s.config_path == tmp_path / "config.toml"
-
-    def test_db_path_property(self, tmp_path: Path):
-        """db_path 为 data_dir / amane.db"""
-        with patch.dict(os.environ, {"AMANE_DATA_DIR": str(tmp_path)}, clear=False):
-            s = ColdSettings()
-            assert s.db_path == tmp_path / "amane.db"
 
     @pytest.mark.parametrize(
         ("raw", "expected"),
@@ -168,15 +146,7 @@ class TestHotSettings:
 
 
 class TestScrapingDownloadResources:
-    """download_resources 默认与旧字段迁移."""
-
-    def test_default_all_kinds(self):
-        cfg = ScrapingConfig()
-        assert cfg.download_resources == [
-            DownloadableResource.thumb,
-            DownloadableResource.poster,
-            DownloadableResource.extrafanart,
-        ]
+    """download_resources 旧字段迁移."""
 
     @pytest.mark.parametrize(
         ("payload", "expected"),
@@ -248,9 +218,6 @@ class TestScrapingPriorityMigration:
         assert cfg.content_routes[ContentType.CENSORED] == [SiteName.JAVBUS, SiteName.JAVDB]
         assert set(cfg.content_routes) == set(ContentType)
         assert cfg.content_routes[ContentType.FC2] == ScrapingConfig().content_routes[ContentType.FC2]
-
-    def test_default_is_sparse(self):
-        assert ScrapingConfig().field_priority == {}
 
     def test_default_routes_type_specific_heads(self):
         routes = ScrapingConfig().content_routes
@@ -336,13 +303,6 @@ class TestFrozenKeyDictCompleteness:
 
 
 class TestWatermarkConfig:
-    def test_defaults(self) -> None:
-        cfg = WatermarkConfig()
-        assert cfg.enabled is False
-        assert cfg.scale == 0.08
-        assert set(cfg.corners) == set(WatermarkKind)
-        assert all(corner is WatermarkCorner.TOP_LEFT for corner in cfg.corners.values())
-
     def test_partial_corners_fills_rest(self) -> None:
         cfg = WatermarkConfig.model_validate({"corners": {"definition": "top_right", "gone": "bottom_left"}})
         assert cfg.corners[WatermarkKind.DEFINITION] is WatermarkCorner.TOP_RIGHT

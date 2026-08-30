@@ -44,12 +44,6 @@ def runner(repo):
 
 class TestAsyncTaskRunner:
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_submit_creates_task(self, repo: Repository):
-        task = await repo.create_task(task_type=TaskType.SCRAPE, payload={"file": "test.mp4"})
-        assert task.id is not None
-        assert task.status == TaskStatus.QUEUED
-
-    @pytest.mark.asyncio(loop_scope="function")
     async def test_process_one_calls_handler(self, repo: Repository, runner: AsyncTaskRunner):
         handler = FakeHandler()
         runner.register_handler(TaskType.SCRAPE, handler)

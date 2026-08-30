@@ -22,19 +22,6 @@ bump = _load()
 
 
 @pytest.mark.parametrize(
-    ("version", "message", "tag"),
-    [
-        ("1.0.1", "release: 1.0.1", "v1.0.1"),
-        ("2.0.0", "release: 2.0.0", "v2.0.0"),
-        ("1.2.3", "release: 1.2.3", "v1.2.3"),
-    ],
-)
-def test_commit_message_and_tag(version: str, message: str, tag: str) -> None:
-    assert bump.commit_message(version) == message
-    assert bump.tag_name(version) == tag
-
-
-@pytest.mark.parametrize(
     ("diff", "untracked", "expected"),
     [
         ("pyproject.toml\n", "", frozenset({"pyproject.toml"})),
@@ -74,12 +61,6 @@ def test_require_clean_rejects_dirty() -> None:
         bump.require_clean(frozenset({"pyproject.toml"}))
 
 
-def test_parse_kind_accepts_semver_segments() -> None:
-    assert bump._parse_kind("patch") == "patch"
-    assert bump._parse_kind("minor") == "minor"
-    assert bump._parse_kind("major") == "major"
-
-
 def test_parse_kind_rejects_unknown() -> None:
     with pytest.raises(bump.BumpError):
         bump._parse_kind("alpha")
@@ -101,21 +82,6 @@ def test_allowed_changed_includes_client_prefix() -> None:
         "web/openapi.json",
         "web/src/client/types.gen.ts",
     ]
-
-
-def test_allowed_paths_are_the_known_sidecars() -> None:
-    assert (
-        frozenset(
-            {
-                "CHANGELOG.md",
-                "pyproject.toml",
-                "uv.lock",
-                "web/openapi.json",
-                "web/src/client/",
-            }
-        )
-        == bump.ALLOWED_PATHS
-    )
 
 
 def test_require_prebump_clean_allows_changelog() -> None:

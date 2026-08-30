@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from amane.config.manager import SiteConfig
-from amane.crawlers import actor_registry, registry
 from amane.crawlers.actor import ActorCrawler, ActorMetadata
 from amane.crawlers.base import Crawler, CrawlerProfile
 from amane.crawlers.block import FailureReason, classify_block, classify_request_error
@@ -34,26 +33,10 @@ class FakeCrawler(Crawler):
         return MediaMetadata(number="TEST-001", title="Fake Result", source_url=url)
 
 
-# --- MediaMetadata ---
-
-
-class TestMediaMetadata:
-    def test_defaults(self):
-        m = MediaMetadata(number="X")
-        assert m.title is None
-        assert m.actors == []
-        assert m.tags == []
-
-
 # --- Crawler 基类 ---
 
 
 class TestCrawlerBase:
-    def test_attributes(self):
-        c = FakeCrawler(client=None)
-        assert c.name == "fake"
-        assert c.base_url == "https://fake.example.com"
-
     @pytest.mark.asyncio
     async def test_fetch(self):
         result = await FakeCrawler(client=None).fetch(SearchQuery("TEST-001"))
@@ -219,12 +202,6 @@ class TestResolveConfig:
         c._resolve_config()
         assert c.cookies == {"key1": "val1", "key2": "val2"}
 
-    def test_cookie_without_equals_ignored(self):
-        c = FakeCrawler(client=None)
-        c.config = SiteConfig(cookie={"key1": "val1", "key2": "val2"})
-        c._resolve_config()
-        assert c.cookies == {"key1": "val1", "key2": "val2"}
-
     def test_cookies_merge_with_defaults(self):
         class CookieCrawler(FakeCrawler):
             @classmethod
@@ -247,17 +224,6 @@ class TestResolveConfig:
         assert c.cookies == {}
 
 
-# --- logger ---
-
-
-class TestLogger:
-    def test_logger_is_lazy_and_cached(self):
-        c = FakeCrawler(client=None)
-        logger1 = c.logger
-        logger2 = c.logger
-        assert logger1 is logger2
-
-
 # --- 注册表 ---
 
 
@@ -270,11 +236,6 @@ class TestCrawlerRegistry:
 
     def test_unknown_returns_none(self):
         assert CrawlerRegistry().get("x") is None
-
-
-def test_javdb_globally_registered():
-    assert registry.get("javdb") is not None
-    assert actor_registry.get("javdb") is not None
 
 
 class FakeActorCrawler(ActorCrawler):

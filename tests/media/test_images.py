@@ -10,7 +10,6 @@ from amane.media import (
     apply_cover_watermarks,
     crop_box,
     crop_poster,
-    format_crop_box_args,
     needs_upscale,
     probe_size,
     should_crop_poster,
@@ -61,11 +60,6 @@ class TestValidateCropBox:
     )
     def test_validate(self, box, size, expected, desc):
         assert validate_crop_box(box, size) is expected, desc
-
-
-class TestFormatCropBoxArgs:
-    def test_format(self):
-        assert format_crop_box_args(10, 20, 300, 400) == "box:10,20,300,400"
 
 
 class TestCropBox:

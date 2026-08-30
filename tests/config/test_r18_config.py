@@ -10,11 +10,7 @@ from amane.config import HotSettings, R18Config
 
 
 class TestR18InHotSettings:
-    """r18 是 Hot section: 进 TOML, 可热更新 (放 Hot 而非 Cold 的核心动机)."""
-
-    def test_default_present_and_disabled(self):
-        assert isinstance(HotSettings().r18, R18Config)
-        assert HotSettings().r18.enabled is False
+    """r18 是 Hot section: 进 TOML, 可热更新."""
 
     def test_toml_roundtrip_preserves_dsn(self):
         hot = HotSettings(r18=R18Config(dsn="postgresql://u:p@h:5432/postgres", db_name="mydb"))

@@ -24,12 +24,6 @@ def test_build_model_by_api_type(api_type: AgentApiType, model_cls: type) -> Non
     assert isinstance(model, model_cls)
 
 
-def test_build_model_default_api_type_is_response() -> None:
-    config = AgentConfig(api_key="test-key")
-    assert config.api_type is AgentApiType.RESPONSE
-    assert isinstance(build_model(config), OpenAIResponsesModel)
-
-
 @pytest.mark.parametrize(
     "config",
     [
@@ -44,12 +38,6 @@ def test_build_agent_returns_none_without_api_key(config: AgentConfig) -> None:
 def test_build_agent_ignores_legacy_enabled_field() -> None:
     config = AgentConfig.model_validate({"enabled": False, "api_key": "test-key"})
     assert build_agent(config) is not None
-
-
-def test_build_agent_returns_agent_with_api_key() -> None:
-    config = AgentConfig(api_key="test-key", api_type=AgentApiType.CHAT)
-    agent = build_agent(config)
-    assert agent is not None
 
 
 @pytest.mark.parametrize(

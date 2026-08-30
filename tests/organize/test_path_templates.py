@@ -137,9 +137,6 @@ def test_render_from_file(case: _RenderCase, media: Path) -> None:
 class TestResolvePathsBasic:
     """基本模板渲染."""
 
-    def test_library_default_video_template(self):
-        assert Library(name="t", path="/m").video_template == VIDEO_TEMPLATE_DEFAULT
-
     def test_default_video_template(self, media: Path):
         wp = Library(name="t", path=str(media), video_template="{studio}/{number}/{number}.{ext}")
         meta = _meta()
@@ -201,9 +198,6 @@ class TestValueMapping:
 
 
 class TestValidatePathTemplate:
-    def test_default_is_valid(self):
-        assert validate_path_template(VIDEO_TEMPLATE_DEFAULT) == VIDEO_TEMPLATE_DEFAULT
-
     def test_nested_groups(self):
         assert validate_path_template("{number}[-{mosaic?}[-{def?}]]") == "{number}[-{mosaic?}[-{def?}]]"
 

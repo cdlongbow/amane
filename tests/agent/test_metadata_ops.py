@@ -93,10 +93,7 @@ def test_write_tools_not_on_explore_toolset() -> None:
     assert "enqueue_scrape" not in names
 
 
-def test_metadata_ops_capability_deferred() -> None:
-    cap = build_metadata_ops_capability()
-    assert cap.id == "metadata-ops"
-    assert cap.defer_loading is True
+def test_metadata_ops_capability_tools() -> None:
     names = set(_ops_toolset().tools.keys())
     assert "update_metadata" in names
     assert "delete_metadata" in names

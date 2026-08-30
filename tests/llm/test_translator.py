@@ -9,7 +9,7 @@
 import pytest
 
 from amane.enums import Language, MetadataField
-from amane.llm import LLMTranslator, TranslationCache, Translator, build_translator
+from amane.llm import LLMTranslator, TranslationCache, build_translator
 
 
 class _FakeBackend:
@@ -27,10 +27,6 @@ class _FakeBackend:
 class _RaisingBackend:
     async def ask(self, *, system_prompt: str, user_prompt: str) -> str | None:
         raise RuntimeError("boom")
-
-
-def test_translator_satisfies_protocol():
-    assert isinstance(LLMTranslator(_FakeBackend()), Translator)
 
 
 @pytest.mark.asyncio

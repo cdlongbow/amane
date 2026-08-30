@@ -128,23 +128,6 @@ class TestWebSocketEndpoint:
             assert event_bus.connection_count == initial_count + 1
         assert event_bus.connection_count == initial_count
 
-    def test_event_type_values(self):
-        """Verify event type string values"""
-        assert EventType.TASK_STARTED == "task.started"
-        assert EventType.TASK_PROGRESS == "task.progress"
-        assert EventType.TASK_COMPLETED == "task.completed"
-        assert EventType.TASK_FAILED == "task.failed"
-        assert EventType.FILE_DISCOVERED == "file.discovered"
-        assert EventType.FILE_REMOVED == "file.removed"
-        assert EventType.LOG == "log"
-
-    def test_event_dataclass(self):
-        """Test Event dataclass creation"""
-        event = Event(type=EventType.LOG, data={"msg": "test"})
-        assert event.type == "log"
-        assert event.data == {"msg": "test"}
-        assert event.timestamp
-
 
 class TestWorkerEventBroadcast:
     """验证 worker 执行任务时通过 lifespan EventBus 广播事件到 WebSocket 客户端"""

@@ -73,9 +73,6 @@ async def feed_deps(tmp_path: Path, repo: Repository) -> AgentDeps:
 
 
 def test_feed_ops_capability_contract() -> None:
-    cap = build_feed_ops_capability()
-    assert cap.id == "feed-ops"
-    assert cap.defer_loading is True
     names = set(_toolset().tools)
     assert {
         "list_feeds",

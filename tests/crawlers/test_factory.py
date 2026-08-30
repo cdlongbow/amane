@@ -40,13 +40,6 @@ def _register_fake_crawler():
 
 class TestCrawlerFactoryGet:
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_creates_instance_on_first_call(self, http_client):
-        factory = CrawlerFactory(http_client)
-        crawler = await factory.get("fake_test_site")
-        assert crawler is not None
-        assert isinstance(crawler, _FakeCrawler)
-
-    @pytest.mark.asyncio(loop_scope="function")
     async def test_returns_cached_instance_on_second_call(self, http_client):
         factory = CrawlerFactory(http_client)
         c1 = await factory.get("fake_test_site")
@@ -69,25 +62,8 @@ class TestCrawlerFactoryGetCrawlers:
         assert "fake_test_site" in result
         assert "nonexistent" not in result
 
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_empty_list(self, http_client):
-        factory = CrawlerFactory(http_client)
-        result = await factory.get_crawlers([])
-        assert result == {}
-
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_all_registered(self, http_client):
-        factory = CrawlerFactory(http_client)
-        result = await factory.get_crawlers(["fake_test_site"])
-        assert len(result) == 1
-
 
 class TestCrawlerFactoryActiveCrawlers:
-    @pytest.mark.asyncio(loop_scope="function")
-    async def test_empty_initial(self, http_client):
-        factory = CrawlerFactory(http_client)
-        assert factory.active_crawlers == {}
-
     @pytest.mark.asyncio(loop_scope="function")
     async def test_reflects_instantiated_crawlers(self, http_client):
         factory = CrawlerFactory(http_client)

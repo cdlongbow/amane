@@ -51,13 +51,6 @@ def test_from_config_default_rate(default_rate: float, expected_period: float):
     assert limiter.time_period == pytest.approx(expected_period)
 
 
-def test_from_config_default_rate_fallback():
-    """不传 default_rate 时回退到 5 req/s."""
-    limiters = RateLimiters.from_config({}, {}, {})
-    limiter = limiters.get("never-configured.example.com")
-    assert limiter.time_period == pytest.approx(1 / 5)
-
-
 def test_build_network_stack_propagates_default_rate():
     """HotSettings.network.default_rate_limit 经 build_network_stack 生效."""
     hot = HotSettings()

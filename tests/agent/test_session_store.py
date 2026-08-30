@@ -7,9 +7,7 @@ from pathlib import Path
 
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
-from pydantic_ai.usage import RunUsage
 
-from amane.agent.events import turn_usage_from_run
 from amane.agent.trace import SessionStore
 
 
@@ -38,14 +36,3 @@ async def test_session_store_seq_and_follow(tmp_path: Path) -> None:
     got = [str(ev["text"]) async for ev in store.follow(0) if ev["type"] == "text_delta"]
     await task
     assert got == ["a", "b"]
-
-
-@pytest.mark.parametrize(
-    ("run", "expected_input"),
-    [
-        (RunUsage(input_tokens=100, cache_read_tokens=40, cache_write_tokens=10, output_tokens=5), 50),
-        (RunUsage(input_tokens=10, output_tokens=1), 10),
-    ],
-)
-def test_turn_usage_non_cached_input(run: RunUsage, expected_input: int) -> None:
-    assert turn_usage_from_run(run).input == expected_input

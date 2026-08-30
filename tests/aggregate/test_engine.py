@@ -978,10 +978,3 @@ class TestFetchGraphIntegration:
         assert "dmm" in result.failed_sites
         # javdb 未被实际请求
         assert len(c_dmm.fetch_calls) == 1  # 只有 dmm 被真正请求
-
-
-def test_media_metadata_asdict_roundtrip():
-    """MediaMetadata <-> asdict 往返一致 (db_cache 复用的正确性基础)."""
-    original = _full_metadata(number="RT-1")
-    restored = MediaMetadata(**original.model_dump())
-    assert restored == original

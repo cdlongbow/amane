@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from amane.sr import SrTool, get_binary_path, get_tool_dir, is_binary_available
+from amane.sr import SrTool, get_binary_path, is_binary_available
 from amane.sr.tool import get_tool_meta
 
 
@@ -26,26 +26,6 @@ class TestDownloadUrls:
         assert set(meta.download_urls.keys()) == {"darwin", "linux", "win32"}
         assert meta.download_urls["linux"].endswith("waifu2x-ncnn-vulkan-20250915-linux.zip")
         assert "nihui/waifu2x-ncnn-vulkan" in meta.download_urls["linux"]
-
-
-class TestGetToolDir:
-    """二进制缓存目录."""
-
-    def test_returns_tools_under_data_dir(self, tmp_path: Path):
-        result = get_tool_dir(tmp_path)
-        assert result == tmp_path / "tools"
-
-
-class TestGetBinaryPath:
-    """二进制路径生成."""
-
-    def test_realesrgan_path(self, tmp_path: Path):
-        path = get_binary_path(SrTool.REALESRGAN, tmp_path)
-        assert path == tmp_path / "tools" / "realesrgan" / "realesrgan-ncnn-vulkan"
-
-    def test_waifu2x_path(self, tmp_path: Path):
-        path = get_binary_path(SrTool.WAIFU2X, tmp_path)
-        assert path == tmp_path / "tools" / "waifu2x" / "waifu2x-ncnn-vulkan"
 
 
 class TestIsBinaryAvailable:

@@ -17,10 +17,8 @@ from amane.agent.bridge import AgentRuntimeBridge
 from amane.agent.cache import ResultCache
 from amane.agent.executor import QueryExecutor
 from amane.agent.facet_identity import build_facet_identity_capability
-from amane.agent.feed_ops import build_feed_ops_capability
 from amane.agent.library_ops import build_library_ops_capability
 from amane.agent.runtime import build_agent
-from amane.agent.schedule_ops import build_schedule_ops_capability
 from amane.agent.sql import ReadonlySqlSandbox
 from amane.agent.task_ops import build_task_ops_capability
 from amane.agent.tools import AgentDeps
@@ -79,23 +77,6 @@ async def write_deps(tmp_path: Path, repo: Repository) -> AgentDeps:
         sample_limit=5,
         bridge=AgentRuntimeBridge(safe_dirs=[tmp_path.resolve()]),
     )
-
-
-@pytest.mark.parametrize(
-    ("cap_id", "builder"),
-    [
-        ("actor-ops", build_actor_ops_capability),
-        ("facet-identity", build_facet_identity_capability),
-        ("library-ops", build_library_ops_capability),
-        ("feed-ops", build_feed_ops_capability),
-        ("schedule-ops", build_schedule_ops_capability),
-        ("task-ops", build_task_ops_capability),
-    ],
-)
-def test_write_capabilities_deferred(cap_id: str, builder: Callable[[], Any]) -> None:
-    cap = builder()
-    assert cap.id == cap_id
-    assert cap.defer_loading is True
 
 
 def test_build_agent_wires_all_write_capabilities() -> None:

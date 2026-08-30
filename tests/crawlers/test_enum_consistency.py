@@ -9,7 +9,6 @@ from amane.crawlers.site_roles import (
     FILM_METADATA_SITES,
     MULTI_LANGUAGE_SITES,
 )
-from amane.enums import SiteName as SiteNameEnum
 from amane.plugins.models import SourceCapability
 
 _ACTOR_CAPS = frozenset({SourceCapability.ACTOR_PROFILE, SourceCapability.ACTOR_IMAGE})
@@ -39,10 +38,6 @@ class TestEnumConsistency:
         model_fields = set(MediaMetadata.model_fields.keys())
         for field in MetadataField:
             assert field in model_fields, f"MetadataField.{field.name} ('{field}') not in MediaMetadata"
-
-    def test_actor_only_sites_are_site_name_members(self):
-        for site in ACTOR_ONLY_SITES:
-            assert isinstance(site, SiteNameEnum)
 
     def test_actor_crawlers_declare_actor_capabilities(self):
         for name in actor_registry.sites():

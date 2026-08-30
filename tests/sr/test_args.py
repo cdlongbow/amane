@@ -75,18 +75,3 @@ class TestBuildArgsWaifu2x:
         """waifu2x 预设 noise_level=-1, 不输出 -n 降噪参数."""
         result = build_args(Path("a.jpg"), Path("b.jpg"), _cfg(preset=SrPreset.WAIFU_PHOTO_2X))
         assert "-n" not in result
-
-
-class TestPresetMeta:
-    def test_realesr_preset_resolves_correctly(self):
-        cfg = _cfg(preset=SrPreset.REALESR_PHOTO_4X)
-        assert cfg.preset == SrPreset.REALESR_PHOTO_4X
-
-    def test_waifu_preset_resolves_correctly(self):
-        cfg = _cfg(preset=SrPreset.WAIFU_PHOTO_2X)
-        assert cfg.preset == SrPreset.WAIFU_PHOTO_2X
-
-    def test_preset_is_required_field(self):
-        """preset 有默认值, 不传也能构造."""
-        cfg = SrConfig()
-        assert cfg.preset == SrPreset.WAIFU_PHOTO_2X

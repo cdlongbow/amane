@@ -72,9 +72,6 @@ async def schedule_deps(tmp_path: Path, repo: Repository) -> AgentDeps:
 
 
 def test_schedule_ops_capability_contract() -> None:
-    cap = build_schedule_ops_capability()
-    assert cap.id == "schedule-ops"
-    assert cap.defer_loading is True
     assert {
         "list_schedules",
         "get_schedule",

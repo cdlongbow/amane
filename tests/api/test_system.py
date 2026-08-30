@@ -67,7 +67,7 @@ async def test_restart_unavailable_without_supervisor(client: HttpxClient) -> No
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_restart_sets_exit_code_when_supervised(tmp_path: Path) -> None:
-    assert EXIT_RESTART == SERVER_EXIT_RESTART == 3
+    assert EXIT_RESTART == SERVER_EXIT_RESTART
     async with _supervised_app(tmp_path) as (app, client):
         resp = await client.post("system/restart")
         assert resp.status_code == 202

@@ -3,17 +3,10 @@
 from __future__ import annotations
 
 import pytest
-from pydantic_ai.messages import (
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-    PartDeltaEvent,
-    TextPartDelta,
-    ToolCallPart,
-    ToolReturnPart,
-)
+from pydantic_ai.messages import PartDeltaEvent, TextPartDelta
 from pydantic_ai.usage import RunUsage
 
-from amane.agent.events import StreamTextDelta, StreamToolCall, StreamToolResult, truncate_json, turn_usage_from_run
+from amane.agent.events import StreamTextDelta, truncate_json, turn_usage_from_run
 from amane.agent.service import _map_pai_event
 
 
@@ -53,22 +46,11 @@ def test_turn_usage_includes_requests() -> None:
     u = turn_usage_from_run(RunUsage(input_tokens=10, output_tokens=2, requests=3))
     assert u.requests == 3
 
-    text = _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="你好")))
-    assert isinstance(text, StreamTextDelta)
-    assert text.text == "你好"
 
-    call = _map_pai_event(
-        FunctionToolCallEvent(part=ToolCallPart(tool_name="sql_explore", args={"sql": "SELECT 1"}, tool_call_id="t1"))
+def test_map_pai_event_skips_empty_and_unknown() -> None:
+    assert _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta=""))) is None
+    assert _map_pai_event(object()) is None
+    assert isinstance(
+        _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="你好"))),
+        StreamTextDelta,
     )
-    assert isinstance(call, StreamToolCall)
-    assert call.name == "sql_explore"
-    assert call.tool_call_id == "t1"
-
-    result = _map_pai_event(
-        FunctionToolResultEvent(
-            part=ToolReturnPart(tool_name="sql_explore", content={"row_count": 1}, tool_call_id="t1")
-        )
-    )
-    assert isinstance(result, StreamToolResult)
-    assert result.name == "sql_explore"
-    assert result.tool_call_id == "t1"

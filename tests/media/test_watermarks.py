@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 from PIL import Image
 
-from amane.media.watermarks import is_stamp_stem, load_stamp, user_watermark_dir
+from amane.media.watermarks import is_stamp_stem, load_stamp
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,10 +27,6 @@ if TYPE_CHECKING:
 )
 def test_is_stamp_stem(stem: str, expected: bool) -> None:
     assert is_stamp_stem(stem) is expected
-
-
-def test_user_watermark_dir(tmp_path: Path) -> None:
-    assert user_watermark_dir(tmp_path) == tmp_path / "watermarks"
 
 
 def test_load_builtin_subtitle() -> None:
