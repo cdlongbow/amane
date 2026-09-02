@@ -1,8 +1,10 @@
 import {
   Accordion,
+  Anchor,
   Badge,
   Checkbox,
   Group,
+  Input,
   NumberInput,
   SimpleGrid,
   Stack,
@@ -12,6 +14,8 @@ import {
   TextInput,
   Tooltip,
 } from "@mantine/core";
+import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
+import { useMemo, useState } from "react";
 import { notifications } from "@mantine/notifications";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -31,6 +35,9 @@ import { encodeFormBody } from "@/components/schema-form/encode";
 import { EnumToggle } from "@/components/common/enum-toggle";
 import { FieldChrome } from "@/components/schema-form/fields/field-chrome";
 import { DOWNLOADABLE_RESOURCES, LIBRARY_AUTOMATIONS, LINK_MODES } from "@/lib/exhaustive-maps";
+import classes from "./library-form.module.css";
+import { templateCatalogFromPlaceholders } from "./template-highlight";
+import { TemplateInput } from "./template-input";
 
 /** 创建/编辑共用: 宽屏两列, 窄屏仍单列. */
 export const LIBRARY_FORM_MODAL_SIZE = "min(64rem, 94vw)";
@@ -239,8 +246,13 @@ interface LibraryFormFieldsProps {
 export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFormFieldsProps) {
   const { t } = useTranslation("library");
   const { data: schema } = useQuery(getPathTemplateSchemaOptions());
+  const [sidecarOpen, setSidecarOpen] = useState<string | null>(null);
 
   const placeholders = schema?.placeholders ?? [];
+  const catalog = useMemo(
+    () => templateCatalogFromPlaceholders(schema?.placeholders ?? []),
+    [schema?.placeholders],
+  );
   const optionalDefaults = schema?.optional_defaults;
 
   const copyPlaceholder = async (name: string) => {
@@ -279,62 +291,83 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
         onChange={(path) => onChange({ ...value, path })}
         pathType="directory"
       />
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-        <TextInput
-          label={t("fieldPatterns")}
-          description={t("fieldPatternsHint")}
-          value={value.patterns}
-          onChange={(e) => onChange({ ...value, patterns: e.currentTarget.value })}
-        />
-        <TextInput
-          label={t("fieldTrailerPattern")}
-          description={t("fieldTrailerPatternHint")}
-          value={value.trailer_pattern}
-          onChange={(e) => onChange({ ...value, trailer_pattern: e.currentTarget.value })}
-        />
-        <Textarea
-          label={t("fieldBlacklistPatterns")}
-          description={t("fieldBlacklistPatternsHint")}
-          autosize
-          minRows={1}
-          maxRows={5}
-          value={value.blacklist_patterns}
-          onChange={(e) => onChange({ ...value, blacklist_patterns: e.currentTarget.value })}
-        />
-        <NumberInput
-          label={t("fieldMinFileSize")}
-          description={t("fieldMinFileSizeHint")}
-          min={0}
-          allowDecimal={false}
-          suffix=" MB"
-          value={bytesToMb(value.min_file_size)}
-          onChange={(raw) => {
-            const mb = typeof raw === "number" ? raw : 0;
-            onChange({ ...value, min_file_size: mbToBytes(mb) });
-          }}
-        />
-        <TextInput
-          label={t("fieldSubtitleExtensions")}
-          description={t("fieldSubtitleExtensionsHint")}
-          value={value.subtitle_extensions}
-          onChange={(e) => onChange({ ...value, subtitle_extensions: e.currentTarget.value })}
-        />
-        <FieldChrome label={t("fieldMoveMode")} description={t("fieldMoveModeHint")}>
-          <EnumToggle
-            options={MOVE_MODES}
-            value={value.move_mode}
-            onChange={(move_mode) => onChange({ ...value, move_mode })}
-            getLabel={(mode) => t(`moveMode.${mode}`)}
+      <Stack gap="sm">
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+          <TextInput
+            label={t("fieldPatterns")}
+            description={t("fieldPatternsHint")}
+            value={value.patterns}
+            onChange={(e) => onChange({ ...value, patterns: e.currentTarget.value })}
           />
-        </FieldChrome>
-        <FieldChrome label={t("fieldWriteNfo")} description={t("fieldWriteNfoHint")}>
-          <Switch
-            checked={value.write_nfo}
-            onChange={(e) => onChange({ ...value, write_nfo: e.currentTarget.checked })}
-            aria-label={t("fieldWriteNfo")}
+          <TextInput
+            label={t("fieldTrailerPattern")}
+            description={t("fieldTrailerPatternHint")}
+            value={value.trailer_pattern}
+            onChange={(e) => onChange({ ...value, trailer_pattern: e.currentTarget.value })}
           />
-        </FieldChrome>
-      </SimpleGrid>
+          <Textarea
+            label={t("fieldBlacklistPatterns")}
+            description={t("fieldBlacklistPatternsHint")}
+            autosize
+            minRows={1}
+            maxRows={5}
+            value={value.blacklist_patterns}
+            onChange={(e) => onChange({ ...value, blacklist_patterns: e.currentTarget.value })}
+          />
+          <NumberInput
+            label={t("fieldMinFileSize")}
+            description={t("fieldMinFileSizeHint")}
+            min={0}
+            allowDecimal={false}
+            suffix=" MB"
+            value={bytesToMb(value.min_file_size)}
+            onChange={(raw) => {
+              const mb = typeof raw === "number" ? raw : 0;
+              onChange({ ...value, min_file_size: mbToBytes(mb) });
+            }}
+          />
+        </SimpleGrid>
+        <div className={classes.alignedRow}>
+          <Input.Label className={classes.l1} htmlFor="library-subtitle-extensions">
+            {t("fieldSubtitleExtensions")}
+          </Input.Label>
+          <Input.Label className={classes.l2}>{t("fieldMoveMode")}</Input.Label>
+          <Input.Label className={classes.l3} htmlFor="library-write-nfo">
+            {t("fieldWriteNfo")}
+          </Input.Label>
+          <Input.Description className={classes.d1}>
+            {t("fieldSubtitleExtensionsHint")}
+          </Input.Description>
+          <Input.Description className={classes.d2} aria-hidden>
+            {"\u00a0"}
+          </Input.Description>
+          <Input.Description className={classes.d3} aria-hidden>
+            {"\u00a0"}
+          </Input.Description>
+          <TextInput
+            id="library-subtitle-extensions"
+            className={classes.c1}
+            value={value.subtitle_extensions}
+            onChange={(e) => onChange({ ...value, subtitle_extensions: e.currentTarget.value })}
+          />
+          <div className={classes.c2}>
+            <EnumToggle
+              options={MOVE_MODES}
+              value={value.move_mode}
+              onChange={(move_mode) => onChange({ ...value, move_mode })}
+              getLabel={(mode) => t(`moveMode.${mode}`)}
+            />
+          </div>
+          <div className={classes.c3}>
+            <Switch
+              id="library-write-nfo"
+              checked={value.write_nfo}
+              onChange={(e) => onChange({ ...value, write_nfo: e.currentTarget.checked })}
+              aria-label={t("fieldWriteNfo")}
+            />
+          </div>
+        </div>
+      </Stack>
       <Checkbox.Group
         label={t("fieldCopyResources")}
         description={t("fieldCopyResourcesHint")}
@@ -349,39 +382,53 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
           ))}
         </Group>
       </Checkbox.Group>
-      <TextInput
+      <TemplateInput
         label={t("fieldVideoTemplate")}
         description={t("fieldVideoTemplateHint")}
+        catalog={catalog}
         value={value.video_template}
         onChange={(e) => onChange({ ...value, video_template: e.currentTarget.value })}
       />
-      <TextInput
+      <TemplateInput
         label={t("fieldLinkTemplate")}
         description={t("fieldLinkTemplateHint")}
         placeholder={t("fieldLinkTemplatePlaceholder")}
+        catalog={catalog}
         value={value.link_template}
         onChange={(e) => onChange({ ...value, link_template: e.currentTarget.value })}
       />
-      <FieldChrome label={t("fieldLinkMode")} description={t("fieldLinkModeHint")}>
-        <EnumToggle
-          options={LINK_MODES}
-          value={value.link_mode}
-          onChange={(link_mode) => onChange({ ...value, link_mode })}
-          getLabel={(mode) => t(`linkMode.${mode}`)}
+      {value.link_template.trim() !== "" && (
+        <FieldChrome label={t("fieldLinkMode")}>
+          <EnumToggle
+            options={LINK_MODES}
+            value={value.link_mode}
+            onChange={(link_mode) => onChange({ ...value, link_mode })}
+            getLabel={(mode) => t(`linkMode.${mode}`)}
+          />
+        </FieldChrome>
+      )}
+      {value.link_template.trim() !== "" && value.link_mode === "strm" && (
+        <TemplateInput
+          label={t("fieldStrmContentTemplate")}
+          description={t("fieldStrmContentTemplateHint")}
+          catalog={catalog}
+          value={value.strm_content_template}
+          onChange={(e) => onChange({ ...value, strm_content_template: e.currentTarget.value })}
         />
-      </FieldChrome>
-      <TextInput
-        label={t("fieldStrmContentTemplate")}
-        description={t("fieldStrmContentTemplateHint")}
-        placeholder={t("fieldStrmContentTemplatePlaceholder")}
-        value={value.strm_content_template}
-        onChange={(e) => onChange({ ...value, strm_content_template: e.currentTarget.value })}
-      />
+      )}
 
       {placeholders.length > 0 && (
         <Stack gap={4}>
           <Text size="xs" c="dimmed">
-            {t("placeholders.label")} · {t("placeholders.hint")}
+            {t("placeholders.label")} · {t("placeholders.hint")}{" "}
+            <Anchor
+              href="https://sqzw-x.github.io/amane/user/libraries/#placeholders"
+              target="_blank"
+              rel="noreferrer"
+              size="xs"
+            >
+              {t("placeholders.docs")}
+            </Anchor>
           </Text>
           <Group gap={4} wrap="wrap">
             {placeholders.map((p) => {
@@ -410,7 +457,21 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
         </Stack>
       )}
 
-      <Accordion variant="contained" radius="sm">
+      <Accordion
+        variant="contained"
+        radius="sm"
+        chevronPosition="left"
+        disableChevronRotation
+        chevron={
+          sidecarOpen === "templates" ? (
+            <IconChevronDown size={16} />
+          ) : (
+            <IconChevronRight size={16} />
+          )
+        }
+        value={sidecarOpen}
+        onChange={setSidecarOpen}
+      >
         <Accordion.Item value="templates">
           <Accordion.Control>{t("advancedTemplates")}</Accordion.Control>
           <Accordion.Panel>
@@ -420,7 +481,7 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
               </Text>
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                 {OPTIONAL_TEMPLATE_KEYS.map((key) => (
-                  <TextInput
+                  <TemplateInput
                     key={key}
                     label={t(TPL_I18N[key])}
                     description={
@@ -429,6 +490,7 @@ export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFo
                         : undefined
                     }
                     placeholder={optionalDefaults?.[key]}
+                    catalog={catalog}
                     value={value[key]}
                     onChange={(e) => onChange({ ...value, [key]: e.currentTarget.value })}
                   />
