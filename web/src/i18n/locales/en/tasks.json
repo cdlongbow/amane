@@ -217,12 +217,11 @@
     },
     "scrape": {
       "number": {
-        "label": "Number",
-        "description": "Content ID (e.g., MIDV-123); mutually exclusive with Media ID."
+        "label": "Number"
       },
       "media_id": {
         "label": "Media ID",
-        "description": "MediaFile ID; server reads the number from it. Mutually exclusive with Number."
+        "description": "MediaFile ID. Usually only for internal task submission; not needed when submitting by hand."
       },
       "content_type": {
         "label": "Content Type",
