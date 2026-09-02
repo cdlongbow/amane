@@ -152,11 +152,14 @@
   "fieldLinkTemplateHint": "Organize creates a strm or symlink at this path; must be an absolute path outside the library root. Leave empty to skip",
   "fieldLinkTemplatePlaceholder": "e.g. /local/emby/{studio}/{number}/{number}.{ext}",
   "fieldLinkMode": "Link Mode",
-  "fieldLinkModeHint": "strm: write a .strm file whose contents are the video's absolute path; symlink: a filesystem symlink to the mounted video",
+  "fieldLinkModeHint": "strm: write a .strm file; symlink: a filesystem symlink to the mounted video",
   "linkMode": {
     "strm": "STRM file",
     "symlink": "Symlink"
   },
+  "fieldStrmContentTemplate": "STRM content template",
+  "fieldStrmContentTemplateHint": "Applies to strm only. Leave empty to write the video absolute path. Same placeholders as path templates; for cloud playback use /{video_relpath}",
+  "fieldStrmContentTemplatePlaceholder": "/{video_relpath}",
   "fieldInitialRefresh": "Refresh on Creation",
   "advancedTemplates": "Sidecar Templates",
   "advancedTemplatesHint": "Leave empty to use backend defaults (usually under {link_dir}). Absolute paths must stay under the library root or safe_dirs.",
@@ -186,6 +189,7 @@
       "sub?": "[optional] Subtitle status",
       "video_dir": "Directory of the rendered video. Link and sidecar templates",
       "video_name": "Rendered video filename (no extension). Link and sidecar templates",
+      "video_relpath": "Rendered video path relative to the library root. Link, sidecar, and STRM content templates",
       "link_dir": "Directory of the link; same as {video_dir} when the link template is unset",
       "link_name": "Rendered link filename (no extension); same as {video_name} when the link template is unset",
       "raw_srt_name": "Source subtitle filename. e.g. A/foo.zh.srt → foo.zh"

@@ -177,6 +177,13 @@ class TestCreateVideoLink:
         assert create_video_link.sync(target, link, LinkMode.STRM).success
         assert link.read_text(encoding="utf-8") == f"{target}\n"
 
+    def test_strm_custom_content(self, tmp_path: Path):
+        target = tmp_path / "A.mp4"
+        target.write_text("video")
+        link = tmp_path / "A.strm"
+        assert create_video_link.sync(target, link, LinkMode.STRM, content="/rel/A.mp4\n").success
+        assert link.read_text(encoding="utf-8") == "/rel/A.mp4\n"
+
     def test_strm_refuses_regular_file(self, tmp_path: Path):
         target = tmp_path / "A.mp4"
         target.write_text("video")
