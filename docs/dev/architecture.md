@@ -11,8 +11,8 @@
 |----|------|--------|
 | `parsing/` | 完整路径 / 自由文本 → 番号 + ContentType + 文件相位标记 | 纯函数, 无 I/O, 无配置依赖. 路径/`extract_number` 会重写番号; 手填 scrape.number 不经此 — 爬虫入参契约见 [crawlers.md](crawlers.md) |
 | `crawlers/` | 番号 → `MediaMetadata`; 演员名 → `ActorMetadata` | 无状态; HTTP 与配置构造期注入; 影片/演员分 registry |
-| `plugin/` | 第三方来源作者 SDK（再导出契约类型） | 插件只进口这里; 主机不进口 |
-| `plugins/` | 来源插件主机（发现 / 落盘 / Factory） | 作者不进口; 契约见 [plugins.md](plugins.md) |
+| `plugin/` | 第三方来源作者 SDK（再导出契约类型） | 插件只导入这里; 主机不导入 |
+| `plugins/` | 来源插件主机（发现 / 落盘 / Factory） | 作者不导入; 契约见 [plugins.md](plugins.md) |
 | `aggregate/` | 多源优先级 → `AggregatedMetadata` / `AggregatedActor` | 影片走抓取图波次; 演员为档案填空 + 头像优先; 不写 DB |
 | `handlers/` | DB Task → 副作用 (写 metadata / 移动文件 / 排队) | 编排层, 不实现解析/爬取/IO 细节 |
 | `media/` `organize/` | 元数据 + 路径模板 → 磁盘文件 | 调用方传配置, 自身不读 `HotSettings` 全局 |
@@ -28,7 +28,7 @@
 | `net/` | curl_cffi WebClient + 限速器 | 速率限制按 host, 优先级见 `RateLimiters.from_config`; HTTP 录制经 `net.recording` 可选绑定 |
 | `enums.py` | 跨包枚举 (站点名 / 字段名 / 语言) | 顶层避免循环依赖 — 不要把它拆进任何子包 |
 
-**导入约定:** 优先从顶层包导入已导出的稳定符号 (如 `from amane.config import HotSettings`). 顶层 `__init__.py` 未导出的实现细节可从子模块导入 (如 `from amane.config.manager import LANG_METADATA_FIELD_SET`); 新增公开 API 时应补到顶层导出. 第三方来源插件只从 `amane.plugin` 进口; 主机用 `amane.plugins.*`.
+**导入约定:** 包内模块使用相对导入, 最多三点 (`...`); 再深一层则改用 `from amane...`. Alembic 迁移由解释器按文件路径加载, 不属于包命名空间, 仍用绝对导入. 包外 (测试、第三方插件、独立脚本) 从顶层包导入已导出的稳定符号 (如 `from amane.config import HotSettings`); 顶层 `__init__.py` 未导出的实现细节可从子模块导入. 新增公开 API 时应补到顶层导出. 第三方来源插件只从 `amane.plugin` 导入; 主机用 `amane.plugins.*`.
 
 ## 启动编排
 

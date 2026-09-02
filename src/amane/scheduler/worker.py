@@ -286,11 +286,7 @@ class AsyncWorker:
                             )
                         self._done_queue.put_nowait(task_id)
                         return
-                    logger.info(
-                        "task completed",
-                        duration_s=duration_s,
-                        followups=[key for key, _, _, _ in followups],
-                    )
+                    logger.info("task completed", duration_s=duration_s, followups=[key for key, _, _, _ in followups])
                     await _finalize_recorder(success=True, error=None)
                     if self._event_bus:
                         await self._event_bus.emit(

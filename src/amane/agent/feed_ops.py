@@ -10,17 +10,11 @@ from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 from sqlalchemy.exc import IntegrityError
 
-from amane.api.models.feeds import (
-    FeedItemBatchAction,
-    _validate_http_url,
-    _validate_number_pattern,
-    normalize_feed_group,
-)
-from amane.db.models import Feed, FeedItem, FeedItemState, TaskType
-from amane.db.repo_types import FeedUpdates
-from amane.handlers.models import CacheKind, ScrapePayload, build_feed_scrape_payload
-from amane.parsing import ContentType
-
+from ..api.models.feeds import FeedItemBatchAction, _validate_http_url, _validate_number_pattern, normalize_feed_group
+from ..db.models import Feed, FeedItem, FeedItemState, TaskType
+from ..db.repo_types import FeedUpdates
+from ..handlers.models import CacheKind, ScrapePayload, build_feed_scrape_payload
+from ..parsing import ContentType
 from .tools import AgentDeps, require_approval, trace_tool
 
 _CACHE_KIND_ORDER = (CacheKind.metadata, CacheKind.trans)

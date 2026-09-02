@@ -9,10 +9,9 @@ from pydantic import TypeAdapter, ValidationError
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.api.models.tasks import TaskSubmission
-from amane.api.support.task_resolve import resolve_submission
-from amane.db.models import TaskStatus
-
+from ..api.models.tasks import TaskSubmission
+from ..api.support.task_resolve import resolve_submission
+from ..db.models import TaskStatus
 from .tools import AgentDeps, trace_tool
 
 _TASK_SUBMISSION_ADAPTER: TypeAdapter[TaskSubmission] = TypeAdapter(TaskSubmission)

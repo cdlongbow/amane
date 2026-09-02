@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from amane.enums import ActorGender, SiteName
-
+from ...enums import ActorGender, SiteName
 from .registry import actor_registry
 
 

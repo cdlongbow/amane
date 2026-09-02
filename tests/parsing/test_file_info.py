@@ -127,11 +127,7 @@ CASES: list[object] = [
     _Case("/media/getchu/item-123.mp4", content_type=ContentType.HENTAI),
     _Case("/media/GETCHU/item-123.mp4", content_type=ContentType.HENTAI),
     _Case("/media/欧美/MIDV-123.mp4", number="MIDV-123", content_type=ContentType.WESTERN),
-    _Case(
-        "/mnt/nas/library/欧美/2024/studio/MIDV-123.mp4",
-        number="MIDV-123",
-        content_type=ContentType.WESTERN,
-    ),
+    _Case("/mnt/nas/library/欧美/2024/studio/MIDV-123.mp4", number="MIDV-123", content_type=ContentType.WESTERN),
     # 东欧美 不含「欧美」单独命中
     _Case("/media/东欧美/MIDV-123.mp4", number="MIDV-123", content_type=ContentType.CENSORED),
     # getchu 必须整段相等; 子串不分类
@@ -264,11 +260,7 @@ CASES: list[object] = [
         number="MIDV-123",
         content_type=ContentType.WESTERN,
     ),
-    _Case(
-        "/media/里番/foo-123-CD2.mp4",
-        cd=2,
-        content_type=ContentType.HENTAI,
-    ),
+    _Case("/media/里番/foo-123-CD2.mp4", cd=2, content_type=ContentType.HENTAI),
     _Case(
         "/vol/data/library/sub/[破解]MIDV-123.1080p.mp4",
         mosaic="cracked",

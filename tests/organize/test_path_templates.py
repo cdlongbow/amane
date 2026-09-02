@@ -153,11 +153,7 @@ class TestResolvePathsBasic:
         assert result.video == media / "data" / "videos" / "ABC-123" / "ABC-123.mkv"
 
     def test_absolute_template(self, media: Path, other: Path):
-        wp = Library(
-            name="t",
-            path=str(media),
-            video_template=str(other / "{studio}" / "{number}" / "{number}.{ext}"),
-        )
+        wp = Library(name="t", path=str(media), video_template=str(other / "{studio}" / "{number}" / "{number}.{ext}"))
         meta = _meta()
         result = resolve_paths(wp, meta, ext="mp4", safe_dirs=[other])
 

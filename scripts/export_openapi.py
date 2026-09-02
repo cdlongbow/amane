@@ -19,11 +19,7 @@ def main() -> int:
     app = create_app()
     # newline="\n" 固定 LF: Windows 上 Path.write_text 默认会做 \n → \r\n 转写,
     # 导致 regen 后的 openapi.json 与仓库内 LF 版产生整文件 diff, 误报 check-openapi.
-    out.write_text(
-        json.dumps(app.openapi(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    out.write_text(json.dumps(app.openapi(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     return 0
 
 

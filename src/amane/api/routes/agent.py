@@ -6,9 +6,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from amane.agent import AgentService, StreamError
-from amane.agent.sql import as_id_subquery_sql
-
+from ...agent import AgentService, StreamError
+from ...agent.sql import as_id_subquery_sql
 from ...db.models import AgentSession, SavedQueryEntity
 from ...db.repository import Repository
 from ...utils.model import to_resp

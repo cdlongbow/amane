@@ -7,12 +7,11 @@ from typing import Any, Literal, cast
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.aggregate import compute_merge_updates
-from amane.db.models import TaskType
-from amane.db.repo_types import MetadataFields
-from amane.handlers.models import CacheKind, ScrapePayload
-from amane.parsing import ContentType
-
+from ..aggregate import compute_merge_updates
+from ..db.models import TaskType
+from ..db.repo_types import MetadataFields
+from ..handlers.models import CacheKind, ScrapePayload
+from ..parsing import ContentType
 from .tools import AgentDeps, require_approval, trace_tool
 
 _AGENT_PATCH_KEYS = frozenset(

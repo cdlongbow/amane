@@ -9,9 +9,8 @@ from pydantic import BaseModel
 from pydantic_ai import ApprovalRequired, RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from amane.db.models import SavedQueryEntity
-from amane.db.repository import Repository
-
+from ..db.models import SavedQueryEntity
+from ..db.repository import Repository
 from .bridge import AgentRuntimeBridge
 from .cache import CachedResult
 from .executor import QueryExecutor, extract_entity_ids

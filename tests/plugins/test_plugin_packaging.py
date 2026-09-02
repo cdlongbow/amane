@@ -130,8 +130,7 @@ def test_relative_import_from_plugin_package(tmp_path: Path) -> None:
     plugin_dir = write_plugin(tmp_path, "acme.fake", body="")
     (plugin_dir / "_helper.py").write_text("VALUE = 'from-helper'\n", encoding="utf-8")
     (plugin_dir / PLUGIN_ENTRY).write_text(
-        plugin_source("acme.fake") + "\nfrom ._helper import VALUE\nassert VALUE == 'from-helper'\n",
-        encoding="utf-8",
+        plugin_source("acme.fake") + "\nfrom ._helper import VALUE\nassert VALUE == 'from-helper'\n", encoding="utf-8"
     )
     manager = PluginManager.discover(tmp_path)
     assert manager.has_plugin("acme.fake")

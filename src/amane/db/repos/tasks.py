@@ -79,8 +79,7 @@ _IS_CHAIN_ROOT = (col(Task.root_task_id).is_(None)) | (col(Task.root_task_id) ==
 
 
 def _matching_root_ids(
-    statuses: Iterable[TaskStatus] | None,
-    task_types: Iterable[TaskType] | None,
+    statuses: Iterable[TaskStatus] | None, task_types: Iterable[TaskType] | None
 ) -> SelectOfScalar[int]:
     """筛选命中行对应的链根 id: 有 root 用 root, 裸任务用自身 id."""
     stmt = select(coalesce(col(Task.root_task_id), col(Task.id)))
@@ -226,9 +225,7 @@ class TasksRepoMixin(RepositoryMixinBase):
                     child.root_task_id = root_id
                     session.add(child)
                 assert child.id is not None
-                session.add(
-                    TaskLink(parent_task_id=task_id, child_task_id=child.id, key=key),
-                )
+                session.add(TaskLink(parent_task_id=task_id, child_task_id=child.id, key=key))
                 created.append(child)
             await session.commit()
             for child in created:

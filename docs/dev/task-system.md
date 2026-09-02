@@ -97,7 +97,7 @@ Worker 在 `handle()` 前注入 `report_progress` 回调, 经 EventBus 发 `task
 
 ### 站点结果上报
 
-SCRAPE 与 ACTOR_SCRAPE 的每个站点结果经 `invoke_source` 进任务摘要 (契约见 [observability.md](observability.md)「站点结果单一出口」). HTTP / 拦截失败带 `SourceError` 上的 `FailureReason` 与 HTTP 状态; 未命中是 `None` → `no_usable_metadata`; 意外异常记 `unexpected` 后继续其它源.
+SCRAPE 与 ACTOR_SCRAPE 的每个站点结果经 `invoke_source` 进任务摘要 (契约见 [observability.md](observability.md)「站点结果单一导出」). HTTP / 拦截失败带 `SourceError` 上的 `FailureReason` 与 HTTP 状态; 未命中是 `None` → `no_usable_metadata`; 意外异常记 `unexpected` 后继续其它源.
 
 ## 共享单元
 

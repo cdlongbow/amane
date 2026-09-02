@@ -16,8 +16,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings, ThinkingLevel
 from pydantic_ai.usage import UsageLimits
 
-from amane.config import AgentApiType, AgentConfig, AgentThinkingMode
-
+from ..config import AgentApiType, AgentConfig, AgentThinkingMode
 from .actor_ops import build_actor_ops_capability
 from .facet_identity import build_facet_identity_capability
 from .feed_ops import build_feed_ops_capability

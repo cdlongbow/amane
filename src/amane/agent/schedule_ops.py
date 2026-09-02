@@ -10,10 +10,9 @@ from pydantic import BaseModel
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.api.models.tasks import RoutineSubmission
-from amane.db.models import RoutineType, Schedule
-from amane.db.repo_types import ScheduleUpdates
-
+from ..api.models.tasks import RoutineSubmission
+from ..db.models import RoutineType, Schedule
+from ..db.repo_types import ScheduleUpdates
 from .tools import AgentDeps, require_approval, trace_tool
 
 

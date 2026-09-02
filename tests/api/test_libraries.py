@@ -24,8 +24,7 @@ class TestLibraries:
         target = safe_path / "incoming"
         target.mkdir()
         created = await client.post(
-            "libraries",
-            json={"path": str(target), "patterns": ["*.mp4", "*.mkv"], "scan": False},
+            "libraries", json={"path": str(target), "patterns": ["*.mp4", "*.mkv"], "scan": False}
         )
         assert created.status_code == 201
         body = created.json()
@@ -172,8 +171,7 @@ class TestLibraries:
         sub_dir = target / "sub-norm"
         sub_dir.mkdir()
         norm = await client.post(
-            "libraries",
-            json={"path": str(sub_dir), "subtitle_extensions": ["SRT", ".ass", "srt"], "scan": False},
+            "libraries", json={"path": str(sub_dir), "subtitle_extensions": ["SRT", ".ass", "srt"], "scan": False}
         )
         assert norm.status_code == 201
         assert norm.json()["subtitle_extensions"] == [".srt", ".ass"]

@@ -482,9 +482,7 @@ class TestRepoRoundTrip:
     """
 
     @pytest.mark.parametrize(
-        ("typed_dict", "make_seed", "method_name", "skip", "validated"),
-        _ROUNDTRIP,
-        ids=_ROUNDTRIP_IDS,
+        ("typed_dict", "make_seed", "method_name", "skip", "validated"), _ROUNDTRIP, ids=_ROUNDTRIP_IDS
     )
     @pytest.mark.parametrize("seed", range(8))
     @pytest.mark.asyncio(loop_scope="function")

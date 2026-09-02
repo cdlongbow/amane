@@ -63,8 +63,4 @@ class RescrapeHandler(TaskHandler[RescrapePayload, RescrapeResult]):
                 )
             )
 
-        return TaskResult(
-            success=True,
-            result=RescrapeResult(submitted=len(identified)),
-            followups=followups,
-        )
+        return TaskResult(success=True, result=RescrapeResult(submitted=len(identified)), followups=followups)

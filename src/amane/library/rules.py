@@ -121,11 +121,7 @@ def is_video_media(path: Path, media_extensions: frozenset[str] | None = None) -
     return path.suffix.lower() in extensions
 
 
-def is_undersized_video(
-    path: Path,
-    min_file_size: int,
-    media_extensions: frozenset[str] | None = None,
-) -> bool:
+def is_undersized_video(path: Path, min_file_size: int, media_extensions: frozenset[str] | None = None) -> bool:
     """是否为低于阈值的视频文件.
 
     - min_file_size <= 0 视为关闭.

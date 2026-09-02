@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 
-from amane.enums import ActorGender
-from amane.utils.dates import normalize_calendar_date
+from ...enums import ActorGender
+from ...utils.dates import normalize_calendar_date
 
 
 class ActorMetadata(BaseModel):

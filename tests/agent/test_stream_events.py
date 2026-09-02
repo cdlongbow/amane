@@ -51,6 +51,5 @@ def test_map_pai_event_skips_empty_and_unknown() -> None:
     assert _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta=""))) is None
     assert _map_pai_event(object()) is None
     assert isinstance(
-        _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="你好"))),
-        StreamTextDelta,
+        _map_pai_event(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="你好"))), StreamTextDelta
     )

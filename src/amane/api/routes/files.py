@@ -123,8 +123,7 @@ def _list_files_sync(path: str, base: str | None, show_hidden: bool, safe_dirs: 
     except OSError as exc:
         # 网络盘挂载失效 (macOS errno 6 "Device not configured") 等抛 OSError
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"无法读取目录: {exc.strerror or exc}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"无法读取目录: {exc.strerror or exc}"
         )
 
     # 排序: 目录优先, 然后按名称字母序 (不区分大小写)

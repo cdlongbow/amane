@@ -26,9 +26,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from amane.config import AgentConfig, AgentThinkingMode
-from amane.db.models import AgentSessionStatus, SavedQueryEntity
-
+from ..config import AgentConfig, AgentThinkingMode
+from ..db.models import AgentSessionStatus, SavedQueryEntity
 from .bridge import AgentRuntimeBridge
 from .cache import ResultCache
 from .events import (
@@ -51,7 +50,7 @@ from .tools import AgentDeps, NeedsApprovalPayload, PendingApproval
 from .trace import SessionStore, TraceEvent, delete_session_dir, session_dir
 
 if TYPE_CHECKING:
-    from amane.db.repository import Repository
+    from ..db.repository import Repository
 
 
 @dataclass

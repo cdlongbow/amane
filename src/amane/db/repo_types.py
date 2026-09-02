@@ -7,10 +7,9 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.sql.expression import SelectOfScalar
 
-from amane.enums import ActorGender, DownloadableResource, LibraryAutomation, LinkMode, MoveMode
-from amane.parsing import ContentType, Mosaic
-from amane.utils.dates import normalize_calendar_date
-
+from ..enums import ActorGender, DownloadableResource, LibraryAutomation, LinkMode, MoveMode
+from ..parsing import ContentType, Mosaic
+from ..utils.dates import normalize_calendar_date
 from .models import (
     ActorSortField,
     FacetSortField,
@@ -98,10 +97,7 @@ def _metadata_has_files_clause(*, has_files: bool) -> ColumnElement[bool]:
 
 def _media_file_uncensored_predicate() -> ColumnElement[bool]:
     """单文件无码: mosaic 标记或 content_type 片种."""
-    return or_(
-        col(MediaFile.mosaic) == Mosaic.UNCENSORED,
-        col(MediaFile.content_type) == ContentType.UNCENSORED,
-    )
+    return or_(col(MediaFile.mosaic) == Mosaic.UNCENSORED, col(MediaFile.content_type) == ContentType.UNCENSORED)
 
 
 def _apply_media_phase_filters(

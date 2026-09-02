@@ -21,9 +21,7 @@ async def test_complete_task_with_followups_creates_links(repo: Repository):
     assert claimed is not None and claimed.id == parent.id
     assert claimed.id is not None
     child1 = await repo.complete_task_with_followups(
-        claimed.id,
-        result={"added": 2},
-        followups=[("scrape", TaskType.SCRAPE, {"number": "ABC-123"}, 0)],
+        claimed.id, result={"added": 2}, followups=[("scrape", TaskType.SCRAPE, {"number": "ABC-123"}, 0)]
     )
     assert len(child1) == 1
     assert child1[0].type == TaskType.SCRAPE
@@ -53,9 +51,7 @@ async def test_followups_chain_root_task_id(repo: Repository):
     assert claimed is not None and claimed.id == parent.id
     assert claimed.id is not None
     children = await repo.complete_task_with_followups(
-        claimed.id,
-        result={"metadata_id": 1},
-        followups=[("actor-scrape", TaskType.ACTOR_SCRAPE, {"actor_id": 9}, -1)],
+        claimed.id, result={"metadata_id": 1}, followups=[("actor-scrape", TaskType.ACTOR_SCRAPE, {"actor_id": 9}, -1)]
     )
     assert len(children) == 1
     child = children[0]
@@ -65,9 +61,7 @@ async def test_followups_chain_root_task_id(repo: Repository):
     claimed_child = await repo.claim_next_task()
     assert claimed_child is not None and claimed_child.id == child.id
     grandchildren = await repo.complete_task_with_followups(
-        child.id,
-        result={},
-        followups=[("scrape", TaskType.SCRAPE, {"number": "X-2"}, 0)],
+        child.id, result={}, followups=[("scrape", TaskType.SCRAPE, {"number": "X-2"}, 0)]
     )
     assert len(grandchildren) == 1
     assert grandchildren[0].root_task_id == parent.id

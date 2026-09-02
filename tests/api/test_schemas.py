@@ -3,12 +3,7 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from amane.api.models import (
-    OrganizeSubmission,
-    RefreshSubmission,
-    ScrapeSubmission,
-    TaskSubmission,
-)
+from amane.api.models import OrganizeSubmission, RefreshSubmission, ScrapeSubmission, TaskSubmission
 from amane.handlers.models import LibraryBase
 
 

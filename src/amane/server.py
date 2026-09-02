@@ -10,7 +10,7 @@ import sys
 
 import uvicorn
 
-from amane.api.app import create_app
+from .api.app import create_app
 
 EXIT_OK = 0
 EXIT_RESTART = 3

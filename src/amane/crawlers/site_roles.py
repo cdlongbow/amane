@@ -10,9 +10,9 @@ from typing import Any, cast, overload
 
 from pydantic.config import JsonDict
 
-from amane.crawlers import actor_registry, registry
-from amane.enums import SiteName
-from amane.plugins.models import SourceCapability, is_external_source_id
+from ..enums import SiteName
+from ..plugins.models import SourceCapability, is_external_source_id
+from . import actor_registry, registry
 
 _ACTOR_PROFILE = SourceCapability.ACTOR_PROFILE
 _ACTOR_IMAGE = SourceCapability.ACTOR_IMAGE

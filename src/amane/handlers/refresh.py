@@ -58,9 +58,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
                 logger.info("scan walking started", path=payload.path)
                 walked = 0
                 hits = await scan_library(
-                    scan_dir,
-                    recursive=payload.recursive if payload.recursive is not None else True,
-                    scan=scan,
+                    scan_dir, recursive=payload.recursive if payload.recursive is not None else True, scan=scan
                 )
                 for hit in hits:
                     if hit.kind is not LibraryFileKind.MEDIA:

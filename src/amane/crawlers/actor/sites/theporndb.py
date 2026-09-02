@@ -121,9 +121,7 @@ class ThePornDBActorCrawler(ActorCrawler):
 
     async def _gql(self, query: str, variables: dict[str, Any], headers: dict[str, str]) -> dict[str, Any] | None:
         data = await self.client.post_json(
-            self.base_url,
-            json={"query": query, "variables": variables},
-            headers=headers,
+            self.base_url, json={"query": query, "variables": variables}, headers=headers
         )
         if not isinstance(data, dict):
             return None

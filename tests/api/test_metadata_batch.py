@@ -60,8 +60,7 @@ class TestMetadataBatchHttp:
         custom_meta = await repo.upsert_metadata(number="BS-004")
         assert custom_meta.id is not None
         custom = await client.post(
-            "metadata/batch/scrape",
-            json={"ids": [custom_meta.id], "content_type": "uncensored", "use_cache": []},
+            "metadata/batch/scrape", json={"ids": [custom_meta.id], "content_type": "uncensored", "use_cache": []}
         )
         custom_task = await repo.get_task(custom.json()["task_ids"][0])
         assert custom_task is not None

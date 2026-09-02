@@ -40,9 +40,7 @@ def test_canonical_tool_name(name: str, available: frozenset[str], expected: str
 
 def test_alias_response_rewrites_unknown_suffix_only() -> None:
     original = ToolCallPart(
-        tool_name="rename_facet__rename_facet",
-        args={"kind": "studio", "facet_id": 1, "name": "x"},
-        tool_call_id="c1",
+        tool_name="rename_facet__rename_facet", args={"kind": "studio", "facet_id": 1, "name": "x"}, tool_call_id="c1"
     )
     kept = ToolCallPart(tool_name="add_facet_rule", args={}, tool_call_id="c2")
     text = TextPart(content="ok")

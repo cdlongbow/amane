@@ -51,8 +51,7 @@ class TestSchedules:
         assert named.json()["enabled"] is False
 
         upscale = await client.post(
-            "schedules",
-            json={"cron": "0 3 * * *", "submission": {"type": "upscale", "limit": 50}},
+            "schedules", json={"cron": "0 3 * * *", "submission": {"type": "upscale", "limit": 50}}
         )
         assert upscale.status_code == 201
         assert upscale.json()["task_type"] == "upscale"

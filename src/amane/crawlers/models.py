@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
-from amane.utils.dates import normalize_calendar_date
+from ..utils.dates import normalize_calendar_date
 
 if TYPE_CHECKING:
     from ..aggregate import AggregatedMetadata

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from amane.crawlers.actor import ActorMetadata
-from amane.enums import ActorGender, SiteName
+from ..crawlers.actor import ActorMetadata
+from ..enums import ActorGender, SiteName
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

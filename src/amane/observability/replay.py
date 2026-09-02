@@ -74,8 +74,7 @@ class ReplayWebClient:
         extra_ok = ok_statuses or frozenset()
         if status >= 400 and status not in extra_ok:
             raise RequestError(
-                url,
-                RequestFailure(kind=FailureKind.HTTP_STATUS, status=status, message=f"HTTP {status}"),
+                url, RequestFailure(kind=FailureKind.HTTP_STATUS, status=status, message=f"HTTP {status}")
             )
         body = entry.body or b""
         ct = entry.meta.content_type or "application/octet-stream"

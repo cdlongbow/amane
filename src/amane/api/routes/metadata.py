@@ -9,16 +9,8 @@ from ...db.models import MetadataSortField, SavedQueryEntity, SortOrder, TaskTyp
 from ...db.repos.media import file_phase_of
 from ...handlers import ScrapePayload
 from ...media import manual_crop_poster
-from ...parsing import (
-    DEFINITION_VALUES,
-    ContentType,
-    Mosaic,
-    infer_content_type,
-    summarize_file_phases,
-)
-from ...parsing import (
-    FilePhaseSummary as ParsedFilePhase,
-)
+from ...parsing import DEFINITION_VALUES, ContentType, Mosaic, infer_content_type, summarize_file_phases
+from ...parsing import FilePhaseSummary as ParsedFilePhase
 from ...utils.dates import normalize_calendar_date
 from ...utils.model import to_resp
 from ..deps import RepoDep, RuntimeDep

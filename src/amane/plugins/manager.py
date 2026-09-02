@@ -97,9 +97,7 @@ class PluginManager:
                     raise ValueError(f"source id {descriptor.id!r} is already registered")
                 plugins[descriptor.id] = plugin
                 origins[descriptor.id] = PluginOrigin(
-                    plugin_id=descriptor.id,
-                    path=str(child),
-                    module=module_name(descriptor.id),
+                    plugin_id=descriptor.id, path=str(child), module=module_name(descriptor.id)
                 )
             except Exception as exc:
                 failure = PluginLoadFailure(name=child.name, value=str(entry), error=str(exc))

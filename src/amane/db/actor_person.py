@@ -4,8 +4,8 @@
 (``add_actor_aliases`` / ``replace_actor_aliases`` / ``move_actor_alias_rows``).
 """
 
-from amane.aggregate.actor import AggregatedActor, merge_actor_rows_fill_empty
-from amane.db.models import Actor
+from ..aggregate.actor import AggregatedActor, merge_actor_rows_fill_empty
+from .models import Actor
 
 
 def actor_to_aggregated(actor: Actor) -> AggregatedActor:

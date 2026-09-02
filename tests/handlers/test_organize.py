@@ -723,10 +723,7 @@ async def test_organize_strm_content_template_uses_actual_dest(
 
 
 @pytest.mark.asyncio(loop_scope="function")
-@pytest.mark.parametrize(
-    "kind",
-    ["two_files", "empty", "not_a_dir", "missing_library"],
-)
+@pytest.mark.parametrize("kind", ["two_files", "empty", "not_a_dir", "missing_library"])
 async def test_reports_progress(repo: Repository, resource_store: ResourceStore, tmp_path: Path, kind: str) -> None:
     """目录遍历完成后按文件总数上报 determinate 进度; 跳过的文件仍计入 current. 非法路径不上报."""
     lib_root = tmp_path / "lib"

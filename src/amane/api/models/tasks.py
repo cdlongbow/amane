@@ -106,13 +106,9 @@ class TaskWorkerResponse(BaseModel):
 
 class ScrapeRequest(BaseModel):
     number: str | None = Field(default=None)
-    media_id: int | None = Field(
-        default=None,
-        description="MediaFile ID. 通常仅用于内部提交任务，手动提交无需指定",
-    )
+    media_id: int | None = Field(default=None, description="MediaFile ID. 通常仅用于内部提交任务，手动提交无需指定")
     content_type: ContentType | None = Field(
-        default=None,
-        description="内容类型; 未给出时: 仅 media_id 按文件路径推断, 有 number 时按番号推断",
+        default=None, description="内容类型; 未给出时: 仅 media_id 按文件路径推断, 有 number 时按番号推断"
     )
     use_cache: set[CacheKind] = Field(
         default_factory=lambda: {CacheKind.metadata, CacheKind.trans},

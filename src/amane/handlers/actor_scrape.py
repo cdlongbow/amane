@@ -128,8 +128,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
             site_key = site
 
             async def _fetch_actor(
-                crawler: ActorFetcher = site_crawler,
-                site_id: str = site_key,
+                crawler: ActorFetcher = site_crawler, site_id: str = site_key
             ) -> ActorMetadata | None:
                 last_error: SourceError | None = None
                 for name in names:

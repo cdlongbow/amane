@@ -2,9 +2,8 @@
 
 from pathlib import Path
 
-from amane.enums import LinkMode
-from amane.utils.threads import in_thread
-
+from ..enums import LinkMode
+from ..utils.threads import in_thread
 from .file import OrganizeResult
 
 

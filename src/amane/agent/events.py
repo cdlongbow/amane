@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic_ai.usage import RunUsage
 
-from amane.db.models import AgentSessionStatus, SavedQueryEntity
+from ..db.models import AgentSessionStatus, SavedQueryEntity
 
 
 class TurnTokenUsage(BaseModel):

@@ -7,13 +7,7 @@ from sqlmodel import col, select
 
 from ...parsing import ContentType, FilePhase, FilePhaseSummary, Mosaic, file_phase_from_path, summarize_file_phases
 from ..models import MediaFile, MediaFileStatus, MediaSortField, SortOrder
-from ..repo_types import (
-    _MEDIA_SORT_COLUMNS,
-    MediaFileUpdates,
-    _apply_media_phase_filters,
-    _order_clause,
-    _utcnow,
-)
+from ..repo_types import _MEDIA_SORT_COLUMNS, MediaFileUpdates, _apply_media_phase_filters, _order_clause, _utcnow
 from .base import RepositoryMixinBase
 
 # SQLite 绑定变量上限 (旧编译 999 / 3.32+ 默认 32766). 500 给语句里其它占位留余量.

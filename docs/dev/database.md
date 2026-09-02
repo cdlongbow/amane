@@ -35,7 +35,7 @@ r18 库由项目导入/管理但 schema 不受我们控制 (见 [crawlers.md](cr
    `{db}.pre-migrate-{oldrev}-{utc}.bak` (含 WAL 一致快照; 同目录保留最近 5 份), 再升级.
 3. **迁移连接**单独 `autocommit=False` + Alembic `transactional_ddl=True`: 单次 revision 内 DDL 与 `alembic_version` 同事务; 失败则回滚, 避免「表已创建但版本未升」的半成品. 业务连接不改事务模式, 仍只开 WAL + FK.
 
-CLI (`uv run alembic …`) 走同一套 `env.py` 事务性 DDL; CLI **不会**自动备份 — 依赖启动路径或手工 backup. `env.py` 自行创建的引擎在 upgrade 结束后必须 `dispose()`, 否则同一进程内多次升级 (测试) 会留下未关闭的 sqlite3 连接.
+CLI (`uv run alembic …`) 走同一套 `env.py` 事务性 DDL; CLI **不会**自动备份 — 依赖启动路径或手工 backup. `env.py` 自行创建的引擎在 upgrade 结束后必须 `dispose()`, 否则同一进程内多次升级 (测试) 会留下未关闭的 sqlite3 连接. 迁移脚本按文件路径加载, 不属于包命名空间, 导入须用 `from amane...` (见 [architecture.md](architecture.md)).
 
 SQLite 不能直接存储 Python `datetime`, 须先转为字符串. SQLAlchemy 管理的 DateTime 列会自行转换; 迁移回填中的裸 `INSERT` 不会, 会触发 Python 3.12 已弃用的默认转换. `sqlite_migrate` 在导入时注册相同格式 (`2026-01-02 03:04:05`) 的转换, 使裸 SQL 绑定 datetime 仍然有效.
 

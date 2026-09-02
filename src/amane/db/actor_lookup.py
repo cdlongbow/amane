@@ -15,7 +15,7 @@ from __future__ import annotations
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from amane.db.models import Actor, ActorAlias
+from .models import Actor, ActorAlias
 
 
 async def list_actor_aliases(session: AsyncSession, actor_id: int) -> list[str]:

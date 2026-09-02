@@ -10,9 +10,9 @@ from sqlalchemy.sql.functions import count
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from amane.db.models import Actor, ActorAlias, ActorSortField, MetadataActor, SortOrder
-from amane.db.repo_types import ActorBrowseItem, ActorBrowseParams
-from amane.enums import ActorGender
+from ...enums import ActorGender
+from ..models import Actor, ActorAlias, ActorSortField, MetadataActor, SortOrder
+from ..repo_types import ActorBrowseItem, ActorBrowseParams
 
 
 def _has_image_expr():

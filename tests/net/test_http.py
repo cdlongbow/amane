@@ -9,8 +9,7 @@ from amane.net.http import RateLimiters
 class TestRequestError:
     def test_classifies_http_status(self):
         err = RequestError(
-            "https://example.com",
-            RequestFailure(kind=FailureKind.HTTP_STATUS, status=429, message="HTTP 429"),
+            "https://example.com", RequestFailure(kind=FailureKind.HTTP_STATUS, status=429, message="HTTP 429")
         )
         assert err.reason == FailureReason.RATE_LIMITED
         assert err.http_status == 429

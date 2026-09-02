@@ -3,8 +3,8 @@ from pathlib import Path
 
 import structlog
 
-from amane.enums import MoveMode
-from amane.utils.threads import in_thread
+from ..enums import MoveMode
+from ..utils.threads import in_thread
 
 logger = structlog.get_logger()
 

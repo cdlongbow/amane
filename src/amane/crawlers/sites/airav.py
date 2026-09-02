@@ -3,10 +3,8 @@ from urllib.parse import urljoin
 
 from parsel import Selector
 
-from amane.crawlers.base import CrawlerProfile
-
 from ...enums import SiteName
-from ..base import Crawler
+from ..base import Crawler, CrawlerProfile
 from ..models import FetchOptions, MediaMetadata, SearchQuery
 from ..parsing import extract_all_texts, extract_text
 

@@ -214,10 +214,7 @@ DEFINITION_VALUES: tuple[str, ...] = tuple(dict.fromkeys(value for value, _ in _
 
 
 def parse_file_info(
-    path: str | Path | None = None,
-    *,
-    text: str | None = None,
-    escape_strings: list[str] | None = None,
+    path: str | Path | None = None, *, text: str | None = None, escape_strings: list[str] | None = None
 ) -> FileInfo:
     """有路径解析路径, 否则解析 ``text``. 至少要有一个.
 

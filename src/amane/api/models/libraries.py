@@ -144,10 +144,7 @@ def path_template_schema() -> PathTemplateSchemaResponse:
         video_default=VIDEO_TEMPLATE_DEFAULT,
         optional_defaults=OPTIONAL_TEMPLATE_DEFAULTS,
         placeholders=[
-            PathTemplatePlaceholder(
-                name=name,
-                map_keys=list(PLACEHOLDER_MAP_KEYS.get(name, ())),
-            )
+            PathTemplatePlaceholder(name=name, map_keys=list(PLACEHOLDER_MAP_KEYS.get(name, ())))
             for name in PLACEHOLDERS
         ],
         subtitle_extensions_default=list(DEFAULT_SUBTITLE_EXTENSIONS),

@@ -117,11 +117,7 @@ class AvsoxCrawler(Crawler):
         token = _csrf_token(html)
         if token:
             headers["X-CSRF-Token"] = token
-        envelope = await self.client.post_json(
-            f"{self.base_url}/javu/data/api/{method}",
-            json=payload,
-            headers=headers,
-        )
+        envelope = await self.client.post_json(f"{self.base_url}/javu/data/api/{method}", json=payload, headers=headers)
         return _unwrap(envelope)
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:

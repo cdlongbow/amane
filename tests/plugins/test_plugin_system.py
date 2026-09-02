@@ -58,7 +58,7 @@ from amane.plugin import (
     PluginContext,
     SearchQuery,
     SourceCapability,
-    SourceDescriptor,
+    SourceDescriptor
 )
 
 

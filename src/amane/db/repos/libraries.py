@@ -3,8 +3,8 @@ from typing import Unpack
 
 from sqlmodel import col, select
 
-from amane.enums import DownloadableResource, LibraryAutomation, LinkMode, MoveMode
-from amane.library import (
+from ...enums import DownloadableResource, LibraryAutomation, LinkMode, MoveMode
+from ...library import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_TRAILER_PATTERN,
     normalize_subtitle_extensions,
@@ -12,16 +12,8 @@ from amane.library import (
     validate_min_file_size,
     validate_trailer_pattern,
 )
-from amane.organize.path_templates import (
-    VIDEO_TEMPLATE_DEFAULT,
-    normalize_link_template,
-    validate_path_template,
-)
-from amane.organize.strm_content import (
-    normalize_strm_content_template,
-    validate_strm_content_template,
-)
-
+from ...organize.path_templates import VIDEO_TEMPLATE_DEFAULT, normalize_link_template, validate_path_template
+from ...organize.strm_content import normalize_strm_content_template, validate_strm_content_template
 from ..models import Library, MediaFile
 from ..repo_types import LibraryUpdates
 from .base import RepositoryMixinBase

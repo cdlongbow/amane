@@ -21,14 +21,7 @@ from ..crawlers.site_roles import (
     site_list_value_schema,
 )
 from ..crawlers.sites.official import Manufacturer
-from ..enums import (
-    DownloadableResource,
-    Language,
-    MetadataField,
-    SiteName,
-    WatermarkCorner,
-    WatermarkKind,
-)
+from ..enums import DownloadableResource, Language, MetadataField, SiteName, WatermarkCorner, WatermarkKind
 from ..parsing import ContentType
 from ..plugins.models import PluginConfig
 from ..sr import SrPreset

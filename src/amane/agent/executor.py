@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from amane.db.models import SavedQuery
-
+from ..db.models import SavedQuery
 from .cache import CachedResult, ResultCache
 from .sql import ReadonlySqlSandbox, SqlResult
 

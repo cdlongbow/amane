@@ -5,14 +5,14 @@ Plugin drop-ins should import only from this module. Host code uses
 This is a documentation and import-path boundary, not a runtime sandbox.
 """
 
-from amane.crawlers.http import HttpClient
-from amane.crawlers.models import FetchOptions, MediaMetadata, SearchQuery
-from amane.enums import Language
-from amane.net.errors import FailureReason, RequestError, SourceError
-from amane.net.http import WebClient
-from amane.parsing.file_info import ContentType
-from amane.plugins.api import EmptyPluginConfig, FilmSourcePlugin, FilmSourceProvider, PluginContext
-from amane.plugins.models import (
+from ..crawlers.http import HttpClient
+from ..crawlers.models import FetchOptions, MediaMetadata, SearchQuery
+from ..enums import Language
+from ..net.errors import FailureReason, RequestError, SourceError
+from ..net.http import WebClient
+from ..parsing.file_info import ContentType
+from ..plugins.api import EmptyPluginConfig, FilmSourcePlugin, FilmSourceProvider, PluginContext
+from ..plugins.models import (
     PLUGIN_API_VERSION,
     RESERVED_SOURCE_NAMESPACES,
     SourceCapability,

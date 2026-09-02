@@ -69,7 +69,7 @@ UI 摘要: `GET /api/tasks/{id}/report` 从 DB (`headline` / `metadata_id` / `ac
 
 Feed 失败记在源的 `last_error`, 不进站点 outcome 表.
 
-### 站点结果单一出口
+### 站点结果单一导出
 
 站点级结果 (成功 / 失败 / 缓存命中) 是任务事实的一手结构化数据. `Recorder.record_site_outcome` 是落盘 API; **来源 fetch 的记账只发生在** `invoke_source` (`observability/source.py`):
 

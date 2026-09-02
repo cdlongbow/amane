@@ -84,7 +84,7 @@ class TaskSummary(BaseModel):
     sites_queried: list[str] = Field(default_factory=list)
     """实际调度并上报结果的 cache_key (顺序)."""
     outcomes: dict[str, SiteOutcomeRecord] = Field(default_factory=dict)
-    """站点结果表 (key = cache_key); 唯一一手出口 record_site_outcome 写入."""
+    """站点结果表 (key = cache_key); 唯一一手导出 record_site_outcome 写入."""
     failed_sites: list[str] | None = None
     """仅 RECORD_VERSION 1 记录写入; 新记录留空, 读取时用于降级投影."""
     cache_hits: list[str] | None = None

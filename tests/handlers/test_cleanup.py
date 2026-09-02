@@ -106,8 +106,7 @@ async def test_missing_file_exists_does_not_block_event_loop(cleanup_env, monkey
 
     handler = CleanupHandler(repo, store)
     result, _ = await asyncio.gather(
-        handler.handle(CleanupPayload(remove_missing_files=True, remove_unreferenced_resources=False)),
-        marker(),
+        handler.handle(CleanupPayload(remove_missing_files=True, remove_unreferenced_resources=False)), marker()
     )
     assert result.success
     assert "marker" in order

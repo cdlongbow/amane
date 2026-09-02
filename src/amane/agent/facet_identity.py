@@ -7,8 +7,7 @@ from typing import Any
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.db.models import SCRAPE_FACET_KINDS, FacetKind
-
+from ..db.models import SCRAPE_FACET_KINDS, FacetKind
 from .tools import AgentDeps, require_approval, trace_tool
 
 
@@ -58,9 +57,7 @@ def build_facet_identity_capability() -> Capability[AgentDeps]:
             return {"error": "source_ids 为空"}
         detail = f"合并 {kind}: sources={source_ids} → target={target_id}"
         trace_tool(
-            ctx,
-            "tool_call",
-            {"tool": "merge_facets", "kind": kind, "target_id": target_id, "source_ids": source_ids},
+            ctx, "tool_call", {"tool": "merge_facets", "kind": kind, "target_id": target_id, "source_ids": source_ids}
         )
         require_approval(
             ctx,

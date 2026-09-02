@@ -8,12 +8,11 @@ from typing import Any, cast
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.api.support.path_validation import check_directory_path
-from amane.db.models import TaskType
-from amane.db.repo_types import LibraryUpdates
-from amane.enums import LibraryAutomation
-from amane.handlers.models import RefreshPayload, ScanMode
-
+from ..api.support.path_validation import check_directory_path
+from ..db.models import TaskType
+from ..db.repo_types import LibraryUpdates
+from ..enums import LibraryAutomation
+from ..handlers.models import RefreshPayload, ScanMode
 from .tools import AgentDeps, require_approval, trace_tool
 
 _LIBRARY_UPDATE_KEYS = frozenset(

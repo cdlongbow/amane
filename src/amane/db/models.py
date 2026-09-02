@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import Column, Index, String, Text, UniqueConstraint, text
 from sqlmodel import JSON, Field, SQLModel
 
-from amane.enums import ActorGender, DownloadableResource, LibraryAutomation, LinkMode, MoveMode
-from amane.library import (
+from ..enums import ActorGender, DownloadableResource, LibraryAutomation, LinkMode, MoveMode
+from ..library import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_TRAILER_PATTERN,
     BlacklistPattern,
@@ -14,12 +14,9 @@ from amane.library import (
     SubtitleExtensions,
     TrailerPattern,
 )
-from amane.organize.path_templates import (
-    VIDEO_TEMPLATE_DEFAULT,
-    PathTemplate,
-)
-from amane.organize.strm_content import StrmContentTemplate
-from amane.parsing import ContentType, Mosaic
+from ..organize.path_templates import VIDEO_TEMPLATE_DEFAULT, PathTemplate
+from ..organize.strm_content import StrmContentTemplate
+from ..parsing import ContentType, Mosaic
 
 
 def _utcnow() -> datetime:
@@ -344,8 +341,7 @@ class Library(SQLModel, table=True):
     trailer_template: PathTemplate | None = None
     subtitle_template: PathTemplate | None = None
     subtitle_extensions: SubtitleExtensions = Field(
-        default_factory=lambda: list(DEFAULT_SUBTITLE_EXTENSIONS),
-        sa_column=Column(JSON, nullable=False),
+        default_factory=lambda: list(DEFAULT_SUBTITLE_EXTENSIONS), sa_column=Column(JSON, nullable=False)
     )
     """ORGANIZE 时在视频同目录发现字幕的扩展名列表; 空列表关闭."""
     write_nfo: bool = Field(default=True)

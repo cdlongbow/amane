@@ -610,11 +610,7 @@ class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
                 batch = await self._repo.list_media_files(limit=page, offset=offset)
                 if not batch:
                     break
-                missing_ids.extend(
-                    await _missing_media_ids(
-                        [(mf.id, mf.path) for mf in batch if mf.id is not None],
-                    )
-                )
+                missing_ids.extend(await _missing_media_ids([(mf.id, mf.path) for mf in batch if mf.id is not None]))
                 offset += len(batch)
                 if len(batch) < page:
                     break

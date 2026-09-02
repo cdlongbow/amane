@@ -312,7 +312,7 @@ async def test_actor_row_roundtrip(repo: Repository) -> None:
 
 @pytest.mark.asyncio(loop_scope="function")
 async def test_actor_scrape_writes_task_summary(repo: Repository, hot: HotSettings, tmp_path: Path) -> None:
-    """演员刮削补写 summary: 站点结果 (含失败原因) 进同一结构化出口."""
+    """演员刮削补写 summary: 站点结果 (含失败原因) 进同一结构化导出."""
     actor_id = await _actor_id(repo, "Summarized")
     hot.actor_scraping.profile_sites = [SiteName.MINNANO]
     hot.actor_scraping.image_sites = [SiteName.GFRIENDS]

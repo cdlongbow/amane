@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from amane.enums import ActorGender
-from amane.plugins.models import SourceCapability
-
+from ..enums import ActorGender
+from ..plugins.models import SourceCapability
 from .http import HttpClient
 
 if TYPE_CHECKING:

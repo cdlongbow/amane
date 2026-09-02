@@ -3,8 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from amane.config import AgentThinkingMode
-from amane.db.models import AgentSessionStatus, SavedQueryEntity
+from ...config import AgentThinkingMode
+from ...db.models import AgentSessionStatus, SavedQueryEntity
 
 
 class AgentSessionCreateRequest(BaseModel):

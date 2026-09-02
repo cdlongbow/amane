@@ -20,11 +20,7 @@ logger = structlog.get_logger()
 
 
 @in_thread
-def discover_subtitles(
-    video_path: Path,
-    extensions: Sequence[str],
-    video_cd: int | None,
-) -> list[Path]:
+def discover_subtitles(video_path: Path, extensions: Sequence[str], video_cd: int | None) -> list[Path]:
     """发现视频同目录下的字幕文件.
 
     - 只看直接父目录, 不递归; 扩展名大小写不敏感.

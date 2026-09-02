@@ -8,9 +8,8 @@ import structlog
 from .models import ActorMetadata
 
 if TYPE_CHECKING:
-    from amane.config import SiteConfig
-    from amane.enums import SiteName
-
+    from ...config import SiteConfig
+    from ...enums import SiteName
     from ..base import CrawlerProfile
     from ..http import HttpClient
 

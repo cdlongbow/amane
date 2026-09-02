@@ -10,11 +10,11 @@
 
 ## 发现与身份
 
-插件作者只从 `amane.plugin` 进口类型与契约。主机实现在 `amane.plugins.*`（发现、落盘安装、Factory），内部代码不要进口 `amane.plugin`。这是进口路径上的分层，不是运行时沙箱。
+插件作者只从 `amane.plugin` 导入类型与契约。主机实现在 `amane.plugins.*`（发现、落盘安装、Factory），内部代码不要导入 `amane.plugin`。这是导入路径上的分层，不是运行时沙箱。
 
-第三方来源是 `{cold.data_dir}/plugins/sources/<id>/` 下一棵源码树。目录名就是来源 ID；其中必须有 `plugin.py`，并导出名为 `Plugin` 的 `FilmSourcePlugin` 子类。同目录其它 `.py` 可作为包内相对进口。启动、安装、卸载和显式重新扫描时按目录名排序加载；单个插件加载、descriptor 校验或 API 版本不兼容只使该插件不可用，不阻断其它来源，失败写入日志并出现在 `GET /api/plugins` 的 `failures` 里。
+第三方来源是 `{cold.data_dir}/plugins/sources/<id>/` 下一棵源码树。目录名就是来源 ID；其中必须有 `plugin.py`，并导出名为 `Plugin` 的 `FilmSourcePlugin` 子类。同目录其它 `.py` 可作为包内相对导入。启动、安装、卸载和显式重新扫描时按目录名排序加载；单个插件加载、descriptor 校验或 API 版本不兼容只使该插件不可用，不阻断其它来源，失败写入日志并出现在 `GET /api/plugins` 的 `failures` 里。
 
-官方 / 内置来源使用单段 ID（`javdb`、`dmm`）。第三方来源 ID 必须是 `namespace.local`：第一段是开发者声明的命名空间，其后是该命名空间下的来源名，可再分段（`alice.javxyz`、`alice.foo.bar`）。命名空间不能是 `amane` / `plugin` / `official` / `builtin`，也不能是任何内置 `SiteName`。ID 是持久化数据中的稳定 key，出现在路由、`raw`、`source_urls`、`field_sources`、任务摘要和缓存 key 中；显示名称不能代替 ID。descriptor 里的 `id` 必须与目录名一致，否则该目录记为失败。作者进口 `amane.plugin`，主机走 `amane.plugins.*` 与 `/api/plugins`；来源 ID 本身不带 `plugin.` 前缀。
+官方 / 内置来源使用单段 ID（`javdb`、`dmm`）。第三方来源 ID 必须是 `namespace.local`：第一段是开发者声明的命名空间，其后是该命名空间下的来源名，可再分段（`alice.javxyz`、`alice.foo.bar`）。命名空间不能是 `amane` / `plugin` / `official` / `builtin`，也不能是任何内置 `SiteName`。ID 是持久化数据中的稳定 key，出现在路由、`raw`、`source_urls`、`field_sources`、任务摘要和缓存 key 中；显示名称不能代替 ID。descriptor 里的 `id` 必须与目录名一致，否则该目录记为失败。作者导入 `amane.plugin`，主机走 `amane.plugins.*` 与 `/api/plugins`；来源 ID 本身不带 `plugin.` 前缀。
 
 运行时数据仍在 `{cold.data_dir}/plugins/<id>/`（`PluginContext.data_dir`）。源码树在 `plugins/sources/<id>/`，卸载只删源码树，不删运行时数据。
 

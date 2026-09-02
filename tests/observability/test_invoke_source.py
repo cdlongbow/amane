@@ -56,8 +56,7 @@ async def test_invoke_source_source_error(rec: Recorder):
 async def test_invoke_source_request_error_classified(rec: Recorder):
     async def fetch() -> None:
         raise RequestError(
-            "https://x.test",
-            RequestFailure(kind=FailureKind.HTTP_STATUS, status=404, message="HTTP 404"),
+            "https://x.test", RequestFailure(kind=FailureKind.HTTP_STATUS, status=404, message="HTTP 404")
         )
 
     assert await invoke_source("official", fetch) is None

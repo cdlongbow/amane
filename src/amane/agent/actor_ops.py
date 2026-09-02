@@ -7,11 +7,10 @@ from typing import Any, cast
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import Capability
 
-from amane.db.models import FacetKind, TaskType
-from amane.db.repo_types import ActorPersonFields
-from amane.handlers.models import ActorScrapePayload, CacheKind
-from amane.utils.dates import normalize_calendar_date
-
+from ..db.models import FacetKind, TaskType
+from ..db.repo_types import ActorPersonFields
+from ..handlers.models import ActorScrapePayload, CacheKind
+from ..utils.dates import normalize_calendar_date
 from .tools import AgentDeps, trace_tool
 
 _AGENT_ACTOR_PATCH_KEYS = frozenset(

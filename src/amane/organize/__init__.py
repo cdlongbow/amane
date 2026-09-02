@@ -1,5 +1,4 @@
-from amane.enums import MoveMode
-
+from ..enums import MoveMode
 from .file import OrganizeResult, execute_organize
 from .link import create_video_link
 from .path_templates import (

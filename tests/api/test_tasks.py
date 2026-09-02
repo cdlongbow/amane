@@ -127,8 +127,7 @@ class TestSubmitTask:
         assert cleanup.status_code == 202
         assert cleanup.json()["payload"]["remove_missing_files"] is True
         custom = await client.post(
-            "tasks",
-            json={"type": "cleanup", "remove_missing_files": False, "remove_unreferenced_resources": False},
+            "tasks", json={"type": "cleanup", "remove_missing_files": False, "remove_unreferenced_resources": False}
         )
         assert custom.json()["payload"]["remove_missing_files"] is False
         upscale = await client.post("tasks", json={"type": "upscale", "limit": 10})
