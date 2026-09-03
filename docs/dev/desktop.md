@@ -96,7 +96,7 @@ Windows 壳是 Per-Monitor V2 (`winapp/app.manifest`). 未声明时系统把 `Tr
 
 macOS: `scripts/build_macos_app.sh` (`just macos-app`). 冻住 `amane.server` 为 onedir, 再组装 `.app`. 需要 Swift 工具链.
 
-1. PyInstaller onedir (`src/amane/server.py`)
+1. PyInstaller onedir (`scripts/pyinstaller_entry.py` → `amane.server`)
 2. `Amane` → `Contents/MacOS/Amane`; `AmaneUI` 包成 `Contents/Resources/AmaneUI.app`
 3. Info.plist: `LSUIElement` + `LSMultipleInstancesProhibited` + `CFBundleIconFile`
 

@@ -64,7 +64,7 @@ New-Item -ItemType Directory -Force -Path $Work, $Out | Out-Null
     --distpath (Join-Path $Work "dist") `
     --workpath (Join-Path $Work "build") `
     --specpath $Work `
-    (Join-Path $Root "src\amane\server.py")
+    (Join-Path $Root "scripts\pyinstaller_entry.py")
 if ($LASTEXITCODE -ne 0) {
     Write-Error "pyinstaller failed ($LASTEXITCODE)"
     exit $LASTEXITCODE

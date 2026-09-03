@@ -32,7 +32,7 @@
 
 ## 启动编排
 
-入口: `src/amane/server.py` 构造可编程 uvicorn (`timeout_graceful_shutdown=5`), lifespan 挂 `start_app`. Docker CMD / `just start` / 桌面 entry 都走这里; `just dev` 仍用 `uvicorn --reload`, 不设监督.
+入口: `amane.server` 构造可编程 uvicorn (`timeout_graceful_shutdown=5`), lifespan 挂 `start_app`. Docker CMD / `just start` 走 `python -m amane.server`; 桌面 PyInstaller 冻住 `scripts/pyinstaller_entry.py`. `just dev` 仍用 `uvicorn --reload`, 不设监督.
 
 顺序非常关键, 颠倒会拿到未初始化或无配置的对象:
 

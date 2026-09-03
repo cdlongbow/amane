@@ -60,7 +60,7 @@ mkdir -p "$WORK" "$(dirname "$OUT")"
   --distpath "$WORK/dist" \
   --workpath "$WORK/build" \
   --specpath "$WORK" \
-  "$ROOT/src/amane/server.py"
+  "$ROOT/scripts/pyinstaller_entry.py"
 
 ONEDIR="$WORK/dist/$NAME"
 [[ -d "$ONEDIR" ]] || { echo "PyInstaller onedir missing: $ONEDIR" >&2; exit 1; }

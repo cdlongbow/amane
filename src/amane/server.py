@@ -1,8 +1,3 @@
-"""HTTP 服务入口. 按 app.state.exit_code 退出.
-
-Desktop 壳、Docker CMD、``just start`` 共用.
-"""
-
 from __future__ import annotations
 
 import os
