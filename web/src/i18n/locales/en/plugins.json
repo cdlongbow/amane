@@ -19,6 +19,6 @@
   "installed": "Plugin installed",
   "uninstalled": "Plugin uninstalled",
   "reloaded": "Plugin catalog reloaded",
-  "routeHint": "After installing, add the source to the scrape route for each content type before it will be requested.",
+  "routeHint": "After install, add it in Type Routes to enable",
   "routeLink": "Open movie scraping settings"
 }

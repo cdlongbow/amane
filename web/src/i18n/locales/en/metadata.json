@@ -97,7 +97,6 @@
     "newUserTagPlaceholder": "Create user tag…",
     "detachUserTag": "Remove from this title",
     "deleteUserTag": "Delete tag",
-    "confirmDeleteUserTag": "Permanently delete user tag \"{{name}}\"? It will be removed from all titles.",
     "comments": "Comments",
     "noComments": "No comments yet",
     "commentPlaceholder": "Write a comment…",
@@ -161,7 +160,7 @@
       "sourceUrl": "Source",
       "images": "Photos",
       "cm": "{{value}} cm",
-      "birthdayFormat": "Stored as YYYY-MM-DD (also accepts 1991/1/1 or Japanese date forms)"
+      "birthdayFormat": "Format: 2000-01-01, 2000/1/1, or 2000年1月1日"
     }
   },
   "view": {
@@ -197,12 +196,12 @@
     "batchGenderFailed_one": "Failed to update {{count}} actor",
     "batchGenderFailed_other": "Failed to update {{count}} actors",
     "clearPerson": "Clear info",
-    "clearPersonBody": "Clear photos, bio, and measurements for \"{{name}}\". The actor and filmography stay. Gender and scrape cache are kept; a normal scrape may restore from cache.",
+    "clearPersonBody": "Clear all info for \"{{name}}\" except gender. Does not delete the entry or scrape cache",
     "clearPersonDone": "Person info cleared",
     "batchClearPerson": "Clear info",
-    "batchClearPersonBody": "Clear person fields for {{count}} selected actors. Entries are not deleted. Gender and scrape cache are kept.",
-    "batchClearPersonBody_one": "Clear person fields for {{count}} selected actor. The entry is not deleted. Gender and scrape cache are kept.",
-    "batchClearPersonBody_other": "Clear person fields for {{count}} selected actors. Entries are not deleted. Gender and scrape cache are kept.",
+    "batchClearPersonBody": "Clear all info except gender for {{count}} actors. Does not delete entries or scrape cache",
+    "batchClearPersonBody_one": "Clear all info except gender for {{count}} actor. Does not delete the entry or scrape cache",
+    "batchClearPersonBody_other": "Clear all info except gender for {{count}} actors. Does not delete entries or scrape cache",
     "batchClearPersonDone": "Cleared person info for {{count}} actor(s)",
     "batchClearPersonDone_one": "Cleared person info for {{count}} actor",
     "batchClearPersonDone_other": "Cleared person info for {{count}} actors",
@@ -219,11 +218,11 @@
     "noPersonInfo": "No person info yet",
     "goToLibrary": "Go to library",
     "editTitle": "Edit actor",
-    "genderHint": "When unknown, scrape only uses dual-gender sites (e.g. Wikipedia) — not female-only sites — to avoid false matches.",
-    "genderUnknownHint": "Gender unset: scrape uses dual-gender sites only. Mark Female then re-scrape to fill minnano / gFriends.",
+    "genderHint": "When unknown, only generic sources are queried to avoid false matches. Some sources can fill this field automatically",
+    "genderUnknownHint": "",
     "aliasesHint": "Press Enter or comma to add; click × to remove",
     "setDisplayName": "Set as display name",
-    "setDisplayNameBody": "Make \"{{alias}}\" the display name of \"{{name}}\"? Actor names on related titles will be rewritten; the current display name stays as an alias.",
+    "setDisplayNameBody": "Make \"{{alias}}\" the display name of \"{{name}}\"? \"{{name}}\" will be kept as an alias",
     "setDisplayNameDone": "Display name updated",
     "imagesEdit": "Photo URLs",
     "imagesEditHint": "First URL is the primary photo (detail + grid). Drag cards to reorder; click to preview.",
@@ -231,7 +230,7 @@
     "reorderImage": "Drag to reorder photo",
     "removeImage": "Remove this photo",
     "rawSources": "Scrape source snapshots",
-    "rawSourcesHint": "Read-only site snapshots for comparison while editing.",
+    "rawSourcesHint": "",
     "filmography_one": "Filmography ({{count}})",
     "filmography_other": "Filmography ({{count}})"
   },
@@ -256,7 +255,7 @@
     },
     "release": {
       "label": "Release Date",
-      "description": "Stored as YYYY-MM-DD; ISO datetimes are trimmed to the calendar day on save"
+      "description": "Format: 2000-01-01"
     },
     "runtime": {
       "label": "Runtime (min)"
@@ -308,10 +307,10 @@
     "mergeConfirmBody": "Merge {{count}} sources into the target",
     "mergeConfirmBody_one": "Merge {{count}} source into the target",
     "mergeConfirmBody_other": "Merge {{count}} sources into the target",
-    "deleteFacetBody": "Remove \"{{name}}\" from all titles and add it to the blocklist (rescrapes will not recreate it).",
-    "deleteUserTagBody": "Delete user tag \"{{name}}\"? Attachments will be removed.",
+    "deleteFacetBody": "Remove \"{{name}}\" from all titles and add it to the blocklist; later scrapes will drop it",
+    "deleteUserTagBody": "Permanently delete user tag \"{{name}}\"? It will be removed from all titles",
     "rulesTitle": "User rules",
-    "rulesHint": "Aliases and blocklist entries survive rescrapes. Removing a rule does not restore past titles; it only affects future writes.",
+    "rulesHint": "Scrapes rename by alias and drop blocklist names. Removing a rule does not change existing titles",
     "rulesEmpty": "No rules yet",
     "ruleSource": "Source",
     "ruleAction": "Action",

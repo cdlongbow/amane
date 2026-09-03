@@ -22,9 +22,9 @@
     "submit": "提交",
     "scrapeMenuLabel": "选择刮削方式",
     "scrapeNormal": "刮削",
-    "scrapeNormalDesc": "使用数据库缓存，已有数据不重新抓取",
+    "scrapeNormalDesc": "不重新抓取已缓存数据",
     "scrapeForce": "强制刮削",
-    "scrapeForceDesc": "绕过缓存，从数据源重新抓取所有元数据"
+    "scrapeForceDesc": "重新抓取全部来源(覆盖缓存)"
   },
   "status": {
     "loading": "加载中...",
@@ -54,7 +54,7 @@
     "groups": {
       "browse": "浏览",
       "manage": "管理",
-      "ops": "运维"
+      "ops": "运行"
     }
   },
   "theme": {
@@ -148,14 +148,14 @@
     "check": "检查更新",
     "openRelease": "打开 GitHub Release",
     "restart": "重启服务器",
-    "restartConfirm": "是否确认重启服务器？服务将短暂中断，当前运行的任务会被取消。",
-    "restartRunning": "当前有 {{count}} 个运行中的任务，重启会取消它们。确定继续？",
+    "restartConfirm": "正在进行的任务将被取消, 确认重启？",
+    "restartRunning": "正在进行的 {{count}} 个任务将被取消, 确定重启？",
     "restarting": "正在重启…"
   },
   "auth": {
-    "title": "需要 API 令牌",
-    "description": "需要 API 令牌才能访问。令牌位于数据目录的 token 文件中（菜单栏“打开数据目录”可查看），输入一次后浏览器会记住。",
-    "tokenPlaceholder": "粘贴 API 令牌",
+    "title": "需要登录",
+    "description": "桌面端可点击菜单栏/任务栏图标 - 复制 API Token, 容器端可在数据目录的 token 文件中查看",
+    "tokenPlaceholder": "粘贴令牌",
     "invalidToken": "令牌无效，请检查后重试。",
     "connectionFailed": "无法连接服务器，请确认服务已启动。"
   }

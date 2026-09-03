@@ -44,8 +44,8 @@
         "description": "从封面自动裁剪生成海报"
       },
       "poster_crop_skip_ratio": {
-        "label": "海报裁剪跳过阈值",
-        "description": "当 poster 候选高度已达封面高度的此比例以上时, 视为候选够用, 不再从封面裁剪"
+        "label": "海报裁剪跳过阈值比例",
+        "description": "已有海报与封面高度之比超过此值则不裁剪"
       },
       "poster_ratio": {
         "label": "海报裁剪比例",
@@ -166,7 +166,7 @@
       },
       "site_config": {
         "label": "站点配置",
-        "description": "各来源站点的独立配置",
+        "description": "按站点单独设置",
         "options": {
           "airav": "airav",
           "avsox": "avsox",
@@ -206,19 +206,19 @@
           },
           "use_browser": {
             "label": "使用浏览器",
-            "description": "使用无头浏览器抓取 (较慢但可绕过反爬)"
+            "description": "使用无头浏览器抓取(尚未实现)"
           },
           "cookie": {
             "label": "Cookie",
-            "description": "自定义 Cookie 字符串用于身份验证"
+            "description": "用于需要登录的站点等"
           },
           "api_token": {
             "label": "API Token",
-            "description": "API 访问令牌"
+            "description": ""
           },
           "official_routes": {
             "label": "厂商路由",
-            "description": "番号前缀到制作商的映射",
+            "description": "按番号前缀指定片商",
             "$": {
               "options": {
                 "attackers": "Attackers",
@@ -255,13 +255,13 @@
           },
           "rate_limit": {
             "label": "速率限制",
-            "description": "该站点的独立速率限制"
+            "description": "该站点每秒请求上限"
           }
         }
       },
       "content_routes": {
         "label": "类型路由",
-        "description": "指定用于特定类型的来源站及其默认优先级",
+        "description": "按影片类型指定来源站点和默认优先级",
         "options": {
           "censored": "有码",
           "uncensored": "无码",
@@ -356,11 +356,11 @@
       },
       "chunked_threshold": {
         "label": "分块阈值",
-        "description": "启用分块下载的文件大小阈值 (字节)"
+        "description": "超过该大小（字节）时分块下载"
       },
       "chunk_size": {
         "label": "分块大小",
-        "description": "每个下载分块的大小 (字节)"
+        "description": "每个分块的大小（字节）"
       },
       "concurrency": {
         "label": "下载并发数",
@@ -368,11 +368,11 @@
       },
       "rate_limits": {
         "label": "速率限制",
-        "description": "按域名的速率限制覆盖. key 为主机名 (如 javdb.com), 优先级高于站点配置."
+        "description": "按 Host (如 javdb.com) 限制请求速率, 优先级高于站点配置"
       },
       "default_rate_limit": {
         "label": "默认速率限制",
-        "description": "未单独配置的域名使用的默认请求速率 (req/s). 优先级低于按域名与站点配置."
+        "description": "未设置网站默认请求速率"
       }
     },
     "worker": {
@@ -400,13 +400,13 @@
       },
       "media_extensions": {
         "label": "媒体扩展名",
-        "description": "监控和扫描的媒体文件扩展名白名单"
+        "description": "监控和扫描的媒体文件扩展名列表, 逗号分隔"
       }
     },
     "sr": {
       "enabled": {
         "label": "刮削时超分",
-        "description": "若关闭可以通过设置定时任务在后台进行"
+        "description": "若关闭可用定时任务在空闲时超分"
       },
       "max_dim_threshold": {
         "label": "超分尺寸阈值",
@@ -451,21 +451,21 @@
       },
       "debug_capture": {
         "label": "调试捕获",
-        "description": "为所有任务捕获原始响应; 关闭时仅失败任务捕获"
+        "description": "打开则为所有任务记录原始响应, 否则只记录失败任务"
       }
     },
     "llm": {
       "enabled": {
         "label": "启用 LLM 翻译",
-        "description": "刮削时用 LLM 翻译元数据文本字段. 关闭时跳过翻译步骤"
+        "description": "刮削时翻译文本字段"
       },
       "api_key": {
         "label": "API 密钥",
-        "description": "OpenAI 兼容 API 密钥. 为空时即使启用也不翻译"
+        "description": ""
       },
       "base_url": {
         "label": "API 端点",
-        "description": "OpenAI 兼容端点 URL. 可指向自建或第三方代理"
+        "description": "OpenAI 兼容 API BASE URL"
       },
       "model": {
         "label": "模型"
@@ -474,7 +474,7 @@
         "label": "最大重试次数"
       },
       "rate_limit": {
-        "label": "请求速率限制 (req/s)"
+        "label": "每秒请求上限"
       },
       "translate_fields": {
         "label": "翻译字段",
@@ -532,7 +532,7 @@
         }
       },
       "rate_limit": {
-        "label": "请求速率限制 (req/s)",
+        "label": "每秒请求上限",
         "description": "参考供应商说明, 过高可能触发限流"
       },
       "sql_timeout_ms": {
@@ -563,22 +563,22 @@
       },
       "db_name": {
         "label": "数据库名",
-        "description": "导入目标数据库名. 由导入器自动创建"
+        "description": "导入时使用的库名, 由导入器自动创建"
       },
       "read_user": {
         "label": "只读角色",
-        "description": "运行时查询使用的只读角色. 由导入器自动创建并授权"
+        "description": "用于查询的只读账号, 由导入器自动创建并授权"
       },
       "read_password": {
         "label": "只读角色密码"
       },
       "read_timeout": {
         "label": "查询超时 (秒)",
-        "description": "只读角色的查询限制, 防止异常查询长占连接"
+        "description": ""
       },
       "download_url": {
-        "label": "dump 下载地址",
-        "description": "r18.dev dump 下载地址, 通常是重定向到 S3 的稳定入口"
+        "label": "数据包地址",
+        "description": "r18.dev 数据包下载地址"
       },
       "psql_path": {
         "label": "psql 路径"

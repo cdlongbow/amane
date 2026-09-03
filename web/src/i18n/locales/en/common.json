@@ -22,9 +22,9 @@
     "submit": "Submit",
     "scrapeMenuLabel": "Choose scrape mode",
     "scrapeNormal": "Scrape",
-    "scrapeNormalDesc": "Use database cache, skip already-populated fields",
+    "scrapeNormalDesc": "Do not re-fetch cached data",
     "scrapeForce": "Force Scrape",
-    "scrapeForceDesc": "Bypass cache, re-fetch all metadata from sources"
+    "scrapeForceDesc": "Re-fetch all sources (overwrite cache)"
   },
   "status": {
     "loading": "Loading...",
@@ -54,7 +54,7 @@
     "groups": {
       "browse": "Browse",
       "manage": "Manage",
-      "ops": "Ops"
+      "ops": "Run"
     }
   },
   "theme": {
@@ -157,15 +157,15 @@
     "check": "Check for updates",
     "openRelease": "Open GitHub Release",
     "restart": "Restart server",
-    "restartConfirm": "Restart the server? The service will stop briefly, and running tasks will be cancelled.",
-    "restartRunning_one": "{{count}} task is running and will be cancelled. Continue?",
-    "restartRunning_other": "{{count}} tasks are running and will be cancelled. Continue?",
+    "restartConfirm": "Running tasks will be cancelled. Restart?",
+    "restartRunning_one": "{{count}} running task will be cancelled. Restart?",
+    "restartRunning_other": "{{count}} running tasks will be cancelled. Restart?",
     "restarting": "Restarting…"
   },
   "auth": {
-    "title": "API token required",
-    "description": "An API token is required. Find it in the token file under the data directory (use \"Open Data Directory\" in the menu bar), enter it once and the browser will remember it.",
-    "tokenPlaceholder": "Paste API token",
+    "title": "Sign in required",
+    "description": "On desktop, click the menu bar / tray icon and copy the API token. In a container, read it from the token file in the data directory.",
+    "tokenPlaceholder": "Paste token",
     "invalidToken": "Invalid token. Please check and retry.",
     "connectionFailed": "Cannot reach the server. Make sure it is running."
   }

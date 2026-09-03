@@ -30,7 +30,7 @@
     "loading": "Loading subtasks…",
     "loadError": "Could not load subtasks",
     "retry": "Retry",
-    "linkKey": "Followup key"
+    "linkKey": "Subtask"
   },
   "filters": {
     "all": "All",
@@ -57,8 +57,8 @@
     "duration": "Duration",
     "retries": "Retries",
     "id": "ID",
-    "root": "Root",
-    "linkKey": "Followup key",
+    "root": "Root task",
+    "linkKey": "Subtask",
     "payload": "Payload",
     "error": "Error",
     "result": "Result",
@@ -96,19 +96,19 @@
       "server_error": "Site server error",
       "timeout": "Request timed out",
       "network": "Network error",
-      "cloudflare_challenge": "Blocked by Cloudflare challenge",
+      "cloudflare_challenge": "Cloudflare challenge",
       "cloudflare_blocked": "Blocked by Cloudflare",
       "ip_banned": "IP banned",
       "geo_restricted": "Not available in your region",
       "age_verification": "Age verification required",
       "empty_response": "Empty response",
       "no_usable_metadata": "No usable metadata",
-      "crawler_unavailable": "Crawler unavailable",
+      "crawler_unavailable": "Source unavailable",
       "unexpected": "Unexpected error"
     }
   },
   "logView": {
-    "empty": "No live logs for this task in the current buffer."
+    "empty": "No logs"
   },
   "toolbar": {
     "cancel": "Cancel",
@@ -178,27 +178,27 @@
     "organize": {
       "library_id": {
         "label": "Library",
-        "description": "Library to organize; scanning/organization happens within this library."
+        "description": ""
       },
       "recursive": {
         "label": "Recursive",
-        "description": "Override library recursive setting; None keeps the library default."
+        "description": "Overrides library setting"
       },
       "patterns": {
         "label": "Patterns",
-        "description": "Override library patterns; None keeps the library default."
+        "description": "Overrides library setting"
       },
       "path": {
         "label": "Path",
-        "description": "Directory to scan (overrides library path, must be a subdirectory of the library)."
+        "description": "Scan only a subdirectory of the library"
       },
       "write_nfo": {
         "label": "Write NFO",
-        "description": "Override the library NFO setting; None keeps the library default."
+        "description": "Overrides library setting"
       },
       "copy_resources": {
         "label": "Copy on organize",
-        "description": "Override which sidecars are copied onto library paths; None keeps the library default.",
+        "description": "Overrides library setting",
         "options": {
           "thumb": "Cover",
           "poster": "Poster",
@@ -221,11 +221,11 @@
       },
       "media_id": {
         "label": "Media ID",
-        "description": "MediaFile ID. Usually only for internal task submission; not needed when submitting by hand."
+        "description": "Not needed for manual scrape"
       },
       "content_type": {
         "label": "Content Type",
-        "description": "Media content category — determines crawler routing.",
+        "description": "Leave empty to detect automatically",
         "options": {
           "censored": "Censored",
           "uncensored": "Uncensored",
@@ -238,7 +238,7 @@
       },
       "use_cache": {
         "label": "Use Cache",
-        "description": "Checked caches are reused; unchecked means force-refresh that kind.",
+        "description": "Checked uses that cache; otherwise refetch",
         "$": {
           "options": {
             "metadata": "Metadata Cache",
@@ -264,19 +264,19 @@
     "refresh": {
       "library_id": {
         "label": "Library",
-        "description": "Library to refresh; scanning/organization happens within this library."
+        "description": ""
       },
       "recursive": {
         "label": "Recursive",
-        "description": "Override library recursive setting; None keeps the library default."
+        "description": "Overrides library setting"
       },
       "patterns": {
         "label": "Patterns",
-        "description": "Override library patterns; None keeps the library default."
+        "description": "Overrides library setting"
       },
       "path": {
         "label": "Path",
-        "description": "Directory to scan (overrides library path, must be a subdirectory of the library)."
+        "description": "Scan only a subdirectory of the library"
       },
       "scan": {
         "label": "Scan Mode",
@@ -311,7 +311,7 @@
     "r18_import": {
       "force": {
         "label": "Force Reimport",
-        "description": "Ignore the stored dump ETag and re-download/import unconditionally."
+        "description": "Ignore the stored dump ETag and force re-download and import"
       }
     },
     "actor_scrape": {
@@ -321,7 +321,7 @@
       },
       "use_cache": {
         "label": "Use cache",
-        "description": "Checked kinds are reused; unchecked kinds are force-refreshed.",
+        "description": "Checked uses that cache; otherwise refetch",
         "$": {
           "options": {
             "metadata": "Metadata cache",
@@ -334,11 +334,11 @@
     "rescrape": {
       "limit": {
         "label": "Batch size",
-        "description": "Max metadata entries per run (least recently updated first; keeps the worker queue short)."
+        "description": "Max entries per run, least recently updated first"
       },
       "min_age_days": {
         "label": "Min age (days)",
-        "description": "Only rescrape entries last updated more than this many days ago; leave empty for no threshold."
+        "description": "Only process metadata not updated within this interval"
       }
     }
   },

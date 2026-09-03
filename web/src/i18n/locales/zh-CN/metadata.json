@@ -95,7 +95,6 @@
     "newUserTagPlaceholder": "新建用户标签…",
     "detachUserTag": "从此影片移除",
     "deleteUserTag": "删除标签",
-    "confirmDeleteUserTag": "确定永久删除用户标签「{{name}}」？所有影片上的挂载都会移除。",
     "comments": "评论",
     "noComments": "暂无评论",
     "commentPlaceholder": "写下评论…",
@@ -158,7 +157,7 @@
       "sourceUrl": "来源",
       "images": "头像",
       "cm": "{{value}} cm",
-      "birthdayFormat": "存库格式 YYYY-MM-DD（也接受 1991/1/1、1991年1月1日）"
+      "birthdayFormat": "格式: 2000-01-01 或 2000/1/1 或 2000年1月1日"
     }
   },
   "view": {
@@ -190,10 +189,10 @@
     "batchGenderDone": "已将 {{count}} 位演员标为「{{gender}}」",
     "batchGenderFailed": "{{count}} 位更新失败",
     "clearPerson": "清空信息",
-    "clearPersonBody": "将清空「{{name}}」的头像、简介、体貌等人物字段，演员条目和出演作品会保留。性别与刮削缓存不改；之后普通刮削可能从缓存填回。",
+    "clearPersonBody": "清空 「{{name}}」 除性别外的所有信息. 不删除条目与刮削缓存",
     "clearPersonDone": "已清空人物信息",
     "batchClearPerson": "批量清空信息",
-    "batchClearPersonBody": "将清空选中 {{count}} 位演员的人物字段，不删除条目。性别与刮削缓存不改。",
+    "batchClearPersonBody": "将清空 {{count}} 位演员除性别外的所有信息. 不删除条目与刮削缓存",
     "batchClearPersonDone": "已清空 {{count}} 位演员的人物信息",
     "batchClearPersonFailed": "{{count}} 位清空失败",
     "scrapeMissingOnPage": "刮削本页空缺",
@@ -206,11 +205,11 @@
     "noPersonInfo": "暂无人物信息",
     "goToLibrary": "转到片库",
     "editTitle": "编辑演员",
-    "genderHint": "未知时刮削仅使用男女通用站（如维基），不会请求女向站，避免误匹配。",
-    "genderUnknownHint": "未标注性别：刮削仅使用通用站。标为「女」后可再刮以补全 minnano / gFriends。",
+    "genderHint": "未知时仅查询通用来源, 避免误匹配. 部分来源可自动获取此字段",
+    "genderUnknownHint": "",
     "aliasesHint": "回车或逗号添加，点 × 删除",
     "setDisplayName": "设为展示名",
-    "setDisplayNameBody": "将「{{alias}}」设为「{{name}}」的展示名？相关影片中的演员名将随之改写，当前展示名会保留为别名。",
+    "setDisplayNameBody": "将「{{alias}}」设为「{{name}}」的展示名？「{{name}}」会保留为别名",
     "setDisplayNameDone": "已设为展示名",
     "imagesEdit": "头像 URL",
     "imagesEditHint": "第一张为主图（详情大图与头像墙）。拖拽卡片调整顺序，点图预览。",
@@ -218,7 +217,7 @@
     "reorderImage": "拖拽排序头像",
     "removeImage": "删除这张头像",
     "rawSources": "刮削来源快照",
-    "rawSourcesHint": "编辑时只读对照各站原始结果，不写入规范字段。"
+    "rawSourcesHint": ""
   },
   "backToList": "返回列表",
   "notFound": "未找到元数据",
@@ -241,7 +240,7 @@
     },
     "release": {
       "label": "发行日期",
-      "description": "存库格式 YYYY-MM-DD；也可粘贴带时刻的 ISO 串，保存时只保留日期"
+      "description": "格式: 2000-01-01"
     },
     "runtime": {
       "label": "时长 (分钟)"
@@ -289,10 +288,10 @@
     "merge": "合并到此项",
     "mergeConfirm": "确认合并",
     "mergeConfirmBody": "将把 {{count}} 个来源合并到目标项",
-    "deleteFacetBody": "将从所有影片中移除「{{name}}」，并加入黑名单（重新刮削也不会再出现）。",
-    "deleteUserTagBody": "删除用户标签「{{name}}」？挂载关系会一并清除。",
+    "deleteFacetBody": "将从所有影片中移除「{{name}}」, 并加入黑名单, 后续刮削时自动剔除",
+    "deleteUserTagBody": "确定永久删除用户标签 「{{name}}」？将从所有影片上移除该标签",
     "rulesTitle": "用户规则",
-    "rulesHint": "别名与黑名单在重新刮削时仍会生效。移除规则不会回填历史影片，仅影响之后的写入。",
+    "rulesHint": "刮削时自动按别名重命名并剔除黑名单. 移除规则不会影响现有影片",
     "rulesEmpty": "暂无规则",
     "ruleSource": "源名称",
     "ruleAction": "动作",

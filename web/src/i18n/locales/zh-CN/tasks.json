@@ -30,7 +30,7 @@
     "loading": "加载子任务…",
     "loadError": "无法加载子任务",
     "retry": "重试",
-    "linkKey": "后继键"
+    "linkKey": "子任务"
   },
   "filters": {
     "all": "全部",
@@ -55,8 +55,8 @@
     "duration": "耗时",
     "retries": "重试次数",
     "id": "ID",
-    "root": "链根",
-    "linkKey": "后继键",
+    "root": "根任务",
+    "linkKey": "子任务",
     "payload": "参数",
     "error": "错误",
     "result": "结果",
@@ -94,19 +94,19 @@
       "server_error": "站点服务器错误",
       "timeout": "请求超时",
       "network": "网络错误",
-      "cloudflare_challenge": "Cloudflare 挑战拦截",
+      "cloudflare_challenge": "Cloudflare 人机验证",
       "cloudflare_blocked": "Cloudflare 拦截",
       "ip_banned": "IP 被封禁",
       "geo_restricted": "地域受限",
       "age_verification": "年龄验证拦截",
       "empty_response": "空响应",
       "no_usable_metadata": "无可用元数据",
-      "crawler_unavailable": "爬虫不可用",
+      "crawler_unavailable": "来源不可用",
       "unexpected": "意外错误"
     }
   },
   "logView": {
-    "empty": "当前缓冲区内没有此任务的实时日志。"
+    "empty": "暂无日志"
   },
   "toolbar": {
     "cancel": "取消",
@@ -175,27 +175,27 @@
     "organize": {
       "library_id": {
         "label": "媒体库",
-        "description": "所属媒体库；扫描/整理在该媒体库下进行。"
+        "description": ""
       },
       "recursive": {
         "label": "递归扫描",
-        "description": "覆盖媒体库的递归设置；留空则沿用库设置。"
+        "description": "覆盖媒体库设置"
       },
       "patterns": {
         "label": "匹配模式",
-        "description": "覆盖媒体库的文件匹配模式；留空则沿用库设置。"
+        "description": "覆盖媒体库设置"
       },
       "path": {
         "label": "路径",
-        "description": "要扫描的目录（覆盖媒体库路径，必须为媒体库子目录）。"
+        "description": "可设置仅扫描库的子目录"
       },
       "write_nfo": {
         "label": "写入 NFO",
-        "description": "覆盖媒体库的 NFO 设置；留空则沿用库设置。"
+        "description": "覆盖媒体库设置"
       },
       "copy_resources": {
         "label": "整理时复制",
-        "description": "覆盖媒体库要复制到库路径的附属资源；留空则沿用库设置。",
+        "description": "覆盖媒体库设置",
         "options": {
           "thumb": "封面",
           "poster": "海报",
@@ -218,11 +218,11 @@
       },
       "media_id": {
         "label": "Media ID",
-        "description": "MediaFile ID. 通常仅用于内部提交任务，手动提交无需指定"
+        "description": "手动刮削无需指定"
       },
       "content_type": {
         "label": "内容类型",
-        "description": "媒体内容分类 — 决定爬虫路由。",
+        "description": "留空则自动识别",
         "options": {
           "censored": "有码",
           "uncensored": "无码",
@@ -235,7 +235,7 @@
       },
       "use_cache": {
         "label": "使用缓存",
-        "description": "勾选的缓存生效；取消勾选则强制刷新该项。",
+        "description": "勾选则使用对应缓存, 否则重新抓取",
         "$": {
           "options": {
             "metadata": "元数据缓存",
@@ -262,19 +262,19 @@
     "refresh": {
       "library_id": {
         "label": "媒体库",
-        "description": "所属媒体库；扫描/整理在该媒体库下进行。"
+        "description": ""
       },
       "recursive": {
         "label": "递归扫描",
-        "description": "覆盖媒体库的递归设置；留空则沿用库设置。"
+        "description": "覆盖媒体库设置"
       },
       "patterns": {
         "label": "匹配模式",
-        "description": "覆盖媒体库的文件匹配模式；留空则沿用库设置。"
+        "description": "覆盖媒体库设置"
       },
       "path": {
         "label": "路径",
-        "description": "要扫描的目录（覆盖媒体库路径，必须为媒体库子目录）。"
+        "description": "可设置仅扫描库的子目录"
       },
       "scan": {
         "label": "扫描模式",
@@ -309,7 +309,7 @@
     "r18_import": {
       "force": {
         "label": "强制重新导入",
-        "description": "忽略已记录的 dump ETag, 无条件重新下载并导入。"
+        "description": "忽略已记录的 dump ETag, 强制重新下载并导入"
       }
     },
     "actor_scrape": {
@@ -319,7 +319,7 @@
       },
       "use_cache": {
         "label": "使用缓存",
-        "description": "勾选的缓存生效；取消勾选则强制刷新该项。",
+        "description": "勾选则使用对应缓存, 否则重新抓取",
         "$": {
           "options": {
             "metadata": "元数据缓存",
@@ -332,11 +332,11 @@
     "rescrape": {
       "limit": {
         "label": "单次补刮数量",
-        "description": "单次最多补刮的元数据数（取最久未更新的条目，避免长占任务队列）。"
+        "description": "单次最多补刮数量, 取最久未更新的"
       },
       "min_age_days": {
         "label": "最小间隔（天）",
-        "description": "仅补刮上次更新距今超过该天数的条目；留空不设门槛。"
+        "description": "仅处理超过此间隔未更新的元数据"
       }
     }
   }

@@ -19,6 +19,6 @@
   "installed": "插件已安装",
   "uninstalled": "插件已卸载",
   "reloaded": "已重新扫描插件",
-  "routeHint": "安装后把来源加进对应内容类型的刮削来源列表，才会真正发请求。",
+  "routeHint": "安装后需在类型路由中添加才会启用",
   "routeLink": "打开影片刮削设置"
 }
