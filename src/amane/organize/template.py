@@ -1,7 +1,4 @@
-"""模板语言: Parser → 树; TemplateContext 按相位组装; Engine.render 填树后 Clean.
-
-PathEngine 折叠空段并约束落点. StrmEngine 不折叠 (保留 `https://`), 不检查 safe_dirs.
-"""
+"""路径模板折叠空段并约束落点. STRM 正文不折叠 (保留 `https://`), 不检查 safe_dirs."""
 
 from __future__ import annotations
 
@@ -76,7 +73,6 @@ type _Node = _Literal | _Placeholder | _Group
 
 
 def _parse_placeholder_mapping(name: str, spec: str) -> tuple[tuple[str, str], ...]:
-    """解析 `{name|k=v,k2=v2}` 的映射段. 空 spec / 缺 `=` / 空 key / 重复 key / 未知枚举 key 均拒绝."""
     if not spec.strip():
         raise ValueError("empty placeholder mapping in path template")
     pairs: list[tuple[str, str]] = []
@@ -105,7 +101,7 @@ class Parser:
     (空的那个输出空串). 嵌套组各自判断, 不并入外层.
     `[[...]]` 同样, 有值时把结果包一层 ``[]``.
     名字里的 ``?`` 只是标识符的一部分, 没有运算含义.
-    `{name|原值=输出}` 在查出值之后替换; 空源值不走映射.
+    `{name|原值=输出}` 在查出值之后替换; 空源值不套用映射.
     """
 
     def __init__(self, src: str) -> None:
@@ -184,7 +180,7 @@ def _lookup(name: str, variables: dict[str, str]) -> str:
 
 
 def _resolve(node: _Placeholder, variables: dict[str, str]) -> str:
-    """查出占位符值再按映射改写. 空串不走映射, 以便可选组省略未检出项."""
+    """空串不套用映射, 以便可选组省略未检出项."""
     raw = _lookup(node.name, variables)
     if raw == "":
         return ""
@@ -218,7 +214,6 @@ def _nodes_use_placeholder(nodes: Sequence[_Node], name: str) -> bool:
 
 
 def _safe(value: str | None) -> str | None:
-    """清理字符串以使其可安全用于文件路径."""
     if not value:
         return None
     return (
@@ -241,7 +236,7 @@ def _lexical_abs(path: Path) -> Path:
 
 
 def video_relpath(dest: Path, library_root: Path) -> str:
-    """dest 相对 library_root 的 POSIX 路径. dest 必须落在库根下."""
+    """dest 必须落在库根下; 返回相对 library_root 的 POSIX 路径."""
     dest_abs = _lexical_abs(dest)
     root_abs = _lexical_abs(library_root)
     try:
@@ -296,7 +291,7 @@ def _build_variables(
 
 @dataclass
 class TemplateContext:
-    """占位符取值. 相位顺序: metadata/file → apply_video → apply_link → (字幕再改 ext / raw_srt_name)."""
+    """占位符取值. 相位顺序: metadata/file → apply_video → apply_link → (字幕再写入 ext / raw_srt_name)."""
 
     variables: dict[str, str]
     library_root: Path | None = None
@@ -354,7 +349,7 @@ def _template_keeps_absolute(template: str, variables: dict[str, str]) -> bool:
 
 
 def _collapse_empty_segments(rendered: str, *, keep_absolute: bool) -> str:
-    """丢掉空路径段, 避免空占位符把相对模板变成绝对路径."""
+    """丢弃空路径段: 空占位符不能把相对模板变成绝对路径."""
     posix = rendered.replace("\\", "/")
     parts = posix.split("/")
     drive = ""
@@ -371,8 +366,6 @@ def _collapse_empty_segments(rendered: str, *, keep_absolute: bool) -> str:
 
 
 class TemplateEngine:
-    """解析一次, render 填树后交给 clean."""
-
     def __init__(self, source: str) -> None:
         self.source = source
         self.tree = Parser(source).parse()

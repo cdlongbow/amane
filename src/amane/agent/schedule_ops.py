@@ -1,5 +1,3 @@
-"""schedule-ops Capability - 例行任务 Schedule 管理."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -17,8 +15,6 @@ from .tools import AgentDeps, require_approval, trace_tool
 
 
 class AgentScheduleCreate(BaseModel):
-    """Agent 可创建的 Schedule 字段."""
-
     name: str | None = None
     cron: str
     enabled: bool = True
@@ -28,7 +24,7 @@ class AgentScheduleCreate(BaseModel):
 
 
 class AgentScheduleUpdate(BaseModel):
-    """Agent 可更新的 Schedule 字段; 只处理显式传入的字段."""
+    """只处理显式传入的字段."""
 
     name: str | None = None
     cron: str | None = None
@@ -72,7 +68,6 @@ def _schedule_info(schedule: Schedule) -> ScheduleInfo:
 
 
 def build_schedule_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的例行任务 Schedule 管理能力."""
 
     cap: Capability[AgentDeps] = Capability(
         id="schedule-ops",

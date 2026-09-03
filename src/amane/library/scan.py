@@ -13,8 +13,6 @@ if TYPE_CHECKING:
 
 
 class LibraryFileKind(StrEnum):
-    """单文件分类结果"""
-
     SKIP = "skip"
     TRASH = "trash"
     MEDIA = "media"
@@ -27,8 +25,6 @@ class LibraryHit:
 
 
 class LibraryScan:
-    """库扫描规则"""
-
     def __init__(
         self,
         *,
@@ -47,16 +43,18 @@ class LibraryScan:
         self._blacklist: list[Pattern[str]] | None = compile_skip_patterns(self.blacklist_patterns)
 
     def classify(self, path: Path) -> LibraryFileKind | None:
-        """判定路径. 回收站与无规则命中的其它文件返回 None."""
+        """回收站与无规则命中的其它文件返回 None."""
         if is_in_trash(path):
             return None
         name = path.name
+        # 黑名单或体积过小 → 归档; 预告片 → 跳过.
         if self._blacklist is not None and any(r.search(name) for r in self._blacklist):
             return LibraryFileKind.TRASH
         if self._trailer is not None and any(r.search(name) for r in self._trailer):
             return LibraryFileKind.SKIP
         if is_undersized_video(path, self.min_file_size, media_extensions=self.media_extensions):
             return LibraryFileKind.TRASH
+        # glob 或扩展名命中 → 媒体; 其余不产出.
         if self.patterns:
             if any(path.match(p) for p in self.patterns):
                 return LibraryFileKind.MEDIA

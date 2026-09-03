@@ -1,5 +1,3 @@
-"""编排 FileWatcher → Repository / EventBus."""
-
 import asyncio
 import contextlib
 from typing import TYPE_CHECKING
@@ -22,24 +20,12 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# 默认防抖检查间隔 (秒)
 _CHECK_INTERVAL = 1.0
 
 
 class WatcherService:
-    """
-    编排文件监控, 任务提交和事件广播.
-
-    生命周期:
-        service = WatcherService(repo, event_bus)
-        await service.start()   # 从 DB 加载 watch_paths, 启动监控器
-        ...
-        await service.stop()    # 停止监控器和后台循环
-
-    事件处理:
-       - 新文件: 创建 MediaFile; 库 automation=scrape 时解析番号并提交 SCRAPE
-       - 文件删除: 从 DB 移除 MediaFile
-       - 文件移动: 更新 MediaFile 路径
+    """新文件注册 MediaFile; automation=scrape 时解析番号并提交 SCRAPE.
+    删除移除 MediaFile; 移动更新路径.
     """
 
     def __init__(
@@ -79,7 +65,6 @@ class WatcherService:
         )
 
     async def start(self) -> None:
-        """从 DB 加载监控路径并启动文件监控"""
         if self._running:
             return
 
@@ -113,12 +98,10 @@ class WatcherService:
             raise
         self._running = True
 
-        # 启动后台防抖检查器
         self._debounce_task = asyncio.create_task(self._debounce_loop())
         logger.info("watcher service started", library_count=len(libraries))
 
     async def stop(self) -> None:
-        """停止文件监控和后台任务"""
         self._running = False
         if self._debounce_task:
             self._debounce_task.cancel()
@@ -141,7 +124,7 @@ class WatcherService:
         skip_patterns: Sequence[str | None] | None = None,
         min_file_size: int = 0,
     ) -> None:
-        """热添加监控库 (运行时调用, 无需重启)"""
+        """运行时热添加监控库."""
         if self._watcher is None:
             # 首次添加: 创建 watcher 并启动
             self._watcher = self._new_watcher()
@@ -159,7 +142,8 @@ class WatcherService:
                 self._debounce_task = asyncio.create_task(self._debounce_loop())
             logger.info("watcher service started for new library", library_id=library_id, path=path)
         else:
-            self._watcher.unwatch(library_id)  # 幂等: 若已存在则先移除再添加
+            # 已在监控中: 先 unwatch 再 watch (幂等替换)
+            self._watcher.unwatch(library_id)
             self._watcher.watch(
                 path,
                 library_id=library_id,
@@ -171,16 +155,11 @@ class WatcherService:
             logger.info("library watch added", library_id=library_id, path=path, recursive=recursive)
 
     def remove_library(self, library_id: int) -> None:
-        """热移除监控库 (库被删除或禁用监控时调用, 无需重启).
-
-        若 watcher 尚未启动或该库未在监控中则为无操作.
-        """
+        """运行时热移除监控库; watcher 未启动或该库未监控则为无操作."""
         if self._watcher is None:
             return
         self._watcher.unwatch(library_id)
         logger.info("library watch removed", library_id=library_id)
-
-    # --- 同步回调 (watchdog 线程 -> 事件循环) ---
 
     def _on_file_found_sync(self, path: Path, library_id: int) -> None:
         self._schedule_async(self._on_file_found(path, library_id))
@@ -192,17 +171,13 @@ class WatcherService:
         self._schedule_async(self._on_file_moved(src, dest, library_id))
 
     def _schedule_async(self, coro) -> None:
-        """将协程调度到事件循环"""
         try:
             loop = asyncio.get_running_loop()
             loop.call_soon_threadsafe(asyncio.ensure_future, coro)
         except RuntimeError:
             logger.warning("no event loop available")
 
-    # --- 异步处理器 ---
-
     async def _on_file_found(self, path: Path, library_id: int) -> None:
-        """新发现文件: 注册 MediaFile (归属 library_id); scrape 级别再解析番号并提交 SCRAPE"""
         path_str = str(path)
 
         existing = await self._repo.get_media_file_by_path(path_str)
@@ -210,6 +185,7 @@ class WatcherService:
             logger.debug("file already tracked", path=path_str)
             return
 
+        # 登记 MediaFile; automation=scrape 时再解析番号并入队
         media = await register_media_file(self._repo, library_id, path)
         assert media.id is not None
         logger.info("file discovered", path=path_str, media_file_id=media.id, library_id=library_id)
@@ -235,7 +211,6 @@ class WatcherService:
         await self._event_bus.emit(EventType.FILE_DISCOVERED, {"path": path_str, "media_file_id": media.id})
 
     async def _on_file_deleted(self, path: Path) -> None:
-        """文件被删除: 从 DB 移除 MediaFile"""
         path_str = str(path)
         media = await self._repo.get_media_file_by_path(path_str)
         if media is None:
@@ -248,13 +223,12 @@ class WatcherService:
         await self._event_bus.emit(EventType.FILE_REMOVED, {"path": path_str, "media_file_id": media.id})
 
     async def _on_file_moved(self, src: Path, dest: Path, library_id: int) -> None:
-        """文件被移动/重命名: 更新 MediaFile 路径"""
         src_str = str(src)
         dest_str = str(dest)
 
         media = await self._repo.get_media_file_by_path(src_str)
         if media is None:
-            # 源文件不在 DB 中, 视为新文件 (归属 dest 所在 library)
+            # 源不在索引中则按 dest 所在 library 登记为新文件
             await self._on_file_found(dest, library_id)
             return
 
@@ -263,7 +237,6 @@ class WatcherService:
         logger.info("file path updated", src=src_str, dest=dest_str, media_file_id=media.id)
 
     async def _debounce_loop(self) -> None:
-        """定期检查防抖完成后可以处理的文件"""
         while self._running:
             await asyncio.sleep(self._check_interval)
             if self._watcher:

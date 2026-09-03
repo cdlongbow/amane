@@ -8,13 +8,7 @@ from .recorder import current
 
 
 async def invoke_source[T](source_id: str, fetch: Callable[[], Awaitable[T | None]]) -> T | None:
-    """执行一次来源 fetch, 把结果记进当前任务 Recorder.
-
-    - 有数据 → OK
-    - None → no_usable_metadata
-    - SourceError → 异常上的 reason
-    - 其它 Exception → unexpected (继续其它源, 不炸任务)
-    """
+    """把一次来源 fetch 记进当前 Recorder. 其它 Exception 记 unexpected, 不使整任务失败."""
     rec = current()
     try:
         result = await fetch()

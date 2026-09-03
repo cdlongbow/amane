@@ -230,8 +230,7 @@ export const ActorScrapeRequestSchema = {
         }
     },
     type: 'object',
-    title: 'ActorScrapeRequest',
-    description: 'POST /actors/{id}/scrape 请求体 - 与影片刮削同型 use_cache.'
+    title: 'ActorScrapeRequest'
 } as const;
 
 export const ActorScrapeSubmissionSchema = {
@@ -312,7 +311,7 @@ export const ActorScrapingConfigSchema = {
     },
     type: 'object',
     title: 'ActorScrapingConfig',
-    description: '演员元数据刮削 - 档案站顺序填空, 头像站优先.'
+    description: '档案站顺序填空, 头像站优先.'
 } as const;
 
 export const ActorSortFieldSchema = {
@@ -329,8 +328,7 @@ export const ActorSortFieldSchema = {
         'hip',
         'cup'
     ],
-    title: 'ActorSortField',
-    description: '演员浏览列表排序字段.'
+    title: 'ActorSortField'
 } as const;
 
 export const ActorUpdateRequestSchema = {
@@ -513,8 +511,7 @@ export const AgentApiTypeSchema = {
         'response',
         'anthropic'
     ],
-    title: 'AgentApiType',
-    description: '助理 Agent 上游 LLM API 协议.'
+    title: 'AgentApiType'
 } as const;
 
 export const AgentApproveRequestSchema = {
@@ -645,7 +642,7 @@ export const AgentConfigSchema = {
     },
     type: 'object',
     title: 'AgentConfig',
-    description: '助理 Agent 配置 (产品面称 Amane).\n\n与 llm 翻译 section 分离: 凭据/模型/限速各自独立.'
+    description: '与 llm 翻译 section 分离: 凭据/模型/限速各自独立.'
 } as const;
 
 export const AgentMessageRequestSchema = {
@@ -792,7 +789,7 @@ export const AgentSessionUpdateRequestSchema = {
     },
     type: 'object',
     title: 'AgentSessionUpdateRequest',
-    description: 'title / thinking 均可选; thinking=null 表示清除覆盖, 继承全局默认.'
+    description: 'title / thinking 均可选; thinking=null 表示取消覆盖, 继承全局默认.'
 } as const;
 
 export const AgentThinkingModeSchema = {
@@ -806,7 +803,7 @@ export const AgentThinkingModeSchema = {
         'xhigh'
     ],
     title: 'AgentThinkingMode',
-    description: '思考/推理强度. 会话可覆盖; 全局为新建回落默认.'
+    description: '会话可覆盖; 全局为新建会话的回退默认.'
 } as const;
 
 export const AgentTraceResponseSchema = {
@@ -1065,8 +1062,7 @@ export const DesktopResponseSchema = {
         'version',
         'data_dir'
     ],
-    title: 'DesktopResponse',
-    description: '菜单栏 / 托盘 UI 的 IPC 契约: 桌面进程需要的最小静态信息.'
+    title: 'DesktopResponse'
 } as const;
 
 export const DownloadableResourceSchema = {
@@ -1078,7 +1074,7 @@ export const DownloadableResourceSchema = {
         'trailer'
     ],
     title: 'DownloadableResource',
-    description: '影片附属资源类型: 刮削进 Resource, 整理时按库配置复制到库路径.'
+    description: '影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.'
 } as const;
 
 export const FacetCreateRequestSchema = {
@@ -1109,8 +1105,7 @@ export const FacetKindSchema = {
         'series',
         'user_tag'
     ],
-    title: 'FacetKind',
-    description: '分类索引种类 - 爬取侧目录 + 用户 tag.'
+    title: 'FacetKind'
 } as const;
 
 export const FacetListResponseSchema = {
@@ -1156,8 +1151,7 @@ export const FacetMergeRequestSchema = {
         'target_id',
         'source_ids'
     ],
-    title: 'FacetMergeRequest',
-    description: '将 source_ids 合并入 target_id: 关联迁移到 target, source 实体被删除.'
+    title: 'FacetMergeRequest'
 } as const;
 
 export const FacetRenameRequestSchema = {
@@ -1310,7 +1304,7 @@ export const FailureReasonSchema = {
         'unexpected'
     ],
     title: 'FailureReason',
-    description: '来源抓取失败的结构化原因 (summary.json / task report 的 reason 字段).'
+    description: 'summary.json / task report 的 reason 字段.'
 } as const;
 
 export const FeedCreateRequestSchema = {
@@ -1590,8 +1584,7 @@ export const FeedItemStateSchema = {
         'ignored',
         'all'
     ],
-    title: 'FeedItemState',
-    description: 'Feed 历史列表状态过滤.'
+    title: 'FeedItemState'
 } as const;
 
 export const FeedListResponseSchema = {
@@ -1889,8 +1882,7 @@ export const FileItemSchema = {
         'path',
         'type'
     ],
-    title: 'FileItem',
-    description: '文件或目录条目'
+    title: 'FileItem'
 } as const;
 
 export const FileListResponseSchema = {
@@ -1920,8 +1912,7 @@ export const FileListResponseSchema = {
         'items',
         'total'
     ],
-    title: 'FileListResponse',
-    description: '目录列表响应'
+    title: 'FileListResponse'
 } as const;
 
 export const FilePhaseSummarySchema = {
@@ -2386,7 +2377,7 @@ export const HotSettingsSchema = {
     additionalProperties: false,
     type: 'object',
     title: 'HotSettings',
-    description: '运行时可更新的配置, 持久化到 TOML.\n\n嵌套结构直接对应 TOML section, 无需映射转换.\n禁止额外字段以便尽早捕获拼写错误.'
+    description: '运行时可更新, 持久化到 TOML. extra=forbid, 未知字段须校验失败.'
 } as const;
 
 export const LLMConfigSchema = {
@@ -2441,7 +2432,7 @@ export const LLMConfigSchema = {
     },
     type: 'object',
     title: 'LLMConfig',
-    description: 'LLM 翻译配置.\n\n凭据放 Hot 而非 Cold: 与其他刮削参数同源, 可在 UI 修改并热生效.\n后端经端口抽象 (amane/llm), 当前为 OpenAI 兼容后端.'
+    description: '凭据放 Hot, 可在 UI 修改并热生效. 与 agent section 隔离.'
 } as const;
 
 export const LanguageSchema = {
@@ -2452,8 +2443,7 @@ export const LanguageSchema = {
         'jp',
         'en'
     ],
-    title: 'Language',
-    description: '支持的语言代码.'
+    title: 'Language'
 } as const;
 
 export const LibraryAutomationSchema = {
@@ -3208,8 +3198,7 @@ export const ManufacturerSchema = {
         'v',
         'wanz_factory'
     ],
-    title: 'Manufacturer',
-    description: '制作商枚举 - 拥有独立官网的 Outvision/Will 集团旗下品牌.'
+    title: 'Manufacturer'
 } as const;
 
 export const MediaFileResponseSchema = {
@@ -3466,8 +3455,7 @@ export const MergeRequestSchema = {
     required: [
         'selections'
     ],
-    title: 'MergeRequest',
-    description: '合并请求: 按字段指定选用哪个来源的 raw 数据.'
+    title: 'MergeRequest'
 } as const;
 
 export const MetadataBatchDeleteResponseSchema = {
@@ -3507,8 +3495,7 @@ export const MetadataBatchIdsRequestSchema = {
     required: [
         'ids'
     ],
-    title: 'MetadataBatchIdsRequest',
-    description: '按 id 列表批量操作的通用请求体.'
+    title: 'MetadataBatchIdsRequest'
 } as const;
 
 export const MetadataBatchScrapeRequestSchema = {
@@ -3747,8 +3734,7 @@ export const MetadataFieldSchema = {
         'extrafanart',
         'score'
     ],
-    title: 'MetadataField',
-    description: '所有可配置优先级的元数据字段.'
+    title: 'MetadataField'
 } as const;
 
 export const MetadataListResponseSchema = {
@@ -4304,7 +4290,7 @@ export const MoveModeSchema = {
         'symlink'
     ],
     title: 'MoveMode',
-    description: '整理时把源文件放到模板路径的方式.'
+    description: '整理时将源文件写入模板路径的方式.'
 } as const;
 
 export const NetworkConfigSchema = {
@@ -4387,8 +4373,7 @@ export const NetworkConfigSchema = {
         }
     },
     type: 'object',
-    title: 'NetworkConfig',
-    description: '网络配置.'
+    title: 'NetworkConfig'
 } as const;
 
 export const OptionalPathTemplateDefaultsSchema = {
@@ -4574,7 +4559,7 @@ export const PathTemplateSchemaResponseSchema = {
         'subtitle_extensions_default'
     ],
     title: 'PathTemplateSchemaResponse',
-    description: 'GET /libraries/path-template-schema: 占位符、默认值与可映射 key, 与 resolve_paths 同源.'
+    description: '与 resolve_paths 同源.'
 } as const;
 
 export const PluginConfigSchema = {
@@ -4616,8 +4601,7 @@ export const PluginConfigUpdateSchema = {
         }
     },
     type: 'object',
-    title: 'PluginConfigUpdate',
-    description: 'Patch one plugin\'s persisted configuration.'
+    title: 'PluginConfigUpdate'
 } as const;
 
 export const PluginListResponseSchema = {
@@ -4700,8 +4684,7 @@ export const PluginResponseSchema = {
         'config',
         'config_schema'
     ],
-    title: 'PluginResponse',
-    description: 'Installed source plugin and its runtime descriptor.'
+    title: 'PluginResponse'
 } as const;
 
 export const R18ConfigSchema = {
@@ -4758,7 +4741,7 @@ export const R18ConfigSchema = {
     },
     type: 'object',
     title: 'R18Config',
-    description: 'r18.dev 离线 PostgreSQL 镜像的连接与导入配置.\n\n放 Hot (随其他刮削参数同源, 可在 UI 修改并热生效): 改 dsn 走 AppRuntime.rebuild() 链,\n重新创建只读引擎. 项目只持有连接信息, 由用户自备 PostgreSQL 实例; 项目负责建库 / 导入 dump /\n原子换名 / 创建只读用户全套. 未配置 dsn 时整个 r18 数据源静默禁用.\n\n定时导入不在此配置: 用户像添加其他定时任务一样, 通过 Schedule API 手动创建 r18_import 任务.'
+    description: '放 Hot: 修改 dsn 经 AppRuntime.rebuild() 重建只读引擎. 未配置 dsn 时整个数据源禁用.\n定时导入不在此节, 须经 Schedule API 创建 r18_import.'
 } as const;
 
 export const R18ImportSubmissionSchema = {
@@ -4970,7 +4953,7 @@ export const SavedQueryEntitySchema = {
         'data'
     ],
     title: 'SavedQueryEntity',
-    description: 'Saved Query 交付目标 - 决定 Browse 深链与主键语义.'
+    description: '交付目标, 决定 Browse 深链与主键语义.'
 } as const;
 
 export const SavedQueryListResponseSchema = {
@@ -5516,8 +5499,7 @@ export const ScrapingConfigSchema = {
         }
     },
     type: 'object',
-    title: 'ScrapingConfig',
-    description: '刮削行为配置.'
+    title: 'ScrapingConfig'
 } as const;
 
 export const SiteConfigSchema = {
@@ -5592,8 +5574,7 @@ export const SiteConfigSchema = {
         }
     },
     type: 'object',
-    title: 'SiteConfig',
-    description: '单个站点的配置.'
+    title: 'SiteConfig'
 } as const;
 
 export const SiteNameSchema = {
@@ -5637,8 +5618,7 @@ export const SiteOutcomeKindSchema = {
         'failed',
         'cache_hit'
     ],
-    title: 'SiteOutcomeKind',
-    description: '单站点抓取结果的类别 (summary.json / task report 共用同一结构).'
+    title: 'SiteOutcomeKind'
 } as const;
 
 export const SiteOutcomeRecordSchema = {
@@ -5689,7 +5669,7 @@ export const SiteOutcomeRecordSchema = {
         'outcome'
     ],
     title: 'SiteOutcomeRecord',
-    description: '单站点抓取结果 - 一手结构化事实, 由 Recorder.record_site_outcome 唯一写入.'
+    description: '由 Recorder.record_site_outcome 唯一写入.'
 } as const;
 
 export const SortOrderSchema = {
@@ -5841,8 +5821,7 @@ export const SrConfigSchema = {
         }
     },
     type: 'object',
-    title: 'SrConfig',
-    description: '图像超分增强配置.'
+    title: 'SrConfig'
 } as const;
 
 export const SrPresetSchema = {
@@ -6117,8 +6096,7 @@ export const TaskChildResponseSchema = {
         'status',
         'link_key'
     ],
-    title: 'TaskChildResponse',
-    description: '树展开用的子任务: 比 TaskResponse 多一条出边的 key.'
+    title: 'TaskChildResponse'
 } as const;
 
 export const TaskChildStatusCountsSchema = {
@@ -6216,7 +6194,7 @@ export const TaskReportSchema = {
     },
     type: 'object',
     title: 'TaskReport',
-    description: '任务详情摘要面板用的精简投影 (outcomes 与 summary.json 同一结构).'
+    description: 'outcomes 与 summary.json 同一结构.'
 } as const;
 
 export const TaskResponseSchema = {
@@ -6558,8 +6536,7 @@ export const WatcherConfigSchema = {
         }
     },
     type: 'object',
-    title: 'WatcherConfig',
-    description: '文件监控配置.'
+    title: 'WatcherConfig'
 } as const;
 
 export const WatermarkConfigSchema = {
@@ -6644,6 +6621,5 @@ export const WorkerConfigSchema = {
         }
     },
     type: 'object',
-    title: 'WorkerConfig',
-    description: '任务引擎配置.'
+    title: 'WorkerConfig'
 } as const;

@@ -124,7 +124,7 @@ async def stream_agent_message(
 async def stream_agent_events(
     session_id: int, service: AgentDep, runtime: RuntimeDep, after: Annotated[int, Query(ge=0)] = 0
 ) -> StreamingResponse:
-    """续订会话事件流 (刷新/切页后用). after= 上次收到的 seq."""
+    """续订会话事件流 (刷新或切换页面后用). after= 上次收到的 seq."""
     session = await runtime.repo.get_agent_session(session_id)
     if session is None:
         raise HTTPException(404, detail="会话不存在")
@@ -257,10 +257,7 @@ async def get_saved_query_result(
 
 
 async def resolve_saved_query_id_subquery(repo: Repository, saved_query_id: int, expected: SavedQueryEntity) -> str:
-    """列表端点共用: 校验 entity 并返回可嵌入的 ``SELECT id FROM (...)`` 子查询 SQL.
-
-    子查询包装本身只接受 SELECT/WITH, 预设 SQL 已过沙箱只读验证; 无需重复校验.
-    """
+    """可嵌入的 ``SELECT id FROM (...)``. 预设 SQL 已过沙箱只读验证; 无需重复校验."""
     query = await repo.get_saved_query(saved_query_id)
     if query is None:
         raise HTTPException(404, detail="查询预设不存在")

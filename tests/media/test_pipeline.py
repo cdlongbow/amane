@@ -177,7 +177,7 @@ async def test_download_resources_gates_acquire(resource_store: ResourceStore, t
 
 
 def test_success_first_partition():
-    """稳定分区: 成功保序前置, 失败保序沉底; 空成功集幂等."""
+    """稳定分区: 成功保序前置, 失败保序排到末尾; 空成功集幂等."""
     cases = [
         (["d1", "l1", "d2", "l2"], {"l1", "l2"}, ["l1", "l2", "d1", "d2"]),
         (["a", "b"], {"a", "b"}, ["a", "b"]),  # 全成功

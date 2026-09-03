@@ -10,56 +10,53 @@ from enum import StrEnum
 
 
 class FailureKind(StrEnum):
-    """出站请求失败的结构化分类 (语义承载在 kind/status, message 仅供展示)."""
+    """语义在 kind/status, message 仅供展示."""
 
     HTTP_STATUS = "http_status"
-    """HTTP 状态 >= 400 (status 字段给出具体码)."""
+    """status 给出具体码."""
     TIMEOUT = "timeout"
     CURL = "curl"
-    """传输层错误."""
     UNEXPECTED = "unexpected"
 
 
 @dataclass(frozen=True, slots=True)
 class RequestFailure:
-    """一次出站请求失败的结构化描述."""
-
     kind: FailureKind
     message: str
-    """人类可读描述 (日志/展示用, 不承诺可解析语义)."""
+    """日志/展示用, 不承诺可解析语义."""
     status: int | None = None
-    """HTTP 状态码 (kind=HTTP_STATUS 时必有)."""
+    """kind=HTTP_STATUS 时必有."""
     body: bytes | None = None
-    """失败响应正文 (截断), 拦截判定用."""
+    """截断后的失败响应正文, 拦截判定用."""
 
 
 class FailureReason(StrEnum):
-    """来源抓取失败的结构化原因 (summary.json / task report 的 reason 字段)."""
+    """summary.json / task report 的 reason 字段."""
 
     HTTP_ERROR = "http_error"
-    """4xx/5xx 兜底 (具体状态码在 http_status)."""
+    """其余 4xx/5xx; 具体状态码在 http_status."""
     NOT_FOUND = "not_found"
     RATE_LIMITED = "rate_limited"
     SERVER_ERROR = "server_error"
     TIMEOUT = "timeout"
     NETWORK = "network"
     CLOUDFLARE_CHALLENGE = "cloudflare_challenge"
-    """挑战页 ("Just a moment")."""
+    """Just a moment 挑战页."""
     CLOUDFLARE_BLOCKED = "cloudflare_blocked"
-    """拦截页 (Ray ID, 无挑战)."""
+    """Ray ID 拦截页, 无挑战."""
     IP_BANNED = "ip_banned"
     GEO_RESTRICTED = "geo_restricted"
     AGE_VERIFICATION = "age_verification"
     EMPTY_RESPONSE = "empty_response"
     NO_USABLE_METADATA = "no_usable_metadata"
-    """请求成功但未解析出元数据 (区别于 NOT_FOUND 的 HTTP 404)."""
+    """请求成功但未解析出元数据; 区别于 NOT_FOUND 的 HTTP 404."""
     CRAWLER_UNAVAILABLE = "crawler_unavailable"
-    """爬虫实例缺失 (演员侧)."""
+    """演员侧爬虫实例缺失."""
     UNEXPECTED = "unexpected"
 
 
 class SourceError(Exception):
-    """来源可分类的失败. 由 invoke_source 写入站点 outcome, 不视为整任务崩溃."""
+    """由 invoke_source 写入站点 outcome, 不视为整任务崩溃."""
 
     def __init__(
         self,
@@ -77,8 +74,6 @@ class SourceError(Exception):
 
 
 class RequestError(SourceError):
-    """出站请求在重试用尽后仍失败."""
-
     def __init__(self, url: str, failure: RequestFailure | str | None = None) -> None:
         self.url = url
         if isinstance(failure, RequestFailure):
@@ -106,7 +101,7 @@ def _status_reason(status: int) -> FailureReason:
 
 
 def classify_block(text: str, *, failure: RequestFailure | None = None) -> FailureReason | None:
-    """正文启发式优先 (含失败响应正文), 状态码兜底, 空响应最后."""
+    """正文启发式优先, 再按状态码分类, 空响应最后."""
     if text:
         reason = _classify_text(text)
         if reason is not None:
@@ -140,7 +135,7 @@ def _classify_text(text: str) -> FailureReason | None:
 
 
 def classify_request_error(failure: RequestFailure | None) -> FailureReason:
-    """失败响应正文优先, 无信号按 kind/status 兜底."""
+    """无正文信号时按 kind/status 分类."""
     if failure is None:
         return FailureReason.NETWORK
     if failure.body:

@@ -10,12 +10,12 @@ from ..models import MediaFile, MediaFileStatus, MediaSortField, SortOrder
 from ..repo_types import _MEDIA_SORT_COLUMNS, MediaFileUpdates, _apply_media_phase_filters, _order_clause, _utcnow
 from .base import RepositoryMixinBase
 
-# SQLite 绑定变量上限 (旧编译 999 / 3.32+ 默认 32766). 500 给语句里其它占位留余量.
+# SQLite 绑定变量上限. 500 给语句里其它占位留余量.
 SQL_IN_CHUNK_SIZE = 500
 
 
 def _apply_path_phase(media: MediaFile) -> None:
-    """用当前 path 覆盖文件相位列. path 是真值, 这些列是投影."""
+    """path 是真值, 相位列是投影; 创建与改 path 时必须回填."""
     phase = file_phase_from_path(media.path)
     media.content_type = phase["content_type"]
     media.mosaic = phase["mosaic"]
@@ -24,7 +24,7 @@ def _apply_path_phase(media: MediaFile) -> None:
 
 
 def file_phase_of(media: MediaFile) -> FilePhase:
-    """从已落库列组装 FilePhase (不再解析 path)."""
+    """从已落库列组装, 不再解析 path."""
     return FilePhase(
         content_type=media.content_type,
         mosaic=media.mosaic,
@@ -34,8 +34,6 @@ def file_phase_of(media: MediaFile) -> FilePhase:
 
 
 class MetadataFilesSummary(NamedTuple):
-    """当前页 Metadata 的关联文件计数 + 相位聚合."""
-
     file_count: int
     phase: FilePhaseSummary
 
@@ -61,7 +59,7 @@ class MediaRepoMixin(RepositoryMixinBase):
             return result.first()
 
     async def get_valid(self, disk_paths: Iterable[str]) -> Sequence[MediaFile]:
-        """获取 disk_paths 与数据库现有条目的交集. 路径按 SQL_IN_CHUNK_SIZE 分批 IN, 避开绑定变量上限."""
+        """路径按 SQL_IN_CHUNK_SIZE 分批 IN, 避开绑定变量上限."""
         paths = list(disk_paths)
         if not paths:
             return []
@@ -75,10 +73,8 @@ class MediaRepoMixin(RepositoryMixinBase):
         return found
 
     async def get_invalid(self, disk_paths: Iterable[str], library_id: int | None = None) -> Sequence[MediaFile]:
-        """获取数据库中路径不在 disk_paths 的条目. library_id 收窄到单库, 避免扫 A 误删 B.
-
-        在 Python 做集合差, 不走 SQL NOT IN: 数万路径的 NOT IN 不能按批拆
-        (每批 NOT IN 会把其它批里真实存在的路径误判为失效).
+        """library_id 须收窄到单库, 否则扫描 A 会误删 B.
+        在 Python 做集合差, 禁止 SQL NOT IN: 分批 NOT IN 会把其它批里真实存在的路径误判为失效.
         """
         if library_id is None and not disk_paths:
             return []
@@ -105,7 +101,7 @@ class MediaRepoMixin(RepositoryMixinBase):
         definition: str | None = None,
         content_type: ContentType | None = None,
     ) -> list[MediaFile]:
-        """分页列出媒体文件. metadata_ids: 仅返回挂载到这些 Metadata 的文件; limit None 不分页."""
+        """limit None 不分页."""
         async with self._session() as session:
             stmt = select(MediaFile)
             if status is not None:
@@ -125,7 +121,7 @@ class MediaRepoMixin(RepositoryMixinBase):
                 definition=definition,
                 content_type=content_type,
             )
-            # 次级排序键 id 保证分页稳定 (主排序键有并列值时顺序确定).
+            # 次级排序键 id 保证分页稳定.
             stmt = (
                 stmt.order_by(_order_clause(_MEDIA_SORT_COLUMNS[sort_by], order), col(MediaFile.id).asc())
                 .offset(offset)
@@ -172,7 +168,7 @@ class MediaRepoMixin(RepositoryMixinBase):
             media = await session.get(MediaFile, media_id)
             if media is None:
                 return None
-            # 显式赋值: 字段名与类型由 MediaFileUpdates(TypedDict) 与 MediaFile 静态保证一致.
+            # 显式赋值, 禁止 setattr; 字段集由 MediaFileUpdates 与 MediaFile 静态对齐.
             if "path" in updates:
                 media.path = updates["path"]
                 _apply_path_phase(media)
@@ -206,7 +202,7 @@ class MediaRepoMixin(RepositoryMixinBase):
             return True
 
     async def count_media_by_metadata_ids(self, metadata_ids: Sequence[int]) -> dict[int, int]:
-        """批量统计各 Metadata 关联的 MediaFile 数量; 无关联的 id 不出现在结果中."""
+        """无关联的 id 不出现在结果中."""
         ids = [i for i in metadata_ids if i]
         if not ids:
             return {}
@@ -220,7 +216,7 @@ class MediaRepoMixin(RepositoryMixinBase):
             return {mid: n for mid, n in result.all() if mid is not None}
 
     async def summarize_media_by_metadata_ids(self, metadata_ids: Sequence[int]) -> dict[int, MetadataFilesSummary]:
-        """批量聚合各 Metadata 关联文件计数与相位; 无关联的 id 不出现."""
+        """无关联的 id 不出现."""
         ids = [i for i in metadata_ids if i]
         if not ids:
             return {}

@@ -29,21 +29,19 @@ router = APIRouter(prefix="/libraries", tags=["libraries"])
 
 @router.get("/path-template-schema")
 async def get_path_template_schema() -> PathTemplateSchemaResponse:
-    """路径模板占位符与默认值 (与 resolve_paths 同源, 供前端表单渲染)."""
+    """与 resolve_paths 同源."""
     return path_template_schema()
 
 
 @router.get("")
 async def list_libraries(repo: RepoDep) -> LibraryListResponse:
-    """列出所有已配置的媒体库"""
     items = await repo.list_libraries()
     return LibraryListResponse(items=[to_resp(LibraryResponse, lib) for lib in items])
 
 
 @router.post("", status_code=201)
 async def create_library(req: LibraryCreateRequest, repo: RepoDep, runtime: RuntimeDep) -> LibraryResponse:
-    """添加新的媒体库, 可选触发初始扫描并热添加到监控器"""
-    # 路径校验: 必须存在, 是目录, 在 safe_dirs 内
+    # 校验路径: 须存在、是目录、位于 safe_dirs 内
     await validate_directory_path(req.path, runtime.safe_dirs)
 
     name = req.name or Path(req.path).name
@@ -120,12 +118,11 @@ async def update_library(
     repo: RepoDep,
     runtime: RuntimeDep,
 ) -> LibraryResponse:
-    """更新媒体库配置"""
     updates = cast("LibraryUpdates", req.model_dump(exclude_unset=True))
     if not updates:
         raise HTTPException(status_code=422, detail="No fields to update")
 
-    # 仅当 path 字段被显式更新时才校验 -- 其它字段更新不需要重新检查路径
+    # 仅 path 被显式更新时才校验
     if "path" in updates and updates["path"] is not None:
         await validate_directory_path(updates["path"], runtime.safe_dirs)
 
@@ -134,7 +131,6 @@ async def update_library(
         raise HTTPException(status_code=404, detail="Library not found")
     logger.info("library updated", library_id=library_id, fields=list(updates.keys()))
 
-    # 同步文件监控: 监控相关字段变化时, 先移除旧监控再按最新状态重建
     watch_fields = {
         "automation",
         "path",
@@ -144,6 +140,7 @@ async def update_library(
         "blacklist_patterns",
         "min_file_size",
     }
+    # 监控相关字段变化时, 先移除旧监控再按最新状态重建
     if runtime.watcher_service and watch_fields & updates.keys():
         runtime.watcher_service.remove_library(library_id)
         if lib.automation != LibraryAutomation.NONE:
@@ -162,11 +159,7 @@ async def update_library(
 
 @router.delete("/{library_id}", status_code=204)
 async def delete_library(library_id: int, repo: RepoDep, runtime: RuntimeDep):
-    """删除媒体库.
-
-    级联删除该库下所有 MediaFile 记录 (library_id 非空 FK), 并停止监控该目录.
-    仅删除数据库索引, 不动磁盘文件.
-    """
+    """级联删除该库 MediaFile (library_id 非空 FK). 仅删除数据库索引, 不动磁盘文件."""
     existing = await repo.list_libraries()
     if not any(lib.id == library_id for lib in existing):
         raise HTTPException(status_code=404, detail="Library not found")

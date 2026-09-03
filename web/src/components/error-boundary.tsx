@@ -10,7 +10,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-/** 顶层渲染错误兜底 - 捕获子树抛出的异常, 展示可重试的错误提示而非白屏. */
+/** 捕获子树异常, 展示可重试提示而非白屏. */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
 

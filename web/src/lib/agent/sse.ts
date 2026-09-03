@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api-token";
 
-/** Agent 对话 SSE 客户端 - 不经 hey-api 生成. */
+/** 不经 hey-api 生成. */
 
 export type AgentTokenUsage = {
   input: number;
@@ -146,7 +146,7 @@ export async function* streamAgentReject(
   yield* parseSseStream(res.body);
 }
 
-/** 刷新/切页后续订: GET .../events/stream?after= */
+/** 刷新/切换页面后续订: GET .../events/stream?after= */
 export async function* streamAgentEvents(
   sessionId: number,
   after: number,

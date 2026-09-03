@@ -208,6 +208,7 @@ export function SchemaForm({
     validators: { onChange: validate },
     onSubmit: ({ value }) => {
       const sectionVal = isRecord(value) && isRecord(value[prefix]) ? value[prefix] : {};
+      // create: 提交完整表单值; patch: 只提交相对初始值有变化的字段
       if (isCreate) {
         onSave(encodeFormBody(schema, { ...sectionVal }));
         return;

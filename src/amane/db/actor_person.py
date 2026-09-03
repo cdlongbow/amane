@@ -1,15 +1,11 @@
-"""Actor 人物字段读写与实体 merge 辅助.
-
-别名不在此层: 以 ``ActorAlias`` 行存储, 读写走 ``repos/facet_helpers`` 的行写入函数
-(``add_actor_aliases`` / ``replace_actor_aliases`` / ``move_actor_alias_rows``).
-"""
+"""人物字段读写与实体 merge. 别名不在此层, 由 ``repos.facet_helpers`` 的行写入函数处理."""
 
 from ..aggregate.actor import AggregatedActor, merge_actor_rows_fill_empty
 from .models import Actor
 
 
 def actor_to_aggregated(actor: Actor) -> AggregatedActor:
-    """DB Actor 行 → AggregatedActor (merge / 回写共用); 不含别名 (见模块说明)."""
+    """不含别名."""
     return AggregatedActor(
         gender=actor.gender,
         birthday=actor.birthday,
@@ -30,7 +26,7 @@ def actor_to_aggregated(actor: Actor) -> AggregatedActor:
 
 
 def apply_aggregated_to_actor(actor: Actor, data: AggregatedActor) -> None:
-    """将聚合结果写回 Actor 行 (不改 name/id); 别名由调用方经别名行写入."""
+    """不修改 name/id; 别名由调用方经别名行写入."""
     actor.gender = data.gender
     actor.birthday = data.birthday
     actor.birthplace = data.birthplace
@@ -49,8 +45,7 @@ def apply_aggregated_to_actor(actor: Actor, data: AggregatedActor) -> None:
 
 
 def merge_person_fields_into_target(target: Actor, sources: list[Actor]) -> None:
-    """实体 merge: 源人物字段填空并入 target (删源前调用); 别名并行走
-    ``move_actor_alias_rows``, 不在此层."""
+    """源人物字段填空并入 target (须在删源前调用). 别名并入由 ``move_actor_alias_rows`` 处理."""
     merged = actor_to_aggregated(target)
     for src in sources:
         merged = merge_actor_rows_fill_empty(merged, actor_to_aggregated(src))

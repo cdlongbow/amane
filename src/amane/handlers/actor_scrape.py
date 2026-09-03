@@ -24,8 +24,6 @@ if TYPE_CHECKING:
 
 
 class ActorCrawlerFactoryLike(Protocol):
-    """演员爬虫工厂 - 测试可 duck typing."""
-
     async def get_actor_crawlers(self, names: Iterable[str]) -> Mapping[str, ActorFetcher]: ...
 
 
@@ -51,6 +49,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
         bind_contextvars(actor_id=payload.actor_id)
         rec = current()
 
+        # 校验 Actor 与站点资格.
         actor = await self._repo.get_actor(payload.actor_id)
         if actor is None:
             return TaskResult(success=False, error=f"Actor {payload.actor_id} not found")
@@ -82,7 +81,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
             return TaskResult(success=False, error=f"No actor scraping sites eligible for gender={gender}")
 
         use_metadata_cache = CacheKind.metadata in payload.use_cache
-        # CacheKind.trans 预留演员译文缓存; 翻译接入前无行为差异.
+        # CacheKind.trans 写入 payload 但不改变本任务行为.
         # 仅对允许的站读 raw, 避免 male/unknown 误用女-only 历史快照.
         raw_cache = dict(actor.raw or {}) if use_metadata_cache else {}
 
@@ -102,6 +101,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
         progress_total = len(sites) + 2
         rec.update_summary(eligible_sites=list(sites), sites_queried=list(sites))
 
+        # 出站: 按查找名逐站抓取; 缓存命中则跳过请求.
         for i, site in enumerate(sites):
             cached_payload = raw_cache.get(site) if use_metadata_cache else None
             if cached_payload is not None:
@@ -150,6 +150,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
                 failed_sites.append(site)
             await self.report_progress(i + 1, progress_total, f"fetched {site}")
 
+        # 填空合并后写库.
         site_agg = merge_actor_metadata(results, profile_sites=profile_sites, image_sites=image_sites)
         existing_aliases = await self._repo.get_actor_aliases(payload.actor_id)
         merged = merge_actor_rows_fill_empty(actor_to_aggregated(actor), site_agg)

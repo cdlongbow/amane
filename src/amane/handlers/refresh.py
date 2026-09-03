@@ -21,8 +21,6 @@ _WALK_LOG_EVERY = 500
 
 
 class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
-    """以 Library 为单位, 按需扫描文件索引 (注册新文件/清理失效) 并 fan-out SCRAPE."""
-
     def __init__(self, repo: Repository, media_extensions: Sequence[str] | None = None):
         super().__init__(payload_t=RefreshPayload, result_t=RefreshResult)
         self._repo = repo
@@ -50,10 +48,11 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
         if payload.scan:
             want_add = ScanMode.add in payload.scan
             want_remove = ScanMode.remove in payload.scan
-            # remove 且同时 add: 一次遍历收集 seen, 再做集合差.
-            # 仅 remove: 不走整树 glob, 对库内记录逐条 exists (O(索引) 而非 O(磁盘树)).
+            # add 与 remove 同时启用: 一次遍历收集 seen, 再做集合差.
+            # 仅 remove: 不对整树 glob, 对库内记录逐条 exists (O(索引) 而非 O(磁盘树)).
             seen: set[str] | None = set() if want_add and want_remove else None
 
+            # 扫描磁盘并注册未见过的媒体.
             if want_add:
                 logger.info("scan walking started", path=payload.path)
                 walked = 0
@@ -77,6 +76,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
                 if added:
                     logger.info("new files discovered", path=payload.path, count=added)
 
+            # 删除索引中已不存在的记录.
             if want_remove:
                 if seen is not None:
                     missing = [f for f in existing if f.path not in seen]
@@ -97,7 +97,7 @@ class RefreshHandler(TaskHandler[RefreshPayload, RefreshResult]):
             library_id=payload.library_id, status=payload.scrape, limit=None
         )
 
-        # 提交 SCRAPE 任务: 只描述后继 (含媒体文件 ID), 由 worker 完成阶段统一创建.
+        # 扇出 SCRAPE; 只描述后继, 由完成事务创建.
         followups = []
         for f in media_files:
             parsed = parse_file_info(f.path)

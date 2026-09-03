@@ -11,7 +11,6 @@ interface InfiniteScrollSentinelProps {
   loadedLabel?: string;
 }
 
-/** 列表底部哨兵 - 进入视口时拉取下一页. */
 export function InfiniteScrollSentinel({
   hasNextPage,
   isFetchingNextPage,

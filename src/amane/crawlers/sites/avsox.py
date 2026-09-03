@@ -1,4 +1,4 @@
-"""AVSOX (avsox.click) 爬虫 — Vue SPA, 元数据走 Yii JSON API."""
+"""Vue SPA; 元数据经 Yii JSON API, 不解析前端 HTML."""
 
 from __future__ import annotations
 
@@ -51,8 +51,6 @@ def _named(entity: AvsoxNamed | None, prefix: str) -> str | None:
 
 
 class AvsoxNamed(BaseModel):
-    """演员 / 片商 / 类型等带语言后缀的名字对象."""
-
     model_config = ConfigDict(extra="allow")
 
 
@@ -174,7 +172,7 @@ class AvsoxCrawler(Crawler):
 
 
 def _fold_number(number: str) -> str:
-    """大小写 + 短横线 / 空格. 不折叠下划线: 010115_001 与 010115-001 是两部片."""
+    """大小写、短横线、空格视为同一番号. 不允许把 ``_`` 当作 ``-``: 010115_001 与 010115-001 是两部片."""
     return number.casefold().replace("-", "").replace(" ", "")
 
 
@@ -189,8 +187,10 @@ def _pick_movie_id(movies: list[object], number: str) -> str | None:
         movie_id = item.get("movieId")
         if not isinstance(fanhao, str) or not isinstance(movie_id, str) or not movie_id:
             continue
+        # 精确匹配番号.
         if fanhao.casefold() == exact:
             return movie_id
+        # 折叠分隔符后的回退命中.
         if folded_hit is None and _fold_number(fanhao) == folded:
             folded_hit = movie_id
     return folded_hit

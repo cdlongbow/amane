@@ -20,25 +20,18 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 
 /**
  * Health Check
- *
- * 轻量就绪检查, 返回服务状态和版本.
  */
 export const healthCheck = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckData, ThrowOnError>): RequestResult<HealthCheckResponses, unknown, ThrowOnError> => (options?.client ?? client).get<HealthCheckResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
 
 /**
  * Get Config
- *
- * 返回按分区分组的当前配置快照
  */
 export const getConfig = <ThrowOnError extends boolean = false>(options?: Options<GetConfigData, ThrowOnError>): RequestResult<GetConfigResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetConfigResponses, unknown, ThrowOnError>({ url: '/api/config', ...options });
 
 /**
  * Update Config
  *
- * 应用部分配置更新.
- *
- * 验证补丁, 持久化到 TOML, 重建依赖的运行时对象 (worker, 网络客户端),
- * 并广播 config.updated 事件.
+ * 先用当前会话的插件目录校验新路由和插件配置, 再持久化.
  */
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).patch<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     url: '/api/config',
@@ -57,35 +50,27 @@ export const getConfigSchema = <ThrowOnError extends boolean = false>(options?: 
 /**
  * List files and directories at a server path
  *
- * 列出目录内容. 仅允许访问启动时确定的安全目录内的路径; ``safe_dirs is None`` 时不限制.
+ * 仅允许安全目录内的路径; ``safe_dirs is None`` 时不限制.
  */
 export const listFiles = <ThrowOnError extends boolean = false>(options: Options<ListFilesData, ThrowOnError>): RequestResult<ListFilesResponses, ListFilesErrors, ThrowOnError> => (options.client ?? client).get<ListFilesResponses, ListFilesErrors, ThrowOnError>({ url: '/api/files', ...options });
 
 /**
  * List Media
- *
- * 列出媒体文件, 支持可选过滤, 服务端分页与排序
  */
 export const listMedia = <ThrowOnError extends boolean = false>(options?: Options<ListMediaData, ThrowOnError>): RequestResult<ListMediaResponses, ListMediaErrors, ThrowOnError> => (options?.client ?? client).get<ListMediaResponses, ListMediaErrors, ThrowOnError>({ url: '/api/media', ...options });
 
 /**
  * Delete Media
- *
- * 删除媒体文件记录
  */
 export const deleteMedia = <ThrowOnError extends boolean = false>(options: Options<DeleteMediaData, ThrowOnError>): RequestResult<DeleteMediaResponses, DeleteMediaErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMediaResponses, DeleteMediaErrors, ThrowOnError>({ url: '/api/media/{media_id}', ...options });
 
 /**
  * Get Media
- *
- * 根据 ID 获取单个媒体文件
  */
 export const getMedia = <ThrowOnError extends boolean = false>(options: Options<GetMediaData, ThrowOnError>): RequestResult<GetMediaResponses, GetMediaErrors, ThrowOnError> => (options.client ?? client).get<GetMediaResponses, GetMediaErrors, ThrowOnError>({ url: '/api/media/{media_id}', ...options });
 
 /**
  * Update Media
- *
- * 更新媒体文件的状态或番号
  */
 export const updateMedia = <ThrowOnError extends boolean = false>(options: Options<UpdateMediaData, ThrowOnError>): RequestResult<UpdateMediaResponses, UpdateMediaErrors, ThrowOnError> => (options.client ?? client).patch<UpdateMediaResponses, UpdateMediaErrors, ThrowOnError>({
     url: '/api/media/{media_id}',
@@ -98,22 +83,18 @@ export const updateMedia = <ThrowOnError extends boolean = false>(options: Optio
 
 /**
  * Get Metadata Schema
- *
- * 可编辑 metadata 字段的 JSON Schema, 供前端动态表单渲染.
  */
 export const getMetadataSchema = <ThrowOnError extends boolean = false>(options?: Options<GetMetadataSchemaData, ThrowOnError>): RequestResult<GetMetadataSchemaResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetMetadataSchemaResponses, unknown, ThrowOnError>({ url: '/api/metadata/schema', ...options });
 
 /**
  * List Metadata
- *
- * List metadata with optional search, facet filters, pagination, sorting.
  */
 export const listMetadata = <ThrowOnError extends boolean = false>(options?: Options<ListMetadataData, ThrowOnError>): RequestResult<ListMetadataResponses, ListMetadataErrors, ThrowOnError> => (options?.client ?? client).get<ListMetadataResponses, ListMetadataErrors, ThrowOnError>({ url: '/api/metadata', ...options });
 
 /**
  * Batch Delete Metadata
  *
- * 批量删除元数据, 级联行为与单条删除一致.
+ * 级联行为与单条删除一致.
  */
 export const batchDeleteMetadata = <ThrowOnError extends boolean = false>(options: Options<BatchDeleteMetadataData, ThrowOnError>): RequestResult<BatchDeleteMetadataResponses, BatchDeleteMetadataErrors, ThrowOnError> => (options.client ?? client).post<BatchDeleteMetadataResponses, BatchDeleteMetadataErrors, ThrowOnError>({
     url: '/api/metadata/batch/delete',
@@ -127,7 +108,7 @@ export const batchDeleteMetadata = <ThrowOnError extends boolean = false>(option
 /**
  * Batch Scrape Metadata
  *
- * 按 metadata id 列表批量提交刮削任务 (以各自 number 重新刮削).
+ * 以各自 number 重新刮削.
  */
 export const batchScrapeMetadata = <ThrowOnError extends boolean = false>(options: Options<BatchScrapeMetadataData, ThrowOnError>): RequestResult<BatchScrapeMetadataResponses, BatchScrapeMetadataErrors, ThrowOnError> => (options.client ?? client).post<BatchScrapeMetadataResponses, BatchScrapeMetadataErrors, ThrowOnError>({
     url: '/api/metadata/batch/scrape',
@@ -140,8 +121,6 @@ export const batchScrapeMetadata = <ThrowOnError extends boolean = false>(option
 
 /**
  * Batch Metadata User Tags
- *
- * 批量挂载/取消挂载用户 tag.
  */
 export const batchMetadataUserTags = <ThrowOnError extends boolean = false>(options: Options<BatchMetadataUserTagsData, ThrowOnError>): RequestResult<BatchMetadataUserTagsResponses, BatchMetadataUserTagsErrors, ThrowOnError> => (options.client ?? client).post<BatchMetadataUserTagsResponses, BatchMetadataUserTagsErrors, ThrowOnError>({
     url: '/api/metadata/batch/user-tags',
@@ -154,22 +133,16 @@ export const batchMetadataUserTags = <ThrowOnError extends boolean = false>(opti
 
 /**
  * Delete Metadata
- *
- * Delete a metadata record.
  */
 export const deleteMetadata = <ThrowOnError extends boolean = false>(options: Options<DeleteMetadataData, ThrowOnError>): RequestResult<DeleteMetadataResponses, DeleteMetadataErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMetadataResponses, DeleteMetadataErrors, ThrowOnError>({ url: '/api/metadata/{metadata_id}', ...options });
 
 /**
  * Get Metadata
- *
- * Get metadata detail with related files, user tags, comments, facet ids.
  */
 export const getMetadata = <ThrowOnError extends boolean = false>(options: Options<GetMetadataData, ThrowOnError>): RequestResult<GetMetadataResponses, GetMetadataErrors, ThrowOnError> => (options.client ?? client).get<GetMetadataResponses, GetMetadataErrors, ThrowOnError>({ url: '/api/metadata/{metadata_id}', ...options });
 
 /**
  * Update Metadata
- *
- * Update metadata fields.
  */
 export const updateMetadata = <ThrowOnError extends boolean = false>(options: Options<UpdateMetadataData, ThrowOnError>): RequestResult<UpdateMetadataResponses, UpdateMetadataErrors, ThrowOnError> => (options.client ?? client).patch<UpdateMetadataResponses, UpdateMetadataErrors, ThrowOnError>({
     url: '/api/metadata/{metadata_id}',
@@ -206,8 +179,6 @@ export const cropPosterFromThumb = <ThrowOnError extends boolean = false>(option
 
 /**
  * Merge Metadata
- *
- * 按字段选择来源, 将对应 raw 数据合并到元数据.
  */
 export const mergeMetadata = <ThrowOnError extends boolean = false>(options: Options<MergeMetadataData, ThrowOnError>): RequestResult<MergeMetadataResponses, MergeMetadataErrors, ThrowOnError> => (options.client ?? client).post<MergeMetadataResponses, MergeMetadataErrors, ThrowOnError>({
     url: '/api/metadata/{metadata_id}/merge',
@@ -265,15 +236,11 @@ export const updatePlugin = <ThrowOnError extends boolean = false>(options: Opti
 
 /**
  * List Actors
- *
- * 分页列出演员 (人物摘要 + 关联影片数).
  */
 export const listActors = <ThrowOnError extends boolean = false>(options?: Options<ListActorsData, ThrowOnError>): RequestResult<ListActorsResponses, ListActorsErrors, ThrowOnError> => (options?.client ?? client).get<ListActorsResponses, ListActorsErrors, ThrowOnError>({ url: '/api/actors', ...options });
 
 /**
  * Get Actor
- *
- * 演员详情 (含别名与 raw).
  */
 export const getActor = <ThrowOnError extends boolean = false>(options: Options<GetActorData, ThrowOnError>): RequestResult<GetActorResponses, GetActorErrors, ThrowOnError> => (options.client ?? client).get<GetActorResponses, GetActorErrors, ThrowOnError>({ url: '/api/actors/{actor_id}', ...options });
 
@@ -293,8 +260,6 @@ export const updateActor = <ThrowOnError extends boolean = false>(options: Optio
 
 /**
  * Scrape Actor
- *
- * 提交演员人物元数据刮削任务.
  */
 export const scrapeActor = <ThrowOnError extends boolean = false>(options: Options<ScrapeActorData, ThrowOnError>): RequestResult<ScrapeActorResponses, ScrapeActorErrors, ThrowOnError> => (options.client ?? client).post<ScrapeActorResponses, ScrapeActorErrors, ThrowOnError>({
     url: '/api/actors/{actor_id}/scrape',
@@ -307,8 +272,6 @@ export const scrapeActor = <ThrowOnError extends boolean = false>(options: Optio
 
 /**
  * Create User Tag
- *
- * 创建用户标签.
  */
 export const createUserTag = <ThrowOnError extends boolean = false>(options: Options<CreateUserTagData, ThrowOnError>): RequestResult<CreateUserTagResponses, CreateUserTagErrors, ThrowOnError> => (options.client ?? client).post<CreateUserTagResponses, CreateUserTagErrors, ThrowOnError>({
     url: '/api/facets/user_tag',
@@ -321,15 +284,11 @@ export const createUserTag = <ThrowOnError extends boolean = false>(options: Opt
 
 /**
  * List Facets
- *
- * 分页列出分类目录条目 (演员/导演/标签/厂商/发行商/系列/用户 tag).
  */
 export const listFacets = <ThrowOnError extends boolean = false>(options: Options<ListFacetsData, ThrowOnError>): RequestResult<ListFacetsResponses, ListFacetsErrors, ThrowOnError> => (options.client ?? client).get<ListFacetsResponses, ListFacetsErrors, ThrowOnError>({ url: '/api/facets/{kind}', ...options });
 
 /**
  * List Facet Rules
- *
- * 列出爬取侧分类的用户规则 (别名 / 黑名单).
  */
 export const listFacetRules = <ThrowOnError extends boolean = false>(options: Options<ListFacetRulesData, ThrowOnError>): RequestResult<ListFacetRulesResponses, ListFacetRulesErrors, ThrowOnError> => (options.client ?? client).get<ListFacetRulesResponses, ListFacetRulesErrors, ThrowOnError>({ url: '/api/facets/{kind}/rules', ...options });
 
@@ -355,7 +314,7 @@ export const getFacet = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Rename Facet
  *
- * 重命名分类实体. 新名称与另一实体冲突时返回 409 (建议改用合并).
+ * 新名称与另一实体冲突时返回 409 (应使用合并).
  */
 export const renameFacet = <ThrowOnError extends boolean = false>(options: Options<RenameFacetData, ThrowOnError>): RequestResult<RenameFacetResponses, RenameFacetErrors, ThrowOnError> => (options.client ?? client).patch<RenameFacetResponses, RenameFacetErrors, ThrowOnError>({
     url: '/api/facets/{kind}/{facet_id}',
@@ -480,36 +439,23 @@ export const updateComment = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Proxy Image
  *
- * 代理外链图片以绕过浏览器防盗链 / 严格 CORS.
- *
- * 优先级:
- * 1. ResourceStore 命中 → 直接返回本地文件 (零网络开销)
- * 2. 未命中 → 通过 ResourceStore.acquire 下载并写入 store, 然后返回
- * (后续请求自动走第 1 步)
- *
- * 上游获取失败时记入进程内负缓存 (固定 15 分钟), 窗口内同 URL 直接 502,
- * 避免前端反复请求失效图时每次打满重试/超时. 同 URL 进行中请求合并为一次 acquire.
+ * 上游失败记入进程内负缓存 (15 分钟), 窗口内同 URL 直接 502.
+ * 同 URL 进行中请求合并为一次 acquire.
  */
 export const proxyImage = <ThrowOnError extends boolean = false>(options: Options<ProxyImageData, ThrowOnError>): RequestResult<ProxyImageResponses, ProxyImageErrors, ThrowOnError> => (options.client ?? client).get<ProxyImageResponses, ProxyImageErrors, ThrowOnError>({ url: '/api/resources/proxy', ...options });
 
 /**
  * Serve Resource
- *
- * 按 url hash 返回本地资源文件 (哑文件服务).
  */
 export const serveResource = <ThrowOnError extends boolean = false>(options: Options<ServeResourceData, ThrowOnError>): RequestResult<ServeResourceResponses, ServeResourceErrors, ThrowOnError> => (options.client ?? client).get<ServeResourceResponses, ServeResourceErrors, ThrowOnError>({ url: '/api/resources/{url_hash}', ...options });
 
 /**
  * List Schedules
- *
- * 列出所有定时任务
  */
 export const listSchedules = <ThrowOnError extends boolean = false>(options?: Options<ListSchedulesData, ThrowOnError>): RequestResult<ListSchedulesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSchedulesResponses, unknown, ThrowOnError>({ url: '/api/schedules', ...options });
 
 /**
  * Create Schedule
- *
- * 创建定时任务
  */
 export const createSchedule = <ThrowOnError extends boolean = false>(options: Options<CreateScheduleData, ThrowOnError>): RequestResult<CreateScheduleResponses, CreateScheduleErrors, ThrowOnError> => (options.client ?? client).post<CreateScheduleResponses, CreateScheduleErrors, ThrowOnError>({
     url: '/api/schedules',
@@ -522,15 +468,11 @@ export const createSchedule = <ThrowOnError extends boolean = false>(options: Op
 
 /**
  * Get Schedule Schema
- *
- * 返回定时任务 payload 的 JSON Schema.
  */
 export const getScheduleSchema = <ThrowOnError extends boolean = false>(options?: Options<GetScheduleSchemaData, ThrowOnError>): RequestResult<GetScheduleSchemaResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetScheduleSchemaResponses, unknown, ThrowOnError>({ url: '/api/schedules/schema', ...options });
 
 /**
  * Delete Schedule
- *
- * 删除定时任务
  */
 export const deleteSchedule = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleData, ThrowOnError>): RequestResult<DeleteScheduleResponses, DeleteScheduleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteScheduleResponses, DeleteScheduleErrors, ThrowOnError>({ url: '/api/schedules/{schedule_id}', ...options });
 
@@ -542,7 +484,7 @@ export const getSchedule = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Update Schedule
  *
- * 更新定时任务的 name/cron/enabled. 改任务内容请删除后重建.
+ * 仅 name/cron/enabled. 修改任务内容须删除后重建.
  */
 export const updateSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateScheduleData, ThrowOnError>): RequestResult<UpdateScheduleResponses, UpdateScheduleErrors, ThrowOnError> => (options.client ?? client).patch<UpdateScheduleResponses, UpdateScheduleErrors, ThrowOnError>({
     url: '/api/schedules/{schedule_id}',
@@ -556,14 +498,12 @@ export const updateSchedule = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Trigger Schedule
  *
- * 手动触发定时任务: 将 next_run 设为当前时间, 由 cron 在下一个 tick 执行.
+ * 将 next_run 设置为当前时间, 由 cron 在下一个 tick 执行.
  */
 export const triggerSchedule = <ThrowOnError extends boolean = false>(options: Options<TriggerScheduleData, ThrowOnError>): RequestResult<TriggerScheduleResponses, TriggerScheduleErrors, ThrowOnError> => (options.client ?? client).post<TriggerScheduleResponses, TriggerScheduleErrors, ThrowOnError>({ url: '/api/schedules/{schedule_id}/trigger', ...options });
 
 /**
  * Desktop Info
- *
- * 菜单栏 / 托盘 UI 专用信息 (版本 + 数据目录 + 是否有监督者), bar 进程轮询本端点.
  */
 export const desktopInfo = <ThrowOnError extends boolean = false>(options?: Options<DesktopInfoData, ThrowOnError>): RequestResult<DesktopInfoResponses, unknown, ThrowOnError> => (options?.client ?? client).get<DesktopInfoResponses, unknown, ThrowOnError>({ url: '/api/system/desktop', ...options });
 
@@ -584,15 +524,13 @@ export const getRelease = <ThrowOnError extends boolean = false>(options?: Optio
 /**
  * List Tasks
  *
- * 列出任务. 默认只返回链根任务 (顶层), 子任务挂在父任务下由 /children 按需加载;
+ * 默认只返回链根 (roots_only). 子任务由 /children 按需加载;
  * 显式 root_task_id 时返回该链全部任务.
  */
 export const listTasks = <ThrowOnError extends boolean = false>(options?: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options?.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({ url: '/api/tasks', ...options });
 
 /**
  * Submit Task
- *
- * 统一任务提交入口
  */
 export const submitTask = <ThrowOnError extends boolean = false>(options: Options<SubmitTaskData, ThrowOnError>): RequestResult<SubmitTaskResponses, SubmitTaskErrors, ThrowOnError> => (options.client ?? client).post<SubmitTaskResponses, SubmitTaskErrors, ThrowOnError>({
     url: '/api/tasks',
@@ -606,25 +544,17 @@ export const submitTask = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Get Task Children
  *
- * 任务的直接后继子任务 (TaskLink 出边), 供树视图展开. total 为出边总数, 不受本页截断.
- *
- * 每条带 link_key (父内后继语义键).
+ * 直接后继 (TaskLink 出边). total 为出边总数, 不受本页截断.
  */
 export const getTaskChildren = <ThrowOnError extends boolean = false>(options: Options<GetTaskChildrenData, ThrowOnError>): RequestResult<GetTaskChildrenResponses, GetTaskChildrenErrors, ThrowOnError> => (options.client ?? client).get<GetTaskChildrenResponses, GetTaskChildrenErrors, ThrowOnError>({ url: '/api/tasks/{task_id}/children', ...options });
 
 /**
  * Get Task Schema
- *
- * 返回任务提交表单的 JSON Schema, 适用于动态表单渲染.
- *
- * 包含所有支持任务类型的 schema.
  */
 export const getTaskSchema = <ThrowOnError extends boolean = false>(options?: Options<GetTaskSchemaData, ThrowOnError>): RequestResult<GetTaskSchemaResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTaskSchemaResponses, unknown, ThrowOnError>({ url: '/api/tasks/schema', ...options });
 
 /**
  * Get Task Worker
- *
- * 任务执行器是否暂停领队.
  */
 export const getTaskWorker = <ThrowOnError extends boolean = false>(options?: Options<GetTaskWorkerData, ThrowOnError>): RequestResult<GetTaskWorkerResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTaskWorkerResponses, unknown, ThrowOnError>({ url: '/api/tasks/worker', ...options });
 
@@ -641,7 +571,7 @@ export const resumeTaskWorker = <ThrowOnError extends boolean = false>(options?:
 /**
  * Batch Tasks
  *
- * 按 ID 或与列表同形的 status/type 筛选, 批量 cancel / delete / retry.
+ * ``task_ids`` 与 status/type 互斥.
  */
 export const batchTasks = <ThrowOnError extends boolean = false>(options: Options<BatchTasksData, ThrowOnError>): RequestResult<BatchTasksResponses, BatchTasksErrors, ThrowOnError> => (options.client ?? client).post<BatchTasksResponses, BatchTasksErrors, ThrowOnError>({
     url: '/api/tasks/batch',
@@ -654,15 +584,13 @@ export const batchTasks = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * Get Task
- *
- * 根据 ID 获取任务
  */
 export const getTask = <ThrowOnError extends boolean = false>(options: Options<GetTaskData, ThrowOnError>): RequestResult<GetTaskResponses, GetTaskErrors, ThrowOnError> => (options.client ?? client).get<GetTaskResponses, GetTaskErrors, ThrowOnError>({ url: '/api/tasks/{task_id}', ...options });
 
 /**
  * Get Task Report
  *
- * 任务结果摘要 (面向 UI 的投影, 非完整记录导出). 仅终态可用.
+ * 面向 UI 的投影, 非完整记录导出. 仅终态可用.
  */
 export const getTaskReport = <ThrowOnError extends boolean = false>(options: Options<GetTaskReportData, ThrowOnError>): RequestResult<GetTaskReportResponses, GetTaskReportErrors, ThrowOnError> => (options.client ?? client).get<GetTaskReportResponses, GetTaskReportErrors, ThrowOnError>({ url: '/api/tasks/{task_id}/report', ...options });
 
@@ -676,21 +604,17 @@ export const getTaskRecord = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Get Path Template Schema
  *
- * 路径模板占位符与默认值 (与 resolve_paths 同源, 供前端表单渲染).
+ * 与 resolve_paths 同源.
  */
 export const getPathTemplateSchema = <ThrowOnError extends boolean = false>(options?: Options<GetPathTemplateSchemaData, ThrowOnError>): RequestResult<GetPathTemplateSchemaResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetPathTemplateSchemaResponses, unknown, ThrowOnError>({ url: '/api/libraries/path-template-schema', ...options });
 
 /**
  * List Libraries
- *
- * 列出所有已配置的媒体库
  */
 export const listLibraries = <ThrowOnError extends boolean = false>(options?: Options<ListLibrariesData, ThrowOnError>): RequestResult<ListLibrariesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListLibrariesResponses, unknown, ThrowOnError>({ url: '/api/libraries', ...options });
 
 /**
  * Create Library
- *
- * 添加新的媒体库, 可选触发初始扫描并热添加到监控器
  */
 export const createLibrary = <ThrowOnError extends boolean = false>(options: Options<CreateLibraryData, ThrowOnError>): RequestResult<CreateLibraryResponses, CreateLibraryErrors, ThrowOnError> => (options.client ?? client).post<CreateLibraryResponses, CreateLibraryErrors, ThrowOnError>({
     url: '/api/libraries',
@@ -704,10 +628,7 @@ export const createLibrary = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Delete Library
  *
- * 删除媒体库.
- *
- * 级联删除该库下所有 MediaFile 记录 (library_id 非空 FK), 并停止监控该目录.
- * 仅删除数据库索引, 不动磁盘文件.
+ * 级联删除该库 MediaFile (library_id 非空 FK). 仅删除数据库索引, 不动磁盘文件.
  */
 export const deleteLibrary = <ThrowOnError extends boolean = false>(options: Options<DeleteLibraryData, ThrowOnError>): RequestResult<DeleteLibraryResponses, DeleteLibraryErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLibraryResponses, DeleteLibraryErrors, ThrowOnError>({ url: '/api/libraries/{library_id}', ...options });
 
@@ -718,8 +639,6 @@ export const getLibrary = <ThrowOnError extends boolean = false>(options: Option
 
 /**
  * Update Library
- *
- * 更新媒体库配置
  */
 export const updateLibrary = <ThrowOnError extends boolean = false>(options: Options<UpdateLibraryData, ThrowOnError>): RequestResult<UpdateLibraryResponses, UpdateLibraryErrors, ThrowOnError> => (options.client ?? client).patch<UpdateLibraryResponses, UpdateLibraryErrors, ThrowOnError>({
     url: '/api/libraries/{library_id}',
@@ -781,7 +700,7 @@ export const streamAgentMessage = <ThrowOnError extends boolean = false>(options
 /**
  * Stream Agent Events
  *
- * 续订会话事件流 (刷新/切页后用). after= 上次收到的 seq.
+ * 续订会话事件流 (刷新或切换页面后用). after= 上次收到的 seq.
  */
 export const streamAgentEvents = <ThrowOnError extends boolean = false>(options: Options<StreamAgentEventsData, ThrowOnError>): RequestResult<StreamAgentEventsResponses, StreamAgentEventsErrors, ThrowOnError> => (options.client ?? client).get<StreamAgentEventsResponses, StreamAgentEventsErrors, ThrowOnError>({ url: '/api/agent/sessions/{session_id}/events/stream', ...options });
 

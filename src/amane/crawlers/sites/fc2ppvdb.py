@@ -14,7 +14,6 @@ class FC2PPVDBCrawler(Crawler):
         return CrawlerProfile(name=SiteName.FC2PPVDB, base_url="https://fc2ppvdb.com")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """直接构造详情页 URL."""
         number = query.number
         # Extract numeric part
         num = re.sub(r"(?i)fc2[-_]?(?:ppv[-_]?)?", "", number).strip()
@@ -25,7 +24,6 @@ class FC2PPVDBCrawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 FC2PPVDB 详情页."""
         text = await self.client.get_html(url)
         if not text:
             return None

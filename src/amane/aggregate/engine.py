@@ -1,18 +1,6 @@
-"""多源字段级聚合引擎 - 建图 / 波次执行 / 增量合并.
+"""字段级多源聚合: 静态抓取图 + 按波次执行 + 沿 fallback 增量合并.
 
-建图 (build_graph):
-  1. compute_waves 生成波次结构 (含语言合并优化).
-  2. 实例化 FetchNode, 按字段优先级链挂载 covers 与 fallback 边.
-  3. 输出 FetchGraph - 一张完整的静态依赖图.
-
-执行 (execute_graph):
-  1. 按波次遍历, 每波仅调度仍有待处理字段的节点; 不在 crawlers 映射中的站点跳过.
-  2. 并行抓取, 失败/空值沿 fallback 边传播, 成功沿 fallback 边剪枝.
-  3. 后处理扫描: 同波 fallback 已执行 → 立即消费; 收集字段 (URL/score/extrafanart) 累积所有已执行节点.
-  4. 每波注入 partial_result 到爬虫查询, 供高级爬虫使用.
-
-编排 (aggregate):
-  build_graph → execute_graph → AggregateResult.
+不在 crawlers 映射中的站点标成已处理空结果, 不写入 failed / sites_queried, 也不调用 invoke_source.
 """
 
 import asyncio
@@ -34,7 +22,6 @@ from .models import AggregatedMetadata, AggregateResult, SourcedScore
 
 type ProgressCallback = Callable[[int, int, str], Coroutine[Any, Any, None]]
 
-# 标量字段 - 最终按优先级选单值.
 SCALAR_FIELDS: list[MetadataField] = [
     MetadataField.TITLE,
     MetadataField.ACTORS,
@@ -48,10 +35,9 @@ SCALAR_FIELDS: list[MetadataField] = [
     MetadataField.PLOT,
 ]
 
-# 必填标量字段 - 空值触发 fallback
+# 空值触发 fallback.
 REQUIRED_SCALAR_FIELDS: frozenset[MetadataField] = frozenset({MetadataField.TITLE})
 
-# MediaMetadata -> Metadata DB 字段名映射 (raw 中的字段名与 DB 列名不一致的)
 RAW_TO_DB_FIELD: dict[str, str] = {
     "extrafanart": "extrafanart_urls",
     "score": "scores",
@@ -59,17 +45,14 @@ RAW_TO_DB_FIELD: dict[str, str] = {
     "source_url": "source_urls",
 }
 
-# SCALAR_FIELDS 的字符串集合 (快速查找)
 SCALAR_FIELD_NAMES: frozenset[str] = frozenset(SCALAR_FIELDS)
 
-# URL 字段 - 收集所有已 fetch 站点的值. (字段 -> AggregatedMetadata dst 属性名)
 URL_FIELD_MAP: dict[MetadataField, str] = {
     MetadataField.POSTER_URLS: "poster_urls",
     MetadataField.THUMB_URLS: "thumb_urls",
     MetadataField.TRAILER_URLS: "trailer_urls",
 }
 
-# 所有参与"优先级驱动请求"的字段
 ALL_FIELDS: list[MetadataField] = [
     *SCALAR_FIELDS,
     *URL_FIELD_MAP,
@@ -89,8 +72,7 @@ def compile_priority(
 ) -> defaultdict[MetadataField, list[str]]:
     """content_routes[type] 是资格真值: 链上只会出现 route 内的站.
 
-    prefer 与 route 求交后前置, 其余 route 站点保序接上.
-    未覆盖字段直接使用 route.
+    prefer 与 route 求交后前置, 其余 route 站点保序接上. 未覆盖字段直接使用 route.
     """
     route_list = [str(site) for site in route]
     route_set = set(route_list)
@@ -113,8 +95,6 @@ def compile_priority(
 
 
 class CrawlerLike(Protocol):
-    """爬虫的结构化类型 - 满足 fetch() 接口即可."""
-
     async def fetch(self, query: SearchQuery, options: FetchOptions | None = None) -> MediaMetadata | None: ...
 
 
@@ -127,7 +107,6 @@ async def aggregate(
     on_progress: ProgressCallback | None = None,
     multi_lang_sites: frozenset[SourceName] = MULTI_LANGUAGE_SOURCE_IDS,
 ) -> AggregateResult:
-    """对指定番号执行字段级多源聚合 (DAG 图执行 + 增量合并)."""
     fl = field_language or {}
     snapshots = cache or {}
 
@@ -161,14 +140,11 @@ async def aggregate(
 
 
 def _scalar_progress(unsatisfied: set[MetadataField]) -> int:
-    """已满足的标量字段数 (进度分子)."""
     return sum(1 for f in SCALAR_FIELDS if f not in unsatisfied)
 
 
 @dataclass
 class ExecutionState:
-    """执行过程中的可变状态."""
-
     number: str
 
     fetched: dict[SourceKey, MediaMetadata | None] = _f(default_factory=dict)
@@ -176,7 +152,6 @@ class ExecutionState:
     sites_queried: list[SourceKey] = _f(default_factory=list)
     result: AggregatedMetadata = _f(default_factory=lambda: AggregatedMetadata(number=""))
 
-    # 去重: 已从哪些 (ck, field) 收集过值 (URL/score/extrafanart)
     collected: set[tuple[SourceKey, MetadataField]] = _f(default_factory=set)
 
     def __post_init__(self):
@@ -191,27 +166,22 @@ async def execute_graph(
     db_cache: Mapping[SourceKey, dict] | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> ExecutionState:
-    """执行静态抓取图: 按波次调度, 沿 fallback 边增量合并.
-
-    on_progress: 每波结束后回调 (已满足标量字段数, 标量字段总数, message).
-    URL/收集类字段只累积不计入进度.
-    """
+    """按波次调度, 沿 fallback 边增量合并. URL / 收集类字段只累积, 不计入进度."""
     snapshots = db_cache or {}
     state = ExecutionState(number=query.number)
     field_total = len(SCALAR_FIELDS)
 
-    # unsatisfied 驱动请求: 标量字段满足后移除, URL/收集字段始终保留
+    # 标量满足后移除; URL / 收集字段始终保留.
     unsatisfied: set[MetadataField] = set(ALL_FIELDS)
 
-    # crawlers 映射是可用集合. 禁用插件 / 未安装来源 / 构造失败不在其中:
-    # 标成已处理空结果, 让字段链与 _collect_after_wave 沿 fallback 继续,
-    # 且不进 failed / sites_queried, 也不走 invoke_source (否则 KeyError → unexpected).
+    # 禁用插件 / 未安装来源 / 构造失败不在 crawlers 中: 标成已处理空结果,
+    # 不写入 failed / sites_queried, 也不调用 invoke_source (否则 KeyError → unexpected).
     for node in graph.nodes:
         if node.site not in crawlers:
             state.fetched[node.cache_key] = None
 
     for wave_idx, wave in enumerate(graph.waves):
-        # 1. 确定活跃节点
+        # 本波仍有待处理字段的节点.
         active: set[SourceKey] = set()
         for field in list(unsatisfied):
             for node in graph.field_chains[field]:
@@ -230,19 +200,20 @@ async def execute_graph(
                     unsatisfied.discard(field)
                     break
                 if field not in REQUIRED_SCALAR_FIELDS:
-                    # 可选字段: 爬虫成功但值为空 → 接受空值, 不再 fallback
+                    # 可选字段: 爬虫成功但值为空 → 接受空值, 不再 fallback.
                     _fill_scalar(state.result, field, data, ck)
                     unsatisfied.discard(field)
                     break
+                # 必填字段空值不接受, 继续沿链回退.
 
         active_nodes = [n for n in wave if n.cache_key in active]
         if not active_nodes:
             continue
 
-        # 2. 注入中间结果
+        # 注入已合并的中间结果, 供后续波次爬虫使用.
         partial = copy.copy(state.result) if wave_idx > 0 else None
 
-        # 3. 并行抓取
+        # 并行抓取.
         results = await asyncio.gather(
             *(_fetch_one(n, query, crawlers, snapshots, partial, state.fetched) for n in active_nodes)
         )
@@ -254,7 +225,7 @@ async def execute_graph(
             if data is None:
                 state.failed.append(ck)
 
-        # 4. 后处理扫描
+        # 沿 fallback 立即消费本波结果.
         _collect_after_wave(graph, state, unsatisfied)
 
         if on_progress is not None:
@@ -271,7 +242,6 @@ def _resolve_lang(
     multi_lang_fields: frozenset[MetadataField] = LANG_METADATA_FIELD_SET,
     multi_lang_sites: frozenset[SourceName] = MULTI_LANGUAGE_SOURCE_IDS,
 ) -> Language | None:
-    """仅在字段和站点均支持多语言时返回语言, 否则返回 None."""
     lang = field_language.get(field)
     return lang if field in multi_lang_fields and site in multi_lang_sites else None
 
@@ -286,11 +256,7 @@ def compute_waves(
     multi_lang_fields: frozenset[MetadataField] = LANG_METADATA_FIELD_SET,
     multi_lang_sites: frozenset[str] = MULTI_LANGUAGE_SOURCE_IDS,
 ) -> list[Wave]:
-    """将字段级站点优先级展开为波次列表 (每波可并行).
-
-    语言合并优化: 若某字段需要 (site, lang) 而另一字段仅需 (site, None),
-    则将前者覆盖后者 - 一次带语言请求同时满足两者.
-    """
+    """若某字段需要 (site, lang) 而另一字段仅需 (site, None), 前者覆盖后者: 一次带语言请求同时满足两者."""
     pri = {f: [str(site) for site in field_priority[f]] for f in ALL_FIELDS}
     waves: list[Wave] = []
     site_langs: dict[str, set[Language]] = {}
@@ -332,16 +298,15 @@ def compute_waves(
 
 @dataclass
 class FetchNode:
-    """DAG 中的一个抓取操作.
+    """site + lang 唯一确定一次抓取.
 
-    site + lang 唯一确定一次抓取 (cache_key).
-    covers: 本节点"原生"负责的字段 (在该字段优先级链中, 本节点是首个未被前驱覆盖的).
-    fallback: 字段 → 兜底节点. 本节点无法提供该字段值时, 由哪个节点接替.
+    covers: 优先级链中本节点是首个未被前驱覆盖的字段.
+    fallback: 本节点无法提供该字段值时接替的节点.
     """
 
     site: str
     lang: Language | None
-    wave: int  # 所属波次 (拓扑层)
+    wave: int
 
     covers: list[MetadataField] = _f(default_factory=list)
     fallback: dict[MetadataField, FetchNode | None] = _f(default_factory=dict)
@@ -353,11 +318,9 @@ class FetchNode:
 
 @dataclass
 class FetchGraph:
-    """完整的静态抓取计算图."""
-
     nodes: list[FetchNode]
-    waves: list[list[FetchNode]]  # 拓扑分层 (层内可并行)
-    field_chains: dict[MetadataField, list[FetchNode]]  # 每字段的完整优先级链
+    waves: list[list[FetchNode]]
+    field_chains: dict[MetadataField, list[FetchNode]]
 
     def __str__(self) -> str:
         lines = []
@@ -376,16 +339,9 @@ def build_graph(
     multi_lang_fields: frozenset[MetadataField] = LANG_METADATA_FIELD_SET,
     multi_lang_sites: frozenset[SourceName] = MULTI_LANGUAGE_SOURCE_IDS,
 ) -> FetchGraph:
-    """从优先级配置生成完整静态抓取图.
-
-    Phase 1: compute_waves 生成波次.
-    Phase 2: 实例化节点, 注册到 registry.
-    Phase 3: 为每个字段沿优先级链构建节点链, 匹配到 registry 中的最佳节点.
-    Phase 4: 回填 covers 与 fallback 边.
-    """
     waves = compute_waves(field_priority, field_language, multi_lang_fields, multi_lang_sites)
 
-    # Phase 2: 实例化节点
+    # 实例化节点并注册.
     registry: dict[SourceKey, FetchNode] = {}
     wave_nodes: list[list[FetchNode]] = []
     for wi, wave in enumerate(waves):
@@ -397,7 +353,7 @@ def build_graph(
                 wns.append(node)
         wave_nodes.append(wns)
 
-    # Phase 3: 为每个字段构建优先级链 (沿 field_priority 顺序, 匹配到 registry 节点)
+    # 按字段沿优先级链匹配节点.
     field_chains: dict[MetadataField, list[FetchNode]] = {}
     for field in ALL_FIELDS:
         chain: list[FetchNode] = []
@@ -410,7 +366,7 @@ def build_graph(
                 seen.add(node.cache_key)
         field_chains[field] = chain
 
-    # Phase 4: 回填 covers 与 fallback
+    # 回填 covers 与 fallback 边.
     for field, chain in field_chains.items():
         for i, node in enumerate(chain):
             if i == 0:
@@ -421,11 +377,7 @@ def build_graph(
 
 
 def _find_best_node(site: str, field_lang: Language | None, registry: dict[SourceKey, FetchNode]) -> FetchNode | None:
-    """在 registry 中为 (site, field_lang) 找到最佳节点.
-
-    若 field_lang 指定: 精确匹配 site:lang.
-    若 field_lang 为 None: 优先 site (无语言), 回退到 site:* (任意语言节点).
-    """
+    # field_lang 为 None 时优先无语言节点, 再回退到任意语言节点.
     if field_lang:
         return registry.get(_cache_key(site, field_lang))
     if site in registry:
@@ -438,7 +390,6 @@ def _find_best_node(site: str, field_lang: Language | None, registry: dict[Sourc
 
 
 def _dedupe_names(names: list[str]) -> list[str]:
-    """名称列表保序去重."""
     seen: set[str] = set()
     out: list[str] = []
     for n in names:
@@ -450,7 +401,7 @@ def _dedupe_names(names: list[str]) -> list[str]:
 
 
 def _sanitize_aggregated_lists(meta: AggregatedMetadata) -> None:
-    """聚合完成后归一 list 标量: 同名重复视为噪声 (源站布局镜像 / 爬虫瑕疵), 不入库存."""
+    # 同名重复视为噪声 (源站布局镜像 / 爬虫瑕疵), 不入库存.
     meta.actors = _dedupe_names(meta.actors)
     meta.tags = _dedupe_names(meta.tags)
     meta.directors = _dedupe_names(meta.directors)
@@ -462,7 +413,6 @@ def _fill_scalar(
     data: MediaMetadata,
     source_key: SourceKey,
 ) -> None:
-    """将 data 的 field 值填入 result (仅当尚未设置)."""
     if field in result.field_sources:
         return
     setattr(result, field, getattr(data, field))
@@ -470,7 +420,6 @@ def _fill_scalar(
 
 
 def _collect_after_wave(graph: FetchGraph, state: ExecutionState, unsatisfied: set[MetadataField]) -> None:
-    """每波结束后扫描: 同波 fallback 立即消费 + 收集字段累积."""
     for field, chain in graph.field_chains.items():
         if field in URL_FIELD_MAP:
             for node in chain:
@@ -508,6 +457,7 @@ def _collect_after_wave(graph: FetchGraph, state: ExecutionState, unsatisfied: s
                     state.collected.add((ck, field))
 
         elif field in SCALAR_FIELDS:
+            # 同波 fallback 立即消费.
             if field not in unsatisfied:
                 continue
             for node in chain:
@@ -523,13 +473,12 @@ def _collect_after_wave(graph: FetchGraph, state: ExecutionState, unsatisfied: s
                     unsatisfied.discard(field)
                     break
                 if field not in REQUIRED_SCALAR_FIELDS:
-                    # 可选字段: 爬虫成功但值为空 → 接受空值
+                    # 可选字段: 爬虫成功但值为空 → 接受空值.
                     _fill_scalar(state.result, field, data, ck)
                     unsatisfied.discard(field)
                     break
-                # REQUIRED field with empty value: don't break, continue to next node
 
-    # 被动收集: external_id / source_url
+    # 被动收集 external_id / source_url.
     for ck, data in state.fetched.items():
         if data is None:
             continue
@@ -547,7 +496,6 @@ async def _fetch_one(
     partial_result: AggregatedMetadata | None,
     raw_results: dict[SourceKey, MediaMetadata | None],
 ) -> tuple[FetchNode, MediaMetadata | None]:
-    """抓取单个 (site, lang) 组合, 优先复用 db_cache 快照."""
     site, lang = node.site, node.lang
     bind_contextvars(site=site, lang=lang, number=query.number)
 
@@ -556,7 +504,7 @@ async def _fetch_one(
     q.raw_results = dict(raw_results)
     options = FetchOptions(lang) if lang else None
 
-    # 检查 db_cache 快照
+    # 优先复用 db_cache 快照.
     cached = None
     if lang:
         cached = db_cache.get(_cache_key(site, lang))

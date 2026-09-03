@@ -14,7 +14,6 @@ class FC2ClubCrawler(Crawler):
         return CrawlerProfile(name=SiteName.FC2CLUB, base_url="https://fc2club.top")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """直接构造详情页 URL."""
         number = query.number
         # Extract numeric part from number like FC2-123456 or just 123456
         num = re.sub(r"(?i)fc2[-_]?(?:ppv[-_]?)?", "", number).strip()
@@ -25,7 +24,6 @@ class FC2ClubCrawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 FC2Club 详情页."""
         text = await self.client.get_html(url)
         if not text:
             return None

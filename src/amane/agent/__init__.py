@@ -1,5 +1,3 @@
-"""助理 Agent 包 - 会话式查询 / Saved Query / 写面 Capability."""
-
 from .cache import CachedResult, ResultCache
 from .events import (
     AgentStreamEvent,

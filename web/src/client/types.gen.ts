@@ -124,8 +124,6 @@ export type ActorResponse = {
 
 /**
  * ActorScrapeRequest
- *
- * POST /actors/{id}/scrape 请求体 - 与影片刮削同型 use_cache.
  */
 export type ActorScrapeRequest = {
     /**
@@ -161,7 +159,7 @@ export type ActorScrapeSubmission = {
 /**
  * ActorScrapingConfig
  *
- * 演员元数据刮削 - 档案站顺序填空, 头像站优先.
+ * 档案站顺序填空, 头像站优先.
  */
 export type ActorScrapingConfig = {
     /**
@@ -194,8 +192,6 @@ export type ActorScrapingConfig = {
 
 /**
  * ActorSortField
- *
- * 演员浏览列表排序字段.
  */
 export type ActorSortField = 'name' | 'count' | 'updated_at' | 'has_image' | 'birthday' | 'height' | 'bust' | 'waist' | 'hip' | 'cup';
 
@@ -266,8 +262,6 @@ export type ActorUpdateRequest = {
 
 /**
  * AgentApiType
- *
- * 助理 Agent 上游 LLM API 协议.
  */
 export type AgentApiType = 'chat' | 'response' | 'anthropic';
 
@@ -299,8 +293,6 @@ export type AgentCancelResponse = {
 
 /**
  * AgentConfig
- *
- * 助理 Agent 配置 (产品面称 Amane).
  *
  * 与 llm 翻译 section 分离: 凭据/模型/限速各自独立.
  */
@@ -417,7 +409,7 @@ export type AgentSessionStatus = 'active' | 'awaiting_approval' | 'closed';
 /**
  * AgentSessionUpdateRequest
  *
- * title / thinking 均可选; thinking=null 表示清除覆盖, 继承全局默认.
+ * title / thinking 均可选; thinking=null 表示取消覆盖, 继承全局默认.
  */
 export type AgentSessionUpdateRequest = {
     /**
@@ -430,7 +422,7 @@ export type AgentSessionUpdateRequest = {
 /**
  * AgentThinkingMode
  *
- * 思考/推理强度. 会话可覆盖; 全局为新建回落默认.
+ * 会话可覆盖; 全局为新建会话的回退默认.
  */
 export type AgentThinkingMode = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
@@ -592,8 +584,6 @@ export type CropPosterRequest = {
 
 /**
  * DesktopResponse
- *
- * 菜单栏 / 托盘 UI 的 IPC 契约: 桌面进程需要的最小静态信息.
  */
 export type DesktopResponse = {
     /**
@@ -613,7 +603,7 @@ export type DesktopResponse = {
 /**
  * DownloadableResource
  *
- * 影片附属资源类型: 刮削进 Resource, 整理时按库配置复制到库路径.
+ * 影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.
  */
 export type DownloadableResource = 'thumb' | 'poster' | 'extrafanart' | 'trailer';
 
@@ -631,8 +621,6 @@ export type FacetCreateRequest = {
 
 /**
  * FacetKind
- *
- * 分类索引种类 - 爬取侧目录 + 用户 tag.
  */
 export type FacetKind = 'actor' | 'director' | 'tag' | 'studio' | 'publisher' | 'series' | 'user_tag';
 
@@ -652,8 +640,6 @@ export type FacetListResponse = {
 
 /**
  * FacetMergeRequest
- *
- * 将 source_ids 合并入 target_id: 关联迁移到 target, source 实体被删除.
  */
 export type FacetMergeRequest = {
     /**
@@ -750,7 +736,7 @@ export type FacetSortField = 'name' | 'count';
 /**
  * FailureReason
  *
- * 来源抓取失败的结构化原因 (summary.json / task report 的 reason 字段).
+ * summary.json / task report 的 reason 字段.
  */
 export type FailureReason = 'http_error' | 'not_found' | 'rate_limited' | 'server_error' | 'timeout' | 'network' | 'cloudflare_challenge' | 'cloudflare_blocked' | 'ip_banned' | 'geo_restricted' | 'age_verification' | 'empty_response' | 'no_usable_metadata' | 'crawler_unavailable' | 'unexpected';
 
@@ -901,8 +887,6 @@ export type FeedItemResponse = {
 
 /**
  * FeedItemState
- *
- * Feed 历史列表状态过滤.
  */
 export type FeedItemState = 'active' | 'ignored' | 'all';
 
@@ -1020,8 +1004,6 @@ export type FeedUpdateRequest = {
 
 /**
  * FileItem
- *
- * 文件或目录条目
  */
 export type FileItem = {
     /**
@@ -1058,8 +1040,6 @@ export type FileItem = {
 
 /**
  * FileListResponse
- *
- * 目录列表响应
  */
 export type FileListResponse = {
     /**
@@ -1133,10 +1113,7 @@ export type HealthResponse = {
 /**
  * HotSettings
  *
- * 运行时可更新的配置, 持久化到 TOML.
- *
- * 嵌套结构直接对应 TOML section, 无需映射转换.
- * 禁止额外字段以便尽早捕获拼写错误.
+ * 运行时可更新, 持久化到 TOML. extra=forbid, 未知字段须校验失败.
  */
 export type HotSettings = {
     scraping?: ScrapingConfig;
@@ -1161,10 +1138,7 @@ export type HotSettings = {
 /**
  * LLMConfig
  *
- * LLM 翻译配置.
- *
- * 凭据放 Hot 而非 Cold: 与其他刮削参数同源, 可在 UI 修改并热生效.
- * 后端经端口抽象 (amane/llm), 当前为 OpenAI 兼容后端.
+ * 凭据放 Hot, 可在 UI 修改并热生效. 与 agent section 隔离.
  */
 export type LlmConfig = {
     /**
@@ -1199,8 +1173,6 @@ export type LlmConfig = {
 
 /**
  * Language
- *
- * 支持的语言代码.
  */
 export type Language = 'zh_cn' | 'zh_tw' | 'jp' | 'en';
 
@@ -1519,8 +1491,6 @@ export type LoggingConfig = {
 
 /**
  * Manufacturer
- *
- * 制作商枚举 - 拥有独立官网的 Outvision/Will 集团旗下品牌.
  */
 export type Manufacturer = 'attackers' | 'befree' | 'bi' | 'bibian' | 'das' | 'ebody' | 'fitch' | 'hajime_kikaku' | 'honnaka' | 'hunter' | 'idea_pocket' | 'kawaii' | 'kirakira' | 'madonna' | 'miman' | 'mko_labo' | 'moodyz' | 'muku' | 'mvg' | 'nanpa_japan' | 'oppai' | 'opera' | 'premium_beauty' | 'rookie' | 's1' | 'tameikegoro' | 'tosatsu' | 'v' | 'wanz_factory';
 
@@ -1626,8 +1596,6 @@ export type MediaSortField = 'number' | 'path' | 'status' | 'size' | 'created_at
 
 /**
  * MergeRequest
- *
- * 合并请求: 按字段指定选用哪个来源的 raw 数据.
  */
 export type MergeRequest = {
     /**
@@ -1660,8 +1628,6 @@ export type MetadataBatchDeleteResponse = {
 
 /**
  * MetadataBatchIdsRequest
- *
- * 按 id 列表批量操作的通用请求体.
  */
 export type MetadataBatchIdsRequest = {
     /**
@@ -1807,8 +1773,6 @@ export type MetadataDetailResponse = {
 
 /**
  * MetadataField
- *
- * 所有可配置优先级的元数据字段.
  */
 export type MetadataField = 'title' | 'plot' | 'actors' | 'directors' | 'tags' | 'series' | 'release' | 'runtime' | 'publisher' | 'studio' | 'poster_urls' | 'thumb_urls' | 'trailer_urls' | 'extrafanart' | 'score';
 
@@ -2056,14 +2020,12 @@ export type Mosaic = 'uncensored' | 'cracked' | 'leaked';
 /**
  * MoveMode
  *
- * 整理时把源文件放到模板路径的方式.
+ * 整理时将源文件写入模板路径的方式.
  */
 export type MoveMode = 'move' | 'copy' | 'hardlink' | 'symlink';
 
 /**
  * NetworkConfig
- *
- * 网络配置.
  */
 export type NetworkConfig = {
     /**
@@ -2211,7 +2173,7 @@ export type PathTemplatePlaceholder = {
 /**
  * PathTemplateSchemaResponse
  *
- * GET /libraries/path-template-schema: 占位符、默认值与可映射 key, 与 resolve_paths 同源.
+ * 与 resolve_paths 同源.
  */
 export type PathTemplateSchemaResponse = {
     /**
@@ -2249,8 +2211,6 @@ export type PluginConfig = {
 
 /**
  * PluginConfigUpdate
- *
- * Patch one plugin's persisted configuration.
  */
 export type PluginConfigUpdate = {
     /**
@@ -2301,8 +2261,6 @@ export type PluginLoadFailure = {
 
 /**
  * PluginResponse
- *
- * Installed source plugin and its runtime descriptor.
  */
 export type PluginResponse = {
     descriptor: SourceDescriptor;
@@ -2322,13 +2280,8 @@ export type PluginResponse = {
 /**
  * R18Config
  *
- * r18.dev 离线 PostgreSQL 镜像的连接与导入配置.
- *
- * 放 Hot (随其他刮削参数同源, 可在 UI 修改并热生效): 改 dsn 走 AppRuntime.rebuild() 链,
- * 重新创建只读引擎. 项目只持有连接信息, 由用户自备 PostgreSQL 实例; 项目负责建库 / 导入 dump /
- * 原子换名 / 创建只读用户全套. 未配置 dsn 时整个 r18 数据源静默禁用.
- *
- * 定时导入不在此配置: 用户像添加其他定时任务一样, 通过 Schedule API 手动创建 r18_import 任务.
+ * 放 Hot: 修改 dsn 经 AppRuntime.rebuild() 重建只读引擎. 未配置 dsn 时整个数据源禁用.
+ * 定时导入不在此节, 须经 Schedule API 创建 r18_import.
  */
 export type R18Config = {
     /**
@@ -2473,7 +2426,7 @@ export type RoutineType = 'cleanup' | 'upscale' | 'r18_import' | 'rescrape';
 /**
  * SavedQueryEntity
  *
- * Saved Query 交付目标 - 决定 Browse 深链与主键语义.
+ * 交付目标, 决定 Browse 深链与主键语义.
  */
 export type SavedQueryEntity = 'metadata' | 'actor' | 'data';
 
@@ -2702,8 +2655,6 @@ export type ScrapeSubmission = {
 
 /**
  * ScrapingConfig
- *
- * 刮削行为配置.
  */
 export type ScrapingConfig = {
     /**
@@ -2756,8 +2707,6 @@ export type ScrapingConfig = {
 
 /**
  * SiteConfig
- *
- * 单个站点的配置.
  */
 export type SiteConfig = {
     /**
@@ -2803,15 +2752,13 @@ export type SiteName = 'airav' | 'avsox' | 'dahlia' | 'dmm' | 'faleno' | 'fc2' |
 
 /**
  * SiteOutcomeKind
- *
- * 单站点抓取结果的类别 (summary.json / task report 共用同一结构).
  */
 export type SiteOutcomeKind = 'ok' | 'failed' | 'cache_hit';
 
 /**
  * SiteOutcomeRecord
  *
- * 单站点抓取结果 - 一手结构化事实, 由 Recorder.record_site_outcome 唯一写入.
+ * 由 Recorder.record_site_outcome 唯一写入.
  */
 export type SiteOutcomeRecord = {
     /**
@@ -2893,8 +2840,6 @@ export type SourceDescriptor = {
 
 /**
  * SrConfig
- *
- * 图像超分增强配置.
  */
 export type SrConfig = {
     /**
@@ -2991,8 +2936,6 @@ export type TaskChildListResponse = {
 
 /**
  * TaskChildResponse
- *
- * 树展开用的子任务: 比 TaskResponse 多一条出边的 key.
  */
 export type TaskChildResponse = {
     /**
@@ -3101,7 +3044,7 @@ export type TaskListResponse = {
 /**
  * TaskReport
  *
- * 任务详情摘要面板用的精简投影 (outcomes 与 summary.json 同一结构).
+ * outcomes 与 summary.json 同一结构.
  */
 export type TaskReport = {
     /**
@@ -3286,8 +3229,6 @@ export type ValidationError = {
 
 /**
  * WatcherConfig
- *
- * 文件监控配置.
  */
 export type WatcherConfig = {
     /**
@@ -3340,8 +3281,6 @@ export type WatermarkKind = 'subtitle' | 'uncensored' | 'cracked' | 'leaked' | '
 
 /**
  * WorkerConfig
- *
- * 任务引擎配置.
  */
 export type WorkerConfig = {
     /**

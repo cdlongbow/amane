@@ -86,7 +86,7 @@ def _make_app(*, inner: type[BaseHTTPMiddleware] | None = None) -> FastAPI:
 
 
 def _client(app: FastAPI) -> AsyncClient:
-    # raise_app_exceptions=False: 让 Starlette 500 兜底响应可见, 而非在客户端重抛
+    # raise_app_exceptions=False: 让 Starlette 500 响应可见, 而非在客户端重抛
     return AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test")
 
 
@@ -97,7 +97,7 @@ def _capture(handler: _CaptureHandler) -> list[dict]:
 class TestFailedRequestLogging:
     @pytest.mark.asyncio(loop_scope="function")
     async def test_unhandled_exception_logged_to_request_log(self, tmp_path: Path):
-        """端点抛未捕获异常 → 500 兜底, 且 request.log 有 error 级 `request failed` + traceback."""
+        """端点抛未捕获异常 → 返回 500, 且 request.log 有 error 级 `request failed` + traceback."""
         setup_logging(level="INFO", log_dir=tmp_path)
         handler = _CaptureHandler()
         logging.getLogger("amane.request").addHandler(handler)

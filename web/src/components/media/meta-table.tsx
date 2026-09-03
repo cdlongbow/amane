@@ -56,7 +56,7 @@ const COLUMN_I18N_KEY = {
   file_count: "fileCount",
 } as const satisfies Record<SortableColumn, string>;
 
-/** 默认列宽 (px). title 默认不设宽以吃掉剩余空间 (自适应); 拖拽后写入覆盖. */
+/** 默认列宽 (px). title 默认不设置宽以吃掉剩余空间 (自适应); 拖拽后写入覆盖. */
 const DEFAULT_COLUMN_WIDTHS = {
   number: 120,
   title: 360,

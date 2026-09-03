@@ -1,5 +1,3 @@
-"""Agent 会话与 Saved Query 持久化."""
-
 from __future__ import annotations
 
 from sqlmodel import col, select
@@ -50,10 +48,8 @@ class AgentRepoMixin(RepositoryMixinBase):
             return row
 
     async def delete_agent_session(self, session_id: int) -> bool:
-        """删除会话及未 persist 的 saved_query; 已 persist 预设保留 (session_id 置空).
-
-        无 ORM Relationship 时 UoW 可能先删父行; 须 flush 子表变更后再删会话,
-        否则 SQLite FK (PRAGMA foreign_keys=ON) 会 IntegrityError.
+        """未 persist 的 saved_query 一并删除; 已 persist 的保留并将 session_id 置空.
+        无 ORM relationship, 须先 flush 子表再删会话, 否则 FK 会 IntegrityError.
         """
         async with self._session() as session:
             row = await session.get(AgentSession, session_id)
@@ -127,7 +123,7 @@ class AgentRepoMixin(RepositoryMixinBase):
             if persisted is not None:
                 row.persisted = persisted
                 if persisted:
-                    # persist 后与会话解耦
+                    # persist 后与会话解耦, 删会话时须保留.
                     row.session_id = None
             row.updated_at = _utcnow()
             session.add(row)

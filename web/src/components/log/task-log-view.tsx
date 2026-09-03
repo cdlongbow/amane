@@ -11,8 +11,8 @@ interface TaskLogViewProps {
 }
 
 /**
- * 任务内联实时日志 - - 按 task_id 过滤全局日志 store (与 /logs 页同源的 WebSocket 缓冲), 零后端改动.
- * 局限: 仅覆盖 store 窗口内 (最近 5000 条) 的日志; 更早历史见任务记录内 task.log.
+ * 按 task_id 过滤全局日志 store (与 /logs 页同源的 WebSocket 缓冲).
+ * 仅覆盖 store 窗口内 (最近 5000 条); 更早历史见任务记录内 task.log.
  */
 export function TaskLogView({ taskId, height = 220 }: TaskLogViewProps) {
   const { t } = useTranslation("tasks");

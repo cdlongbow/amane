@@ -1,7 +1,7 @@
 import { Group, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 
-/** 海报/头像角标: 半透明黑底圆角 + 白字, 片库评分/日期与相位水印共用. */
+/** 片库评分/日期与相位水印共用. */
 export const OVERLAY_CHIP_STYLE = {
   zIndex: 1,
   borderRadius: "var(--mantine-radius-xl)",

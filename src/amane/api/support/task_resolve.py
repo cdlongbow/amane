@@ -1,7 +1,4 @@
-"""Submission → Payload 解析, 由 POST /tasks 与 Schedule 创建共用.
-
-resolve: scan/organize 由 library_id 派生具体 path/recursive/patterns; 最终落为 Payload.
-"""
+"""scan/organize 由 library_id 派生 path/recursive/patterns."""
 
 from typing import TYPE_CHECKING, assert_never
 

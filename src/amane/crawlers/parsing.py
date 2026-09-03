@@ -1,9 +1,4 @@
-"""
-独立的 HTML 解析工具函数.
-
-纯函数 - 无类继承, 无状态.
-供爬虫从 parsel Selector 中提取数据使用.
-"""
+"""从 parsel Selector 提取文本. 字符串视为 XPath, ``CSSSelector`` 视为 CSS, ``Pattern`` 视为正则."""
 
 import re
 from re import Pattern
@@ -14,8 +9,6 @@ if TYPE_CHECKING:
 
 
 class CSSSelector(str):
-    """CSS 选择器的标记类型 (区别于 XPath 字符串)."""
-
     __slots__ = ()
 
 
@@ -23,19 +16,12 @@ type SelectorType = CSSSelector | Pattern | str
 
 
 def clean_string(text: str | None) -> str:
-    """去除空白, 移除换行, 替换 &nbsp;."""
     if not text:
         return ""
     return text.strip().replace("\n", "").replace("\r", "").replace("&nbsp;", " ")
 
 
 def extract_text(html: Selector, *selectors: SelectorType) -> str:
-    """
-    使用第一个匹配的选择器提取单个文本值.
-
-    按顺序尝试每个选择器. 返回清理后的文本或空字符串.
-    字符串视为 XPath, CSSSelector 实例视为 CSS, Pattern 视为正则表达式.
-    """
     for s in selectors:
         try:
             if isinstance(s, re.Pattern):
@@ -53,12 +39,6 @@ def extract_text(html: Selector, *selectors: SelectorType) -> str:
 
 
 def extract_all_texts(html: Selector, *selectors: SelectorType) -> list[str]:
-    """
-    使用第一个匹配的选择器提取所有文本值.
-
-    按顺序尝试每个选择器直到某个产生结果.
-    返回清理后的字符串列表 (过滤掉空项).
-    """
     for s in selectors:
         try:
             if isinstance(s, re.Pattern):

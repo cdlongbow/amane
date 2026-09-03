@@ -29,10 +29,7 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 async def _task_titles(repo: RepoDep, tasks: Sequence[Task]) -> dict[int, str | None]:
-    """从 payload 派生展示标题: scrape→番号, actor_scrape→演员名, refresh/organize→库名.
-
-    批量一次查库 (actor/library 名), 避免列表页 N+1.
-    """
+    """scrape→番号, actor_scrape→演员名, refresh/organize→库名. 批量查库, 避免列表 N+1."""
     actor_ids = {
         int(p["actor_id"])
         for t in tasks
@@ -75,7 +72,7 @@ def _child_status(counts: dict[TaskStatus, int] | None) -> TaskChildStatusCounts
 
 
 async def _decorate_tasks(repo: RepoDep, tasks: Sequence[Task]) -> list[TaskResponse]:
-    """Task → TaskResponse: 展示标题 + 直接后继计数. 一次批量, 避免列表 N+1."""
+    """展示标题 + 直接后继计数. 一次批量, 避免列表 N+1."""
     titles = await _task_titles(repo, tasks)
     status_map = await repo.child_status_counts([t.id for t in tasks if t.id is not None])
     items: list[TaskResponse] = []
@@ -94,7 +91,6 @@ async def _decorate_tasks(repo: RepoDep, tasks: Sequence[Task]) -> list[TaskResp
 
 
 async def _to_resp(repo: RepoDep, task: Task) -> TaskResponse:
-    """Task → TaskResponse (含展示标题与后继计数)."""
     return (await _decorate_tasks(repo, [task]))[0]
 
 
@@ -111,7 +107,7 @@ async def list_tasks(
     sort_by: Annotated[TaskSortField, Query(description="Sort field")] = TaskSortField.CREATED_AT,
     order: Annotated[SortOrder, Query(description="Sort order")] = SortOrder.DESC,
 ) -> TaskListResponse:
-    """列出任务. 默认只返回链根任务 (顶层), 子任务挂在父任务下由 /children 按需加载;
+    """默认只返回链根 (roots_only). 子任务由 /children 按需加载;
     显式 root_task_id 时返回该链全部任务."""
     items = (
         await repo.list_tasks_by_root(root_task_id)
@@ -135,10 +131,7 @@ async def get_task_children(
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> TaskChildListResponse:
-    """任务的直接后继子任务 (TaskLink 出边), 供树视图展开. total 为出边总数, 不受本页截断.
-
-    每条带 link_key (父内后继语义键).
-    """
+    """直接后继 (TaskLink 出边). total 为出边总数, 不受本页截断."""
     if await repo.get_task(task_id) is None:
         raise HTTPException(status_code=404, detail="Task not found")
     pairs = await repo.list_children(task_id, limit=limit, offset=offset)
@@ -156,7 +149,6 @@ async def get_task_children(
 
 @router.post("", status_code=202)
 async def submit_task(req: Annotated[TaskSubmission, Body(...)], repo: RepoDep) -> TaskResponse:
-    """统一任务提交入口"""
     task_type, payload = await resolve_submission(req, repo)
     task = await repo.create_task(task_type=task_type, payload=payload)
     # mode="json": 该日志经 WS 广播时会被 json 序列化, payload 中的 set/enum 等需转为原生类型.
@@ -166,17 +158,11 @@ async def submit_task(req: Annotated[TaskSubmission, Body(...)], repo: RepoDep) 
 
 @router.get("/schema")
 async def get_task_schema() -> dict:
-    """
-    返回任务提交表单的 JSON Schema, 适用于动态表单渲染.
-
-    包含所有支持任务类型的 schema.
-    """
     return TypeAdapter(TaskSubmission).json_schema()
 
 
 @router.get("/worker")
 async def get_task_worker(runtime: RuntimeDep) -> TaskWorkerResponse:
-    """任务执行器是否暂停领队."""
     return TaskWorkerResponse(paused=runtime.worker.is_paused)
 
 
@@ -199,7 +185,7 @@ async def batch_tasks(
     runtime: RuntimeDep,
     config: ConfigDep,
 ) -> TaskBatchResponse:
-    """按 ID 或与列表同形的 status/type 筛选, 批量 cancel / delete / retry."""
+    """``task_ids`` 与 status/type 互斥."""
     result = await execute_task_batch(
         action=req.action,
         repo=repo,
@@ -222,7 +208,6 @@ async def batch_tasks(
 
 @router.get("/{task_id}")
 async def get_task(task_id: int, repo: RepoDep) -> TaskResponse:
-    """根据 ID 获取任务"""
     task = await repo.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -231,7 +216,7 @@ async def get_task(task_id: int, repo: RepoDep) -> TaskResponse:
 
 @router.get("/{task_id}/report")
 async def get_task_report(task_id: int, repo: RepoDep, config: ConfigDep) -> TaskReport:
-    """任务结果摘要 (面向 UI 的投影, 非完整记录导出). 仅终态可用."""
+    """面向 UI 的投影, 非完整记录导出. 仅终态可用."""
     task = await repo.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")

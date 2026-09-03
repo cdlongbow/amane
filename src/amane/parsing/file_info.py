@@ -1,10 +1,10 @@
 """从路径或自由文本解析番号、内容类型, 以及文件相位标记.
 
-核心是 ``parse_file_info``: 有路径就走路径 (目录段可补番号、关键词可改类型);
-只有字符串就当自由文本 (RSS 标题、已有番号), 未命中则 ``number is None``, 不把原文冒充番号.
-两者都返回 ``FileInfo``. 常用字段投影 (``extract_number`` / ``infer_content_type`` 等) 是同一函数的包装.
+``parse_file_info``: 有路径则解析路径 (目录段可补番号、关键词可覆盖类型);
+只有字符串则按自由文本 (RSS 标题、已有番号), 未命中则 ``number is None``, 不能把原文冒充番号.
+常用字段投影是同一函数的包装.
 
-文件相位 (cd / 字幕 / 马赛克 / 清晰度) 与类型正交, 只看文件名; 马赛克还可从目录整段补.
+文件相位 (cd / 字幕 / 马赛克 / 清晰度) 与类型正交, 只依据文件名; 马赛克还可从目录整段补.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ class FilePhase(TypedDict):
 
 @dataclass(frozen=True)
 class FilePhaseSummary:
-    """多文件相位聚合: 任一文件具备某性质即亮; definition 取最高档."""
+    """多文件相位聚合: 任一文件具备某性质即为真; definition 取最高档."""
 
     has_subtitle: bool = False
     uncensored: bool = False
@@ -216,17 +216,18 @@ DEFINITION_VALUES: tuple[str, ...] = tuple(dict.fromkeys(value for value, _ in _
 def parse_file_info(
     path: str | Path | None = None, *, text: str | None = None, escape_strings: list[str] | None = None
 ) -> FileInfo:
-    """有路径解析路径, 否则解析 ``text``. 至少要有一个.
+    """有路径则解析路径, 否则解析 ``text``. 两者至少要有一个.
 
-    路径: 文件名优先, 未命中可回退父目录; 仍未命中用清理后的文件名 (不丢).
-    目录关键词 (欧美 / 里番 / getchu) 可盖掉类型. 分集还可认直接父目录 CD/PART.
-    文本: 只跑番号规则, 未命中 ``number is None`` (不把原文当番号). 文件相位只看该字符串
-    (``Path(text).stem``, 与字幕分集检测一致), 不看目录.
+    路径: 文件名优先, 未命中可回退父目录; 仍未命中用清理后的文件名 (不丢弃).
+    目录关键词 (欧美 / 里番 / getchu) 可覆盖类型. 分集还可认直接父目录 CD/PART.
+    文本: 只执行番号规则, 未命中 ``number is None`` (不能把原文当番号). 文件相位只依据该字符串
+    (``Path(text).stem``, 与字幕分集检测一致), 不依据目录.
     """
     if path is None and text is None:
         raise ValueError("path or text required")
     escape = escape_strings or []
     if path is not None:
+        # 路径: 文件名优先识别; 目录可覆盖类型, 分集可回退父目录.
         p = Path(path)
         stem = p.stem
         dirs = _dir_names(p)
@@ -238,6 +239,7 @@ def parse_file_info(
             cd = _detect_cd_from_parent(dirs[-1])
         mosaic = _detect_mosaic(basename) or _detect_mosaic_from_dirs(dirs)
     else:
+        # 文本: 只执行番号规则; 未命中则 number 为 None, 相位只依据该字符串.
         assert text is not None
         dirs = ()
         number, content_type = _identify(text, dirs, escape, fallback=False)
@@ -256,7 +258,7 @@ def parse_file_info(
 
 
 def extract_number(text: str, escape_strings: list[str] | None = None) -> str | None:
-    """从自由文本提取番号. 未命中返回 None, 不把原文冒充番号."""
+    """未命中返回 None, 不能把原文冒充番号."""
     return parse_file_info(text=text, escape_strings=escape_strings).number
 
 
@@ -266,12 +268,11 @@ def infer_content_type(number: str, file_path: str | None = None) -> ContentType
 
 
 def detect_cd(filename: str | Path) -> int | None:
-    """从文件名 (不含目录) 检测分集. 字幕配对只走这一层."""
+    """只解析文件名上的分集, 不依据目录. 字幕配对只使用这一层."""
     return parse_file_info(text=str(filename)).cd
 
 
 def get_prefix(number: str) -> str:
-    """番号字母前缀 (MIDV-123 → MIDV)."""
     return parse_file_info(text=number).prefix
 
 
@@ -284,7 +285,6 @@ def is_amateur(number: str) -> bool:
 
 
 def file_phase_from_path(path: str | Path) -> FilePhase:
-    """从路径抽出要落库的文件相位列."""
     info = parse_file_info(path)
     return FilePhase(
         content_type=info.content_type,
@@ -337,9 +337,9 @@ def summarize_file_phases(phases: Iterable[FilePhase]) -> FilePhaseSummary:
 class _Prepared:
     """同一输入的三个加工阶段.
 
-    escaped: 只去掉分辨率/用户逃逸串. 国产 MD 走这里 — 后面剥尾部盘符会把 MD0165-1 的 -1 吃掉.
-    dated: 再剥 CD/字幕尾符, 日期还在. 欧美 studio.YY.MM.DD 用这个.
-    catalog: 再剥日期并归一 FC2. 其余番号规则用这个.
+    escaped: 只去掉分辨率/用户逃逸串. 国产 MD 必须用此阶段 — 再剥尾部盘符会把 MD0165-1 的 -1 删除.
+    dated: 再剥 CD/字幕尾符, 日期还在. 欧美 studio.YY.MM.DD 使用此阶段.
+    catalog: 再剥日期并归一 FC2. 其余番号规则使用此阶段.
     """
 
     escaped: str
@@ -408,8 +408,10 @@ def _match(basename: str, escape_strings: list[str], *, generic: bool) -> tuple[
     if m := re.search(r"MMR-?[A-Z]{2,}-?\d+[A-Z]*", c):
         number = m.group().replace("MMR-", "MMR")
         return number, _type_of_catalog_id(number)
+    # 国产 MD 必须用 escaped: catalog 会删除 MD0165-1 的 -1.
     if (m := re.search(r"([^A-Z]|^)(MD[A-Z-]*\d{4,}(-\d)?)", escaped)) and "MDVR" not in escaped:
         return m.group(2), ContentType.CHINESE
+    # 欧美日期号用 dated (日期尚未剥除).
     if _WESTERN_PROBE.findall(dated):
         result = _WESTERN_PARSE.findall(dated)
         if result:
@@ -419,6 +421,7 @@ def _match(basename: str, escape_strings: list[str], *, generic: bool) -> tuple[
                 full_name.lower().replace("-", "").replace(".", "") + "." + result[0][1].replace("-", ".")
             ).capitalize()
             return number, ContentType.WESTERN
+    # 其余规则用 catalog.
     if m := re.search(r"XXX-AV-\d{4,}", c):
         return m.group(), ContentType.UNCENSORED
     if m := re.search(r"MKY-[A-Z]+-\d{3,}", c):
@@ -461,6 +464,7 @@ def _match(basename: str, escape_strings: list[str], *, generic: bool) -> tuple[
     if m := _SIX_DIGIT_CATALOG.search(c):
         # 六位数字 + 短横线或下划线 + 序号 (010115-001 / 010115_001 是两部). 短于六位的数字号不命中.
         return m.group(), ContentType.UNCENSORED
+    # 过宽回退仅对文件名 (generic); 目录匹配不进入.
     if generic and (
         (m := re.search(r"[A-Z]+-[A-Z]\d+", c))
         or (m := re.search(r"\d{2,}[-_]\d{2,}", c))
@@ -499,7 +503,6 @@ def _fallback(stem: str, escape: list[str]) -> tuple[str, ContentType]:
 
 
 def _type_of_catalog_id(number: str) -> ContentType:
-    """PREFIX-NNN 族: 无码表 / 六位数字目录号 / 素人 / 国产 / 有码."""
     if re.fullmatch(r"\d{6}[-_]\d{2,4}", number):
         return ContentType.UNCENSORED
     if re.match(r"n\d{4}", number) or re.search(r"[^.]+\.\d{2}\.\d{2}\.\d{2}", number):

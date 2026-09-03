@@ -38,7 +38,6 @@ def _skip_body_recording() -> Iterator[None]:
         reset_skip_http_body(token)
 
 
-# 轮换使用的浏览器指纹
 _IMPERSONATE_OPTIONS: tuple[BrowserTypeLiteral, ...] = (
     "chrome123",
     "chrome124",
@@ -48,20 +47,11 @@ _IMPERSONATE_OPTIONS: tuple[BrowserTypeLiteral, ...] = (
     "firefox135",
 )
 
-# 需要重试的 HTTP 状态码
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 503, 504})
 
 
 class RateLimiters:
-    """
-    按域名限速注册表.
-
-    避免单一主机过载. 通过依赖注入传递给 WebClient,
-    使不同模块(爬虫, 图片下载器)遵守相同的按域名限额.
-
-    使用严格平滑限流: ``AsyncLimiter(1, 1/rate)`` -- 桶容量 1, 每 ``1/rate``
-    秒补 1 个 token. 长期速率为 ``rate`` req/s, 完全无突发.
-    """
+    """严格平滑限流: ``AsyncLimiter(1, 1/rate)``, 桶容量 1, 完全无突发."""
 
     _BUILTIN_HOSTS = frozenset({"127.0.0.1", "localhost"})
     _LOCALHOST_RATE = 300.0
@@ -83,20 +73,10 @@ class RateLimiters:
         source_rates: Mapping[str, float | None] | None = None,
         default_rate: float = 5,
     ) -> RateLimiters:
-        """
-        从配置创建限速器实例.
-
-        优先级: 全局 network.rate_limits > site_config.rate_limit > 默认.
-
-        Args:
-            network_rate_limits: {host: rate(req/s)} 全局按域名覆盖
-            site_configs: {crawler_name: SiteConfig} 按站点配置
-            site_urls: {crawler_name: [base_url]} 站点 url 注册表
-            default_rate: 未配置域名的默认速率 (req/s)
-        """
+        """优先级: 全局 network.rate_limits > site_config.rate_limit > 默认."""
         instance = cls(default_rate=default_rate)
 
-        # 层级 1: 从 site_config.rate_limit 应用 (低优先级)
+        # site_config.rate_limit (低优先级)
         for site_name, cfg in site_configs.items():
             if cfg.rate_limit is None:
                 continue
@@ -118,7 +98,7 @@ class RateLimiters:
                 if host and host not in instance._limiters:
                     instance._limiters[host] = _make_limiter(rate)
 
-        # 层级 2: 从 network.rate_limits 应用 (高优先级, 覆盖层级 1)
+        # network.rate_limits (高优先级, 覆盖上一层)
         for host, rate in network_rate_limits.items():
             instance._limiters[host] = _make_limiter(rate)
 
@@ -129,21 +109,16 @@ class RateLimiters:
         return instance
 
     def get(self, host: str, *, rate: float | None = None) -> AsyncLimiter:
-        """获取或创建指定主机的限速器"""
         if host not in self._limiters:
             self._limiters[host] = _make_limiter(rate or self._default_rate)
         return self._limiters[host]
 
     def set_rate(self, host: str, rate: float) -> None:
-        """覆盖指定主机的速率限制 (req/s)"""
         self._limiters[host] = _make_limiter(rate)
 
 
 def _make_limiter(rate: float) -> AsyncLimiter:
-    """构造严格平滑的限流器 (无突发).
-
-    rate (req/s) -> ``AsyncLimiter(1, 1/rate)``: 桶容量 1, 每 ``1/rate`` 秒补 1 token.
-    """
+    """``AsyncLimiter(1, 1/rate)``: 桶容量 1, 无突发."""
     return AsyncLimiter(1, 1 / rate)
 
 
@@ -162,22 +137,6 @@ _FAILURE_BODY_LIMIT = 64 * 1024
 
 
 class WebClient:
-    """
-     基于 curl_cffi 的生产级异步 HTTP 客户端.
-
-     功能:
-    - TLS 指纹模拟 (轮换浏览器身份)
-    - 按域名限速
-    - 可配置的退避重试
-    - SOCKS/HTTP 代理支持
-    - 大文件分块下载
-
-     用法:
-         client = WebClient(limiters=RateLimiters(), proxy="socks5://127.0.0.1:7890")
-         text = await client.get_text("https://example.com")
-         await client.close()
-    """
-
     def __init__(
         self,
         *,
@@ -213,14 +172,7 @@ class WebClient:
         allow_redirects: bool = True,
         ok_statuses: frozenset[int] | None = None,
     ) -> Response:
-        """
-        执行带限速和重试的 HTTP 请求.
-
-        ``ok_statuses`` 额外视为成功 (例如 RSS 条件请求的 304), 不重试、不当失败.
-
-        Returns:
-            成功时返回 Response. 重试用尽后抛 ``RequestError``.
-        """
+        """``ok_statuses`` 额外视为成功 (例如 RSS 304), 不重试、不当失败. 重试用尽后抛 ``RequestError``."""
         host = httpx.URL(url).host
         await self._limiters.get(host).acquire()
 
@@ -336,8 +288,6 @@ class WebClient:
             attempts=attempts,
         )
 
-    # --- 便捷方法 ---
-
     async def get_text(
         self,
         url: str,
@@ -347,7 +297,6 @@ class WebClient:
         encoding: str = "utf-8",
         use_proxy: bool = True,
     ) -> str:
-        """GET 请求并返回响应文本"""
         resp = await self.request("GET", url, headers=headers, cookies=cookies, use_proxy=use_proxy)
         try:
             resp.encoding = encoding
@@ -363,7 +312,6 @@ class WebClient:
         cookies: dict[str, str] | None = None,
         use_proxy: bool = True,
     ) -> Any:
-        """GET 请求并返回解析后的 JSON"""
         resp = await self.request("GET", url, headers=headers, cookies=cookies, use_proxy=use_proxy)
         try:
             return resp.json()
@@ -380,7 +328,6 @@ class WebClient:
         cookies: dict[str, str] | None = None,
         use_proxy: bool = True,
     ) -> bytes:
-        """GET 请求并返回原始字节"""
         with _skip_body_recording():
             resp = await self.request("GET", url, headers=headers, cookies=cookies, use_proxy=use_proxy)
         return resp.content
@@ -396,7 +343,6 @@ class WebClient:
         encoding: str = "utf-8",
         use_proxy: bool = True,
     ) -> str:
-        """POST 请求并返回响应文本"""
         resp = await self.request(
             "POST", url, data=data, json=json, headers=headers, cookies=cookies, use_proxy=use_proxy
         )
@@ -416,7 +362,6 @@ class WebClient:
         cookies: dict[str, str] | None = None,
         use_proxy: bool = True,
     ) -> Any:
-        """POST 请求并返回解析后的 JSON"""
         resp = await self.request(
             "POST", url, data=data, json=json, headers=headers, cookies=cookies, use_proxy=use_proxy
         )
@@ -427,10 +372,7 @@ class WebClient:
                 url, RequestFailure(kind=FailureKind.UNEXPECTED, message=f"JSON parse error: {e}")
             ) from e
 
-    # --- 文件下载 ---
-
     async def get_filesize(self, url: str, *, use_proxy: bool = True) -> int | None:
-        """HEAD 请求获取 Content-Length"""
         try:
             resp = await self.request("HEAD", url, use_proxy=use_proxy)
         except RequestError:
@@ -453,20 +395,7 @@ class WebClient:
         chunk_size: int = 1 * 1024**2,
         download_concurrency: int = 10,
     ) -> bool:
-        """
-        下载文件. 对于大于 chunked_threshold 的文件使用分块并发下载.
-
-        Args:
-            url: 下载 URL.
-            dest: 保存的本地文件路径.
-            use_proxy: 是否使用已配置的代理.
-            chunked_threshold: 超过此大小 (字节) 启用分块下载.
-            chunk_size: 每个下载分块的大小 (字节).
-            download_concurrency: 分块下载的并发数.
-
-        Returns:
-            成功返回 True, 失败返回 False.
-        """
+        """大于 chunked_threshold 时分块并发下载. 失败返回 False."""
         file_size = await self.get_filesize(url, use_proxy=use_proxy)
 
         if file_size and file_size > chunked_threshold:
@@ -499,7 +428,6 @@ class WebClient:
         chunk_size: int = 1 * 1024**2,
         concurrency: int = 10,
     ) -> bool:
-        """大文件分块并发下载"""
         parts = [(s, min(s + chunk_size - 1, file_size - 1)) for s in range(0, file_size, chunk_size)]
 
         logger.info("chunked download started", url=url, chunks=len(parts), size=file_size)
@@ -541,7 +469,6 @@ class WebClient:
         return True
 
     async def close(self) -> None:
-        """关闭底层 curl 会话"""
         try:
             await self._session.close()
         except Exception as e:
@@ -549,11 +476,7 @@ class WebClient:
 
 
 class BrowserClient:
-    """
-    Patchright 无头浏览器, 用于 JS 渲染页面.
-
-    延迟初始化 -- 浏览器仅在首次使用时启动.
-    """
+    """延迟初始化: 浏览器仅在首次使用时启动."""
 
     def __init__(self, *, headless: bool = True, default_timeout: float = 30000):
         self._headless = headless
@@ -563,7 +486,6 @@ class BrowserClient:
         self._lock = asyncio.Lock()
 
     async def _ensure_browser(self):
-        """首次使用时启动浏览器"""
         if self._browser is not None:
             return
         async with self._lock:
@@ -585,17 +507,7 @@ class BrowserClient:
         wait_for: str | None = None,
         timeout: float | None = None,
     ) -> tuple[str | None, str]:
-        """
-        导航到 URL 并返回渲染后的 HTML.
-
-        Args:
-            url: 要访问的 URL.
-            wait_for: 提取 HTML 之前等待出现的 CSS 选择器 (可选).
-            timeout: 导航超时时间, 单位毫秒. 不指定则使用构造时的 default_timeout.
-
-        Returns:
-            成功时返回 (html_content, ""), 失败时返回 (None, 错误信息).
-        """
+        """成功返回 ``(html, "")``, 失败返回 ``(None, 错误信息)``."""
         effective_timeout = timeout if timeout is not None else self._default_timeout
         try:
             await self._ensure_browser()
@@ -614,7 +526,6 @@ class BrowserClient:
             return None, str(e)
 
     async def close(self) -> None:
-        """关闭浏览器和 playwright"""
         if self._browser is not None:
             await self._browser.close()
             self._browser = None

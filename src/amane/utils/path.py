@@ -6,17 +6,17 @@ if TYPE_CHECKING:
 
 
 def _resolve_or_literal(p: str | Path) -> str:
-    """解析为规范路径; 解析失败 (虚拟/重定向卷不支持查询等) 时按字面绝对路径兜底.
+    """解析为规范路径; 解析失败 (虚拟/重定向卷不支持查询等) 时按字面绝对路径回退.
 
     必须使用 ``strict=False``: Windows 上 CloudDrive2 类虚拟卷或断连网络盘会使
-    规范化查询失败 (WinError 1/1005 等), 严格模式会直接抛错. 非严格模式走 CPython
-    容错路径 (按组件遍历), 不应向上传播异常. 兜底用 ``abspath`` 做 lexically 归一,
+    规范化查询失败 (WinError 1/1005 等), 严格模式会直接抛错. 非严格模式经 CPython
+    容错路径 (按组件遍历), 不应向上传播异常. 回退用 ``abspath`` 做 lexically 归一,
     保证 ``..`` 片段不会被字面比较误放行.
     """
     try:
         return os.path.realpath(p, strict=False)
     except OSError, ValueError:
-        # 兜底需 lexically 归一且不做链接解析, Path.resolve() 语义不符
+        # 回退需 lexically 归一且不做链接解析, Path.resolve() 语义不符
         return os.path.abspath(os.fspath(p))  # noqa: PTH100
 
 

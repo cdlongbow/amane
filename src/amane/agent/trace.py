@@ -1,7 +1,4 @@
-"""会话用户数据落盘 - `{data_dir}/agent/sessions/{id}/`.
-
-非日志: 与 DB/resources 同属 Cold data_dir, 不可当 log 清理.
-"""
+"""`{data_dir}/agent/sessions/{id}/`. 与 DB/resources 同属 Cold data_dir, 不可当 log 清理."""
 
 from __future__ import annotations
 
@@ -24,7 +21,7 @@ def _utcnow_iso() -> str:
 
 @dataclass
 class TraceEvent:
-    """工具侧轻量事件; 写入时展平为带 seq 的 JSONL 行."""
+    """写入时展平为带 seq 的 JSONL 行."""
 
     type: str
     payload: dict[str, Any] = field(default_factory=dict)
@@ -42,7 +39,7 @@ def delete_session_dir(data_dir: Path, session_id: int) -> None:
 
 
 class SessionStore:
-    """单会话目录: events.jsonl (UI/续订) + messages.json (LLM 权威历史)."""
+    """events.jsonl (UI/续订) + messages.json (LLM 权威历史)."""
 
     def __init__(self, root: Path) -> None:
         self.root = root

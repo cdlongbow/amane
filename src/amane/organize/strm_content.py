@@ -1,8 +1,4 @@
-"""link_mode=strm 时 .strm 正文的库级模板.
-
-与路径模板共用 Parser / TemplateContext; 后处理走 StrmEngine (不折叠空段).
-空模板保持默认: 一行视频绝对路径.
-"""
+"""STRM 正文不折叠空段, 以便保留 `https://`. 空模板写一行视频绝对路径."""
 
 from __future__ import annotations
 
@@ -27,7 +23,7 @@ def normalize_strm_content_template(value: str | None) -> str | None:
 
 
 def validate_strm_content_template(value: str) -> str:
-    """单行; 空白合法; 占位符语法与路径模板相同."""
+    """必须为单行; 空白合法; 占位符语法与路径模板相同."""
     if "\n" in value or "\r" in value:
         raise ValueError("strm_content_template must be a single line")
     Parser(value).parse()
@@ -47,8 +43,7 @@ def render_strm_content(
     file_info: FileInfo | None = None,
     link: Path | None = None,
 ) -> str:
-    """渲染 .strm 正文 (含末尾换行). 空模板写 dest 的字面绝对路径.
-
+    """空模板写 dest 的字面绝对路径.
     模板引用 `{video_relpath}` 且 dest 不在库根下时抛 ValueError, 不写出错误正文.
     """
     normalized = normalize_strm_content_template(template)

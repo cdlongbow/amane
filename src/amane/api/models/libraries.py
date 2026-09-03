@@ -55,7 +55,7 @@ class LibraryCreateRequest(BaseModel):
     blacklist_patterns: list[BlacklistPattern] = []
     """文件名正则列表; 命中任一则扫描/监控跳过, ORGANIZE 时移入库根 `.amane_trash`."""
     min_file_size: MinFileSize = 0
-    """视频体积下限 (字节). 小于此值的扫描视频跳过入库, ORGANIZE 时进 `.amane_trash`. 0 关闭."""
+    """视频体积下限 (字节). 小于此值的扫描视频跳过入库, ORGANIZE 时移动至 `.amane_trash`. 0 关闭."""
     scan: bool = True
 
 
@@ -130,7 +130,7 @@ class PathTemplatePlaceholder(BaseModel):
 
 
 class PathTemplateSchemaResponse(BaseModel):
-    """GET /libraries/path-template-schema: 占位符、默认值与可映射 key, 与 resolve_paths 同源."""
+    """与 resolve_paths 同源."""
 
     video_default: str
     optional_defaults: OptionalPathTemplateDefaults
@@ -139,7 +139,6 @@ class PathTemplateSchemaResponse(BaseModel):
 
 
 def path_template_schema() -> PathTemplateSchemaResponse:
-    """组装路径模板契约, 供 GET /libraries/path-template-schema."""
     return PathTemplateSchemaResponse(
         video_default=VIDEO_TEMPLATE_DEFAULT,
         optional_defaults=OPTIONAL_TEMPLATE_DEFAULTS,

@@ -1,5 +1,3 @@
-"""写面工具所需的运行时桥接 (路径边界 / 文件监控 / Feed / 任务取消)."""
-
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
@@ -24,8 +22,6 @@ class LibraryWatcher(Protocol):
 
 @dataclass
 class AgentRuntimeBridge:
-    """由 AppRuntime 装配后注入 AgentService / AgentDeps."""
-
     safe_dirs: list[Path] | None = field(default_factory=list)
     watcher: LibraryWatcher | None = None
     cancel_running_task: Callable[[int], Awaitable[bool]] | None = None

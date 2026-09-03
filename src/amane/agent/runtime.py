@@ -1,8 +1,3 @@
-"""Agent 运行时装配: 模型工厂 / 思考设置 / 系统提示.
-
-包含上游模型工厂、会话思考覆盖解析与 Agent 工厂 (toolsets + capabilities).
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -28,7 +23,7 @@ from .task_ops import build_task_ops_capability
 from .tool_names import ToolNameAlias
 from .tools import AgentDeps, build_explore_toolset
 
-# 单次回复 / 思考预算: 避免撞上提供商默认 max_tokens (过小会 length 截断且无正文).
+# 避免使用提供商默认 max_tokens (过小会 length 截断且无正文).
 _AGENT_MAX_TOKENS = 128_000
 # 工具 / 输出校验重试: 框架默认 1, 此处拉高避免早停.
 _AGENT_RETRIES = 10_000
@@ -72,7 +67,7 @@ Database schema:
 
 
 def parse_session_thinking(raw: Any) -> AgentThinkingMode | None:
-    """从会话 meta 解析思考覆盖; 缺省/非法 → None (继承全局默认)."""
+    """缺省/非法 → None (继承全局默认)."""
     if raw is None:
         return None
     if isinstance(raw, AgentThinkingMode):
@@ -102,11 +97,7 @@ def thinking_to_level(mode: AgentThinkingMode) -> ThinkingLevel:
 
 
 def resolve_model_settings(config: AgentConfig, *, session_thinking: AgentThinkingMode | None = None) -> ModelSettings:
-    """组装本回合 ModelSettings (始终带高 max_tokens).
-
-    ``session_thinking`` 为 None 表示继承 ``config.thinking``;
-    有效值仍为 None 时不传 thinking (跟模型默认).
-    """
+    """始终带高 max_tokens. ``session_thinking`` 为 None 表示继承 ``config.thinking``; 有效值仍为 None 时不传 thinking."""
     settings: ModelSettings = {"max_tokens": _AGENT_MAX_TOKENS}
     effective = config.thinking if session_thinking is None else session_thinking
     if effective is not None:
@@ -115,7 +106,7 @@ def resolve_model_settings(config: AgentConfig, *, session_thinking: AgentThinki
 
 
 def build_model(config: AgentConfig) -> Model:
-    """按 ``api_type`` 组装上游模型 (不检查 api_key)."""
+    """不检查 api_key."""
     match config.api_type:
         case AgentApiType.CHAT:
             return OpenAIChatModel(
@@ -132,7 +123,7 @@ def build_model(config: AgentConfig) -> Model:
 
 
 def build_agent(config: AgentConfig) -> Agent[AgentDeps, str | DeferredToolRequests] | None:
-    """thinking / max_tokens 在每回合经 model_settings 注入."""
+    """thinking / max_tokens 经每回合 model_settings 注入."""
     if not config.api_key:
         return None
     return Agent[AgentDeps, str | DeferredToolRequests](

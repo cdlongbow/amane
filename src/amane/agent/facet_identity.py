@@ -1,5 +1,3 @@
-"""facet-identity Capability - 分类身份治理 (rename / merge / delete / rules)."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -12,7 +10,7 @@ from .tools import AgentDeps, require_approval, trace_tool
 
 
 def build_facet_identity_capability() -> Capability[AgentDeps]:
-    """按需加载的分类身份治理; 合并/删除/删规则须用户批准."""
+    """合并 / 删除 / 删规则须用户批准."""
     cap: Capability[AgentDeps] = Capability(
         id="facet-identity",
         description=(

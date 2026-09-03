@@ -1,5 +1,3 @@
-"""影片爬虫参考实现."""
-
 import re
 from urllib.parse import urljoin
 
@@ -17,18 +15,15 @@ class JavDBCrawler(Crawler):
         return CrawlerProfile(name=SiteName.JAVDB, base_url="https://javdb.com")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """在 JavDB 搜索番号, 返回详情页 URL."""
         number = query.number
         search_url = f"{self.base_url}/search?q={number}&locale=zh"
         text = await self.client.get_html(search_url, cookies=self.cookies)
         html = Selector(text=text)
 
-        # 解析搜索结果
         results = html.xpath("//a[@class='box']")
         if not results:
             return None
 
-        # 构建 (href, title, meta) 列表
         entries = []
         for item in results:
             href = extract_text(item, "@href")
@@ -37,12 +32,12 @@ class JavDBCrawler(Crawler):
             if href:
                 entries.append((href, title, meta))
 
-        # 精确匹配
+        # 精确匹配番号.
         for href, title, meta in entries:
             if number.upper() in title.upper():
                 return urljoin(self.base_url, href)
 
-        # 模糊匹配 (移除分隔符)
+        # 去掉分隔符后再匹配.
         clean_number = number.upper().replace(".", "").replace("-", "").replace(" ", "")
         for href, title, meta in entries:
             clean_content = (title + meta).upper().replace("-", "").replace(".", "").replace(" ", "")
@@ -52,7 +47,6 @@ class JavDBCrawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """抓取 JavDB 详情页并转换为 MediaMetadata."""
         text = await self.client.get_html(url, cookies=self.cookies)
         html = Selector(text=text)
 
@@ -101,12 +95,11 @@ class JavDBCrawler(Crawler):
         )
         tags = [t.strip() for t in tags if t.strip()]
 
-        # 演员 - 女性出演者
+        # 只取女性出演者; 男性列在同页但不入 actors.
         actors = html.xpath('//span[strong[contains(@class,"female")]]/a/text()').getall()
 
         thumb_url = extract_text(html, "//img[@class='video-cover']/@src")
 
-        # 评分
         score_text = extract_text(html, "//span[@class='score-stars']/following-sibling::text()[1]")
         score = self._parse_score(score_text)
 
@@ -134,7 +127,6 @@ class JavDBCrawler(Crawler):
 
     @staticmethod
     def _parse_runtime(text: str) -> int | None:
-        """解析时长字符串, 如 '120 分鍾' -> 120."""
         if not text:
             return None
         match = re.search(r"(\d+)", text)
@@ -142,7 +134,6 @@ class JavDBCrawler(Crawler):
 
     @staticmethod
     def _parse_score(text: str) -> float | None:
-        """解析评分字符串, 如 '8.5分' -> 8.5."""
         if not text:
             return None
         match = re.search(r"(\d+\.?\d*)", text)

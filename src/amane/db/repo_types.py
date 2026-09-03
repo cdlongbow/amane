@@ -32,13 +32,8 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-# ==================== 排序列映射 ====================
-#
-# 显式枚举 -> Column 映射. 不用 getattr(Model, field) 反射, 以便:
-#   1. 类型检查器能验证每个 Column 真实存在;
-#   2. 排序字段集合与可排序列严格对应, 新增枚举值忘记映射即 KeyError 而非静默.
-
-# 列排序字段 → Column. FILE_COUNT 不在此映射, 见 _metadata_primary_order.
+# 显式枚举 → Column. 禁止 getattr 反射: 类型检查须能验证列存在;
+# 新增枚举值未映射须 KeyError, 禁止静默. FILE_COUNT 不在此表, 见 _metadata_primary_order.
 _METADATA_SORT_COLUMNS: dict[MetadataSortField, Mapped[Any]] = {
     MetadataSortField.NUMBER: col(Metadata.number),
     MetadataSortField.TITLE: col(Metadata.title),
@@ -72,7 +67,6 @@ def _order_clause[T](column: Mapped[T], order: SortOrder) -> UnaryExpression[T]:
 
 
 def _metadata_file_count_expr() -> ColumnElement[int]:
-    """关联 MediaFile 数量的相关子查询 (排序用)."""
     return (
         select(func.count())
         .select_from(MediaFile)
@@ -83,7 +77,7 @@ def _metadata_file_count_expr() -> ColumnElement[int]:
 
 
 def _metadata_primary_order(sort_by: MetadataSortField, order: SortOrder) -> ColumnElement[Any]:
-    """Metadata 列表主排序键; FILE_COUNT 走计数表达式, 其余走列映射."""
+    """FILE_COUNT 使用计数表达式, 其余使用列映射."""
     if sort_by is MetadataSortField.FILE_COUNT:
         expr = _metadata_file_count_expr()
         return asc(expr) if order == SortOrder.ASC else desc(expr)
@@ -96,7 +90,6 @@ def _metadata_has_files_clause(*, has_files: bool) -> ColumnElement[bool]:
 
 
 def _media_file_uncensored_predicate() -> ColumnElement[bool]:
-    """单文件无码: mosaic 标记或 content_type 片种."""
     return or_(col(MediaFile.mosaic) == Mosaic.UNCENSORED, col(MediaFile.content_type) == ContentType.UNCENSORED)
 
 
@@ -109,7 +102,7 @@ def _apply_media_phase_filters(
     definition: str | None = None,
     content_type: ContentType | None = None,
 ) -> SelectOfScalar[MediaFile]:
-    """给 MediaFile 查询加上文件相位筛选 (None 表示不过滤)."""
+    """None 表示该相位不过滤."""
     if has_subtitle is not None:
         stmt = stmt.where(col(MediaFile.has_subtitle) == has_subtitle)
     if mosaic is not None:
@@ -134,15 +127,13 @@ def _facet_primary_order(sort_by: FacetSortField, order: SortOrder, *, name_col:
 
 
 class FacetItem(BaseModel):
-    """分类目录条目 + 关联影片数."""
-
     id: int
     name: str
     count: int
 
 
 class ActorBrowseItem(BaseModel):
-    """演员浏览列表行 - 卡片/表格字段 + 关联影片数 (不含简介/别名/源字典)."""
+    """列表行不含简介/别名/源字典; 那些字段仅详情填充."""
 
     id: int
     name: str
@@ -166,8 +157,6 @@ class ActorBrowseItem(BaseModel):
 
 
 class ActorBrowseParams(BaseModel):
-    """演员列表查询 - GET /actors 与 ``browse_actors`` 共用 (含校验与规范化)."""
-
     search: str | None = None
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=1000)
@@ -249,12 +238,7 @@ class ActorBrowseParams(BaseModel):
         return self
 
 
-# ==================== TypedDicts for update operations ====================
-
-
 class MetadataFields(TypedDict, total=False):
-    """upsert_metadata / update_metadata 可接受的字段."""
-
     title: str | None
     actors: list[str]
     studio: str | None
@@ -277,8 +261,6 @@ class MetadataFields(TypedDict, total=False):
 
 
 class MediaFileUpdates(TypedDict, total=False):
-    """update_media_file 可接受的字段."""
-
     path: str
     number: str | None
     oshash: str | None
@@ -290,8 +272,6 @@ class MediaFileUpdates(TypedDict, total=False):
 
 
 class LibraryUpdates(TypedDict, total=False):
-    """update_library 可接受的字段."""
-
     name: str
     path: str
     automation: LibraryAutomation
@@ -318,8 +298,6 @@ class LibraryUpdates(TypedDict, total=False):
 
 
 class ScheduleUpdates(TypedDict, total=False):
-    """update_schedule 可接受的字段."""
-
     name: str | None
     cron: str
     task_type: RoutineType
@@ -330,8 +308,6 @@ class ScheduleUpdates(TypedDict, total=False):
 
 
 class FeedUpdates(TypedDict, total=False):
-    """update_feed 可接受的字段."""
-
     name: str
     url: str
     group: str
@@ -350,7 +326,7 @@ class FeedUpdates(TypedDict, total=False):
 
 
 class ActorPersonFields(TypedDict, total=False):
-    """update_actor / 刮削回写可接受的人物字段 (不含 name/id)."""
+    """人物可写字段; 不含 name/id."""
 
     aliases: list[str]
     gender: ActorGender
@@ -371,15 +347,8 @@ class ActorPersonFields(TypedDict, total=False):
 
 
 class CommentUpdates(TypedDict, total=False):
-    """update_comment 可接受的字段."""
-
     body: str
 
 
 class UserTagUpdates(TypedDict, total=False):
-    """update_user_tag 可接受的字段."""
-
     name: str
-
-
-# ==================== Repository ====================

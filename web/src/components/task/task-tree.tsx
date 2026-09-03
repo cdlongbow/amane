@@ -167,7 +167,7 @@ function TaskTreeNode({
     const row = rowRef.current;
     const pane = paneRef.current;
     if (row == null || pane == null) return;
-    // 只在本节点打开时绑定. focusId 不进 deps: 点开子节点时父面板不能拆掉重绑, 否则会滚回根行.
+    // 只在本节点打开时绑定. focusId 不列入 deps: 点开子节点时父面板不能拆掉重绑, 否则会滚回根行.
     return bindExpandedPane(row, pane, { focus: focusIdRef.current === task.id });
   }, [open, task.id]);
 

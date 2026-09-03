@@ -1,5 +1,3 @@
-"""actor-ops Capability - 演员人物字段 / 别名行 / 展示名切换 / 刮削入队."""
-
 from __future__ import annotations
 
 from typing import Any, cast
@@ -34,7 +32,7 @@ _AGENT_ACTOR_PATCH_KEYS = frozenset(
 
 
 def build_actor_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的演员管理能力 (人物 PATCH / 别名行 / 展示名切换 / 刮削; 身份合并走 facet-identity)."""
+    """身份合并经 facet-identity."""
     cap: Capability[AgentDeps] = Capability(
         id="actor-ops",
         description=(

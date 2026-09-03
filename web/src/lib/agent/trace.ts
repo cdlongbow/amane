@@ -375,7 +375,7 @@ export function messagesFromTrace(events: ReadonlyArray<TraceEvent | Record<stri
       if (approvalId && current) {
         patchCurrentBlocks(markApprovalStatus(current.blocks, approvalId, "approved"));
       } else if (approvalId) {
-        // 批准结果可能落在后续回合; 回扫直到命中含该 approval_id 的助手消息
+        // 批准结果可能落在后续回合; 回溯直到命中含该 approval_id 的助手消息
         for (let mi = messages.length - 1; mi >= 0; mi--) {
           const m = messages[mi];
           if (m?.role !== "assistant") continue;
@@ -472,7 +472,7 @@ export function messagesFromTrace(events: ReadonlyArray<TraceEvent | Record<stri
 }
 
 /** 查找当前停顿内仍待处理的批准 (可按工具名过滤).
- * 只扫"最后一条用户消息之后"的助手气泡, 避免把更早回合里已过期仍显示 pending 的 id 打进批量请求.
+ * 只遍历"最后一条用户消息之后"的助手气泡, 避免把更早回合里已过期仍显示 pending 的 id 打进批量请求.
  */
 export function findPendingApprovals(
   messages: ChatMessage[],

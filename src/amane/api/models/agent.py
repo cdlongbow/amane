@@ -12,7 +12,7 @@ class AgentSessionCreateRequest(BaseModel):
 
 
 class AgentSessionUpdateRequest(BaseModel):
-    """title / thinking 均可选; thinking=null 表示清除覆盖, 继承全局默认."""
+    """title / thinking 均可选; thinking=null 表示取消覆盖, 继承全局默认."""
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
     thinking: AgentThinkingMode | None = None

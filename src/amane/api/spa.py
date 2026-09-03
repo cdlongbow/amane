@@ -40,15 +40,7 @@ _RESERVED_PREFIXES = ("/api/", "/docs", "/redoc", "/openapi.json", "/assets")
 
 
 class _SPAFallbackMiddleware:
-    """
-    ASGI 中间件: 对未匹配 API 的 GET 请求返回 SPA index.html.
-
-    执行逻辑:
-    1. 保留路径 (API, docs, assets 等) → 直接透传给上游
-    2. dist 内存在对应静态文件 → 返回该文件
-    3. GET 请求 → 返回 index.html (SPA 客户端路由)
-    4. 非 GET 请求 → 透传给上游
-    """
+    """未匹配 API 的 GET 回退到 index.html. 含 ``..`` 的路径返回 400."""
 
     def __init__(self, app: ASGIApp, dist_dir: Path) -> None:
         self._app = app
@@ -67,7 +59,7 @@ class _SPAFallbackMiddleware:
             await self._app(scope, receive, send)
             return
 
-        # 安全: 禁止路径遍历
+        # 禁止路径遍历
         if ".." in path:
             response: Response = HTMLResponse(status_code=400, content="Bad request")
             await response(scope, receive, send)
@@ -94,14 +86,7 @@ class _SPAFallbackMiddleware:
 
 
 def mount_spa(app: FastAPI, dist_dir: Path | None = None) -> None:
-    """
-    将前端 SPA 挂载到 FastAPI 应用.
-
-    - /assets/* → 静态资源 (JS/CSS, 带缓存)
-    - 其他非 /api 路径 → index.html (SPA 客户端路由)
-
-    如果 dist_dir 不存在则跳过挂载 (开发模式下前端由 Vite 提供).
-    """
+    """dist 不存在则跳过 (开发时由 Vite 提供)."""
     dist = dist_dir or _default_dist()
 
     if not dist.exists():
@@ -113,12 +98,12 @@ def mount_spa(app: FastAPI, dist_dir: Path | None = None) -> None:
         logger.warning("index.html not found, spa not mounted", path=str(dist))
         return
 
-    # 挂载 /assets 静态目录 (Vite 构建产物, 文件名带 hash 可长期缓存)
+    # 挂载 /assets (Vite 产物文件名带 hash, 可长期缓存)
     assets_dir = dist / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="spa-assets")
 
-    # 添加 SPA 回退中间件 (在路由匹配之前拦截非 API 请求)
+    # 在路由匹配之前拦截非 API 请求, 回退到 index.html
     app.add_middleware(_SPAFallbackMiddleware, dist_dir=dist)  # type: ignore[arg-type]
 
     logger.info("spa mounted", path=str(dist))

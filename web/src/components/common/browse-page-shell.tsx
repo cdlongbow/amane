@@ -12,7 +12,7 @@ export interface BrowsePageShellProps {
   viewSwitch?: ReactNode;
   /** 标题行右侧可选动作 (少用). */
   actions?: ReactNode;
-  /** 搜索行最左侧: 总计数等摘要 (不参与居中组; 小屏改到搜索上方). */
+  /** 搜索行最左侧: 总计数等摘要 (不参与居中组; 小屏移到搜索上方). */
   summary?: ReactNode;
   /** 搜索框 - 与 extras / pageSize 组成居中控件组. */
   search: ReactNode;

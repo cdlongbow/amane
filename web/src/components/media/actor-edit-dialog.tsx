@@ -90,7 +90,6 @@ export interface ActorEditDialogProps {
   saving?: boolean;
 }
 
-/** 演员人物字段编辑弹窗 - 含头像拖拽调序, 别名 tags, raw 只读来源. */
 export function ActorEditDialog({
   actor,
   opened,

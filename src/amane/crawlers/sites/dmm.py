@@ -1,10 +1,4 @@
-"""
-DMM 爬虫 - 覆盖 digital, mono, rental, Fanza TV 和 DMM TV.
-
-这是第二个精选爬虫. DMM 是权威的日本元数据来源. 与 JavDB (单一页面类型) 不同,
-DMM 有 5 种 URL 分类, 每种需要不同的解析策略. `_scrape()` 方法根据 URL 模式
-进行内部路由.
-"""
+"""按 URL 分类路由到 digital / mono / rental / Fanza TV / DMM TV 解析器."""
 
 import json
 import re
@@ -21,8 +15,6 @@ from .dmm_api import DigitalResponse, DmmTvResponse, FanzaTvResponse, digital_pa
 
 
 class Category(StrEnum):
-    """DMM URL 分类 - 决定使用哪个解析器."""
-
     FANZA_TV = "fanza_tv"
     DMM_TV = "dmm_tv"
     DIGITAL = "digital"
@@ -33,7 +25,6 @@ class Category(StrEnum):
     OTHER = "other"
 
 
-# 搜索结果排序的优先级顺序 (优先级高的在前)
 _CATEGORY_PRIORITY: dict[Category, int] = {
     Category.DIGITAL: 100,
     Category.FANZA_TV: 90,
@@ -47,7 +38,6 @@ _CATEGORY_PRIORITY: dict[Category, int] = {
 
 
 def _parse_category(url: str) -> Category:
-    """根据 URL 判断 DMM 子分类."""
     if "tv.dmm.co.jp" in url:
         return Category.FANZA_TV
     if "tv.dmm.com" in url:
@@ -80,26 +70,24 @@ class DmmCrawler(Crawler):
         )
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """在 DMM 搜索番号, 返回按优先级排序的最佳详情页 URL."""
         number = query.number
         number_lower = number.lower()
 
-        # 规范化: 提取前缀和数字
+        # 拆出前缀与数字.
         match = re.search(r"([a-z]+)-?(\d+)", number_lower)
         if not match:
             return None
         prefix = match.group(1)
         digits = match.group(2)
 
-        # 处理前导零: 如果数字 >=5 位且以 00 开头, 则去除
+        # 数字 >=5 位且以 00 开头时去掉前导 00 (DMM cid 填充).
         if len(digits) >= 5 and digits.startswith("00"):
             digits = digits[2:]
 
-        # 生成搜索变体
-        number_00 = f"{prefix}{digits:0>5}"  # 零填充至 5 位
+        # 搜索变体: 五位零填充与去填充.
+        number_00 = f"{prefix}{digits:0>5}"
         number_no_00 = f"{prefix}{digits}"
 
-        # 要尝试的搜索 URL
         search_urls = [
             f"https://www.dmm.co.jp/search/=/searchstr={number_00}/sort=ranking/",
             f"https://www.dmm.co.jp/search/=/searchstr={number_no_00}/sort=ranking/",
@@ -119,40 +107,35 @@ class DmmCrawler(Crawler):
             found = self._parse_search_results(html, prefix, digits)
             all_urls.update(found)
             if all_urls:
-                break  # 首次搜索成功后停止
+                break
 
         if not all_urls:
             if not any_ok and last_error is not None:
                 raise last_error
             return None
 
-        # 按分类优先级排序 (digital 优先)
+        # 按分类优先级选取.
         sorted_urls = sorted(all_urls, key=lambda u: _CATEGORY_PRIORITY.get(_parse_category(u), 0), reverse=True)
         return sorted_urls[0] if sorted_urls else None
 
     def _parse_search_results(self, html: Selector, prefix: str, digits: str) -> list[str]:
-        """从搜索结果页面提取并筛选详情 URL."""
-        # DMM 在 script 标签中嵌入 URL - 尝试转义和非转义两种模式
+        # 详情 URL 嵌在 script 里, 同时试转义与非转义两种 JSON 写法.
         raw_urls = set(html.re(r'detailUrl\\":\\"(.*?)\\"'))
         if not raw_urls:
-            # 回退: script 标签中的非转义 JSON
             raw_urls = set(html.re(r'"detailUrl":"(.*?)"'))
 
         if not raw_urls:
             return []
 
-        # 构建匹配模式
         n_padded = f"{prefix}{digits:0>5}"
         n_short = f"{prefix}{digits}"
 
         results = []
         for raw_url in raw_urls:
-            # 解码 unicode 转义 (来自 JSON 转义的 URL)
             try:
                 url = raw_url.encode("utf-8").decode("unicode_escape")
             except UnicodeDecodeError, ValueError:
                 url = raw_url
-            # 检查 URL 是否包含目标番号 (填充或短格式)
             if re.search(rf"[^a-z]{re.escape(n_padded)}[^0-9]", url) or re.search(
                 rf"[^a-z]{re.escape(n_short)}[^0-9]", url
             ):
@@ -161,7 +144,6 @@ class DmmCrawler(Crawler):
         return results
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """根据 URL 模式路由到对应分类的解析器."""
         category = _parse_category(url)
         match category:
             case Category.FANZA_TV:
@@ -177,10 +159,7 @@ class DmmCrawler(Crawler):
             case _:
                 return None
 
-    # --- Digital 解析器 (video.dmm.co.jp) ---
-
     async def _scrape_digital(self, url: str, cookies: dict[str, str]) -> MediaMetadata | None:
-        """通过 GraphQL API 解析 Digital 内容 (video.dmm.co.jp)."""
         cid_match = re.search(r"(?:cid|id)=([^/&?]+)", url)
         if not cid_match:
             return None
@@ -198,13 +177,10 @@ class DmmCrawler(Crawler):
         if not data.title:
             return None
 
-        # 时长从秒转换为分钟
         runtime = int(data.duration / 60) if data.duration else None
 
-        # 从 sampleImages 获取 extrafanart (使用 largeImageUrl 作为高质量图片)
         extrafanart = [si.largeImageUrl for si in data.sampleImages if si.largeImageUrl]
 
-        # 从 cid 标准化番号
         number = self._cid_to_number(cid)
 
         return MediaMetadata(
@@ -228,19 +204,15 @@ class DmmCrawler(Crawler):
             external_id=url,
         )
 
-    # XPath 片段: dt/dd 新布局 (monthly 2026 版) 的取值模式
-    # 使用 following-sibling::dd[1] 只取紧邻的 dd, 避免跨字段匹配
+    # following-sibling::dd[1] 只取紧邻的 dd, 避免跨字段匹配.
     _DD_SPAN = "following-sibling::dd[1]//span[@class='content-detail__text']/text()"
     _DD_TEXT = "following-sibling::dd[1]/text()"
-    # monthly 页同时渲染 #multi-column / #single-column 两套相同作品信息; 全页 //dt 会翻倍.
-    # extract_* 按选择器顺序取首个有结果者, 故先 multi 再 single, 最后才回退旧 table 布局.
+    # monthly 同时渲染 #multi-column / #single-column 两套相同信息; 全页 //dt 会翻倍.
+    # extract_* 按选择器顺序取首个有结果者, 先 multi 再 single, 最后回退旧 table.
     _DETAIL_MULTI = "//*[@id='multi-column']"
     _DETAIL_SINGLE = "//*[@id='single-column']"
 
-    # --- Mono 解析器 (实体媒体) ---
-
     async def _scrape_mono(self, url: str, cookies: dict[str, str]) -> MediaMetadata | None:
-        """解析 mono/prime/monthly 详情页 - 兼容旧 table 布局和新 dl/dt/dd 布局."""
         text = await self.client.get_html(url, cookies=cookies)
         html = Selector(text=text)
 
@@ -253,9 +225,8 @@ class DmmCrawler(Crawler):
         _multi = self._DETAIL_MULTI
         _single = self._DETAIL_SINGLE
 
-        # title: 新布局用纯 h1, 旧布局用 h1[@id="title"]
+        # 标题; 无 h1 时回退 JSON-LD.
         title = extract_text(html, "//h1/text()", '//h1[@id="title"]/text()', '//h1[@class="item fn bold"]/text()')
-        # JSON-LD fallback
         if not title:
             json_ld_text = extract_text(html, '//script[@type="application/ld+json"]/text()')
             if json_ld_text:
@@ -265,7 +236,6 @@ class DmmCrawler(Crawler):
                 except KeyError, TypeError, ValueError:
                     pass
 
-        # release: 新布局配信開始日 (span 内), 旧布局発売日
         release_raw = extract_text(
             html,
             f"{_multi}//dt[contains(text(),'配信開始日')]/{_dd_span}",
@@ -329,7 +299,7 @@ class DmmCrawler(Crawler):
             "//td[contains(text(),'ジャンル')]/following-sibling::td/a/text()",
         )
 
-        # thumb_url: 优先 JSON-LD image, 回退 og:image
+        # 封面: 优先 JSON-LD image, 再回退 og:image.
         thumb_url = ""
         json_ld_text = extract_text(html, '//script[@type="application/ld+json"]/text()')
         if json_ld_text:
@@ -357,7 +327,6 @@ class DmmCrawler(Crawler):
             '//script[@type="application/ld+json"]/text()',
         )
         score = self._parse_score(score_text)
-        # JSON-LD fallback for score
         if score is None and json_ld_text:
             try:
                 ld = json.loads(json_ld_text)
@@ -386,10 +355,7 @@ class DmmCrawler(Crawler):
             external_id=url,
         )
 
-    # --- Rental 解析器 ---
-
     async def _scrape_rental(self, url: str, cookies: dict[str, str]) -> MediaMetadata | None:
-        """解析 rental 详情页 - 类似 mono 但没有发售日期."""
         text = await self.client.get_html(url, cookies=cookies)
         html = Selector(text=text)
 
@@ -429,7 +395,7 @@ class DmmCrawler(Crawler):
             actors=actors,
             studio=studio or None,
             publisher=publisher or None,
-            release=None,  # rental 没有有效的发售日期
+            release=None,  # rental 页无有效发售日.
             runtime=runtime,
             tags=tags,
             series=series or None,
@@ -442,10 +408,7 @@ class DmmCrawler(Crawler):
             external_id=url,
         )
 
-    # --- Fanza TV 解析器 (GraphQL) ---
-
     async def _scrape_fanza_tv(self, url: str) -> MediaMetadata | None:
-        """通过 GraphQL API 解析 Fanza TV 内容."""
         cid_match = re.search(r"content=([^&/]+)", url)
         if not cid_match:
             return None
@@ -463,13 +426,10 @@ class DmmCrawler(Crawler):
         if not data.title:
             return None
 
-        # 推导预告片 URL
         trailer_url = self._derive_fanza_trailer(data.sampleMovie.url)
 
-        # 时长从秒转换为分钟
         runtime = int(data.playInfo.duration / 60) if data.playInfo.duration else None
 
-        # 从样品图片获取 extrafanart
         extrafanart = [sp.imageLarge for sp in data.samplePictures if sp.imageLarge]
 
         return MediaMetadata(
@@ -493,10 +453,7 @@ class DmmCrawler(Crawler):
             external_id=url,
         )
 
-    # --- DMM TV 解析器 (GraphQL) ---
-
     async def _scrape_dmm_tv(self, url: str) -> MediaMetadata | None:
-        """通过 GraphQL API 解析 DMM TV 内容."""
         season_match = re.search(r"seasonId=(\d+)", url)
         if not season_match:
             return None
@@ -514,7 +471,6 @@ class DmmCrawler(Crawler):
         if not data.titleName:
             return None
 
-        # 从 staffs 中提取导演和制作公司
         directors = [s.staffName for s in data.staffs if s.roleName == "監督"]
         studio_candidates = [
             s.staffName for s in data.staffs if s.roleName in ("制作プロダクション", "制作", "制作著作")
@@ -522,7 +478,7 @@ class DmmCrawler(Crawler):
         studio = studio_candidates[0] if studio_candidates else None
 
         return MediaMetadata(
-            number="",  # DMM TV 不以相同方式暴露 cid
+            number="",  # DMM TV 不暴露与其它分类相同的 cid.
             title=data.titleName,
             actors=[c.actorName for c in data.casts if c.actorName],
             studio=studio,
@@ -539,21 +495,10 @@ class DmmCrawler(Crawler):
             external_id=url,
         )
 
-    # --- 辅助方法 ---
-
     @staticmethod
     def _cid_to_number(cid: str) -> str:
-        """
-        将 DMM 内容 ID 转换为标准化番号.
-
-        示例:
-            midv00123 -> MIDV-123
-            ssis00456 -> SSIS-456
-            n_709mmrak089sp -> MMRAK-089
-        """
-        # 去除常见前缀如 n_709, h_068 等
+        # 先去掉 n_709 / h_068 一类前缀, 再去掉 so/sp 等后缀, 最后拆出 PREFIX-数字.
         cleaned = re.sub(r"^[a-z]_\d+", "", cid)
-        # 去除后缀如 'sp', 'so' 等
         cleaned = re.sub(r"(so|sp|tk|hd|hhb|hib)$", "", cleaned)
 
         match = re.match(r"([a-z]+)0*(\d+)", cleaned)
@@ -565,7 +510,6 @@ class DmmCrawler(Crawler):
 
     @staticmethod
     def _parse_runtime(text: str) -> int | None:
-        """解析时长字符串, 如 '120分' -> 120."""
         if not text:
             return None
         match = re.search(r"(\d+)", text)
@@ -573,7 +517,6 @@ class DmmCrawler(Crawler):
 
     @staticmethod
     def _parse_release(text: str) -> str | None:
-        """从日文格式解析发售日期."""
         if not text:
             return None
         text = text.replace("/", "-")
@@ -582,7 +525,6 @@ class DmmCrawler(Crawler):
 
     @staticmethod
     def _parse_score(text: str) -> float | None:
-        """解析评分字符串, 如 '4.25' 或 '4.25点' -> 4.25."""
         if not text:
             return None
         text = text.replace("点", "")
@@ -593,12 +535,7 @@ class DmmCrawler(Crawler):
 
     @staticmethod
     def _derive_fanza_trailer(hls_url: str) -> str | None:
-        """
-        将 HLS 播放列表 URL 转换为直接 MP4 预告片 URL.
-
-        输入: https://cc3001.dmm.co.jp/hlsvideo/freepv/m/mid/midv00123/playlist.m3u8
-        输出: https://cc3001.dmm.co.jp/litevideo/freepv/m/mid/midv00123/midv00123_sm_w.mp4
-        """
+        # HLS playlist → litevideo 直链 MP4: 换路径并把 playlist.m3u8 换成 {cid}_sm_w.mp4.
         if not hls_url:
             return None
         mp4_url = hls_url.replace("hlsvideo", "litevideo")

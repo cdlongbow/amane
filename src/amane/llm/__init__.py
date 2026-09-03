@@ -1,5 +1,3 @@
-"""管线只依赖 ``Translator`` / ``LLMBackend``; 当前为 OpenAI 兼容后端."""
-
 from .backend import OpenAIBackend
 from .cache import TranslationCache
 from .protocol import LLMBackend, Translator

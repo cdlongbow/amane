@@ -1,5 +1,3 @@
-"""feed-ops Capability - RSS/Atom 订阅源与历史条目管理."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -21,8 +19,6 @@ _CACHE_KIND_ORDER = (CacheKind.metadata, CacheKind.trans)
 
 
 class AgentFeedCreate(BaseModel):
-    """Agent 可创建的 Feed 字段."""
-
     name: str = ""
     url: str
     group: str = ""
@@ -37,7 +33,7 @@ class AgentFeedCreate(BaseModel):
 
 
 class AgentFeedUpdate(BaseModel):
-    """Agent 可更新的 Feed 字段; 只处理显式传入的字段."""
+    """只处理显式传入的字段."""
 
     name: str | None = None
     url: str | None = None
@@ -51,8 +47,6 @@ class AgentFeedUpdate(BaseModel):
 
 
 class AgentFeedItemBatch(BaseModel):
-    """Feed 历史条目批量操作."""
-
     action: FeedItemBatchAction
     ids: list[int] = Field(min_length=1)
 
@@ -210,7 +204,6 @@ def _feed_update_values(req: AgentFeedUpdate) -> dict[str, object]:
 
 
 def build_feed_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的 RSS/Atom 订阅源与条目历史管理能力."""
 
     cap: Capability[AgentDeps] = Capability(
         id="feed-ops",

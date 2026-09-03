@@ -1,5 +1,3 @@
-"""聚合引擎见 amane.aggregate."""
-
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Protocol
 
@@ -29,28 +27,16 @@ _PROGRESS_POST_STEPS = 2
 
 
 def _crawlers_need_oshash(crawlers: Mapping[str, CrawlerLike]) -> bool:
-    """本次实际实例化的爬虫是否声明需要文件指纹 (Stash 系)."""
+    """只依据本次实例化的爬虫是否声明需要文件指纹 (Stash 系)."""
     return any(isinstance(crawler, Crawler) and type(crawler).profile().uses_file_hash for crawler in crawlers.values())
 
 
 class CrawlerFactoryLike(Protocol):
-    """CrawlerFactory 的结构化类型 - 用于测试中的 duck typing."""
-
     async def get_crawlers(self, names: Iterable[str]) -> dict[str, CrawlerLike]: ...
 
 
 class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
-    """处理 SCRAPE 任务 - 编排多源爬取并写入元数据.
-
-    流程:
-        1. 按 content_type 取 content_routes 有序链 (资格真值)
-        2. 实例化爬虫 (CrawlerFactory; 仅 route 内站点)
-        3. 逐字段聚合结果 (aggregate; per-site 复用既有 raw 快照)
-        4. 物化图片到 Resource 目录
-        5. 持久化元数据到数据库 (Repository.upsert_metadata)
-        6. 关联 MediaFile -> Metadata (若有 media_file_id)
-    库目录落盘由 ORGANIZE 负责, 本任务不移动文件.
-    """
+    """不移动库内文件; 库目录落盘由 ORGANIZE 负责."""
 
     def __init__(
         self,
@@ -78,11 +64,13 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         progress_total = len(SCALAR_FIELDS) + _PROGRESS_POST_STEPS
         rec = current()
 
+        # 启用 metadata 缓存时读取 raw 快照.
         use_metadata_cache = CacheKind.metadata in payload.use_cache
         db_data = await self._repo.get_metadata_by_number(payload.number) if use_metadata_cache else None
         if db_data is not None and db_data.raw:
             rec.write_raw_cache(db_data.raw)
 
+        # 校验 content_type 路由; 无资格站点则失败.
         route = self._config.scraping.content_routes.get(content_type)
         if not route:
             rec.warning("no eligible crawlers for content type", content_type=content_type)
@@ -99,6 +87,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         if payload.media_file_id:
             file = await self._repo.get_media_file(media_id=payload.media_file_id)
 
+        # 仅当本次爬虫声明需要指纹时计算 oshash.
         file_hash = file.oshash if file else None
         if file is not None and file_hash is None and _crawlers_need_oshash(crawlers):
             file_hash = await ensure_oshash(self._repo, file)
@@ -119,6 +108,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
             # aggregate 上报的 current 是已满足标量字段数; 分母由 handler 统一为含后续步骤的 total.
             await self.report_progress(current, progress_total, message)
 
+        # 出站: 按波次执行抓取图 (execute_graph); 按 use_cache 复用 raw 快照.
         result = await aggregate(
             q,
             crawlers,
@@ -136,15 +126,14 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
             current().warning("no data found from any source", failed_sites=result.failed_sites)
             return TaskResult(success=False, error=f"No metadata found for {payload.number}")
 
-        # 抓取阶段结束: 分子抬到标量总分, 留给后续 materialize/persist 两步.
+        # 抓取结束: 进度分子对齐标量字段数, 其后为物化与持久化.
         await self.report_progress(len(SCALAR_FIELDS), progress_total, "fetch")
 
-        # 翻译文本字段 (聚合后, 持久化前): 机会主义, 失败不阻断刮削.
+        # 翻译文本字段; 失败不阻断刮削.
         if self._translator is not None:
             await self._translate_metadata(result.metadata, field_language, CacheKind.trans in payload.use_cache)
 
-        # 物化资源 (下载到 Resource + 裁剪 + 急切超分), 得到应写入 metadata 的 URL.
-        # 失败不阻断 (机会主义). 库目录落盘由 ORGANIZE 负责.
+        # 物化到 Resource; 失败保留原始 URL.
         poster_out = result.metadata.poster_urls
         thumb_out = result.metadata.thumb_urls
         trailer_out = result.metadata.trailer_urls
@@ -168,6 +157,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
 
         await self.report_progress(len(SCALAR_FIELDS) + 1, progress_total, "materialize")
 
+        # 写库并关联 MediaFile.
         meta = await self._repo.upsert_metadata(
             number=payload.number,
             title=result.metadata.title,
@@ -193,6 +183,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
 
         await finalize_media_file(self._repo, payload.media_file_id, meta.id)
 
+        # 为尚未刮削的演员扇出 ACTOR_SCRAPE.
         actor_followups = await self._actor_scrape_followups(meta.actors)
 
         await self.report_progress(progress_total, progress_total, "done")
@@ -216,12 +207,11 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         )
 
     async def _actor_scrape_followups(self, actor_names: list[str]) -> list[FollowupTask]:
-        """链式: 为影片演员未刮削者描述 ACTOR_SCRAPE 后继 (机会主义, 失败不阻断主流程).
+        """为尚未刮削的影片演员描述 ACTOR_SCRAPE 后继; 失败不阻断主流程.
 
-        - ``meta.actors`` 已是 FacetRule 应用后的规范名, 与 sync_metadata_facets 创建的
-          Actor 实体一一对应, 缺失名 (理论上不存在) 静默跳过.
-        - 跳过 ``Actor.raw`` 非空者: 已刮过, 站点级 raw 快照可复用, 无需重刮.
-        - ``priority=-1`` 低于默认 0: 批量 REFRESH 产生的演员任务不抢影片任务.
+        ``meta.actors`` 已是 FacetRule 后的规范名, 与 sync_metadata_facets 创建的 Actor 对应, 缺失名静默跳过.
+        跳过 ``Actor.raw`` 非空者 (站点快照可复用).
+        ``priority=-1``: 批量产生的演员任务不能抢占影片任务.
         """
         if not self._config.actor_scraping.auto_scrape or not actor_names:
             return []
@@ -244,11 +234,8 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
     async def _translate_metadata(
         self, metadata: AggregatedMetadata, field_language: FieldLanguage, use_cache: bool
     ) -> None:
-        """就地翻译 metadata 的文本字段至 field_language 指定语言.
-
-        仅处理 llm.translate_fields 中受支持的文本标量字段 (当前 title/plot).
-        每字段独立机会主义: 单字段失败不影响其余, 全程不抛.
-        ``use_cache`` 为 False 时跳过译文缓存读取 (强制重译), 但仍刷新缓存.
+        """就地翻译 ``llm.translate_fields`` 中的文本标量. 单字段失败不影响其余, 全程不抛.
+        ``use_cache`` 为 False 时跳过译文缓存读取, 但仍刷新缓存.
         """
         assert self._translator is not None
         fields = self._config.llm.translate_fields
@@ -264,7 +251,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
     async def _translate_field(
         self, value: str, field_language: FieldLanguage, field: MetadataField, use_cache: bool
     ) -> str | None:
-        """翻译单字段, 吞掉异常 (机会主义). 无目标语言或失败时返回 None."""
+        """翻译单字段; 异常忽略. 无目标语言或失败时返回 None."""
         assert self._translator is not None
         target = field_language.get(field)
         if target is None:

@@ -80,7 +80,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** 节点展开后的详情: 标识 / 进度 / 摘要 / payload / 日志 / 操作. JSON 默认折叠. */
+/** JSON 默认折叠. */
 export function TaskDetailPanel({ task, linkKey, actions }: TaskDetailPanelProps) {
   const { t } = useTranslation(["tasks", "common"]);
   const progress = useProgressStore((s) => s.byTask[task.id]);

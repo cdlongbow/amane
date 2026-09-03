@@ -62,7 +62,7 @@ export function parseCron(expression: string): CronValue {
 
   const [minuteF, hourF, domF, monthF, dowF] = fields;
   if (monthF !== "*") return { kind: "custom", expression: trimmed };
-  // DOM 与 DOW 同时约束时 cron 是 OR 语义, 选择器不表达, 回落 custom.
+  // DOM 与 DOW 同时约束时 cron 是 OR 语义, 选择器不表达, 回退 custom.
   if (domF !== "*" && dowF !== "*") return { kind: "custom", expression: trimmed };
 
   if (hourF === "*" && domF === "*" && dowF === "*") {

@@ -179,7 +179,7 @@ function applySseToAssistant(prev: ChatMessage[], event: AgentSseEvent): ChatMes
   }
 
   if (event.type === "tool_result") {
-    // 新路径批准只走 needs_approval SSE; tool_result 内嵌 needs_approval 仅兼容旧 trace
+    // 新路径批准只经 needs_approval SSE; tool_result 内嵌 needs_approval 仅兼容旧 trace
     const parsed = parseNeedsApproval(event.result);
     const idx = blocks.findIndex(
       (b) => b.kind === "tool" && b.tool.toolCallId === event.tool_call_id,
@@ -268,10 +268,10 @@ export function AgentHome() {
   const skipTraceLoad = useRef(false);
   const lastSeqRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  /** 历史恢复后需滚到底; 在 messages 提交后再清. */
+  /** 历史恢复后需滚到底; 在 messages 提交后再清除. */
   const pendingScrollBottom = useRef(false);
   const messagesRef = useLatestRef(messages);
-  /** 单次批准暂存: approval_id → tool; 同工具待批清零后再一次 approve/stream. */
+  /** 单次批准暂存: approval_id → tool; 同工具待批清空后再一次 approve/stream. */
   const stagedApprovalsRef = useRef(new Map<string, string>());
 
   if (sessionId == null && !sessionsQuery.isPending) {
@@ -396,7 +396,7 @@ export function AgentHome() {
 
   useEffect(() => {
     if (sessionId == null || streaming) return;
-    // 再点当前会话时 sessionId 不变, 靠 historyEpoch 让本 effect 重绑.
+    // 再点当前会话时 sessionId 不变, 靠 historyEpoch 让本 effect 重新绑定.
     if (historyEpoch < 0) return;
     if (skipTraceLoad.current) {
       skipTraceLoad.current = false;
@@ -420,7 +420,7 @@ export function AgentHome() {
   useEffect(() => {
     if (!pendingScrollBottom.current) return;
     if (sessionId == null || streaming) return;
-    // 切会话会先清空 messages; 同一次 commit 里 trace 已置旗但 messages 仍为空 - 保留旗标等下一拍.
+    // 切换会话会先清空 messages; 同一次 commit 里 trace 已置旗但 messages 仍为空 - 保留旗标等下一拍.
     if (messages.length === 0) return;
     pendingScrollBottom.current = false;
     requestAnimationFrame(() => {
@@ -597,7 +597,7 @@ export function AgentHome() {
       return;
     }
 
-    // 单次批准: 暂存; 同工具待批清零后再请求
+    // 单次批准: 暂存; 同工具待批清空后再请求
     stagedApprovalsRef.current.set(approval.approval_id, approval.tool);
     markApprovalsLocally([approval.approval_id], "approved");
     if (findPendingApprovals(messagesRef.current, approval.tool).length === 0) {
@@ -629,7 +629,7 @@ export function AgentHome() {
         return;
       }
     }
-    // 发新消息前先冲掉暂存批准, 避免只改了 UI 却未执行
+    // 发新消息前先冲掉暂存批准, 避免只修改了 UI 却未执行
     await flushAllStaged(sid);
     await runStream(sid, text, "message");
   }
@@ -692,7 +692,7 @@ export function AgentHome() {
   const sessions = sessionsQuery.data?.items ?? [];
   const sessionsReady = !sessionsQuery.isPending;
   const hasSessionHistory = sessions.length > 0;
-  // 开幕落地态仅在确认没有任何历史会话时展示; 有历史或已选中会话时始终走侧栏对话布局.
+  // 开幕落地态仅在确认没有任何历史会话时展示; 有历史或已选中会话时始终采用侧栏对话布局.
   const showLanding = sessionsReady && !hasSessionHistory && sessionId == null;
   const loadingHistory =
     sessionId != null && !streaming && traceQuery.isFetching && messages.length === 0;

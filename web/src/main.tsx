@@ -43,7 +43,7 @@ const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");
 
 /** 认证经 HttpOnly cookie: 挂载时探活 /api/system/desktop 判断 cookie 是否有效,
- * 之后任何请求 401 (cookie 过期/被重置) 由 apiFetch 发事件切回登录门. */
+ * 之后任何请求 401 (cookie 过期/被重置) 由 apiFetch 发事件切换回登录门. */
 function Root() {
   const colorScheme = useUIStore((s) => s.theme);
   const [authed, setAuthed] = useState<boolean | null>(null);

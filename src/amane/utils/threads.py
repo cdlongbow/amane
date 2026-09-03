@@ -1,7 +1,4 @@
-"""把同步函数调度到默认线程池, 供事件循环 ``await``.
-
-已在工作线程里的代码用 ``.sync`` 调原函数, 不要再进一次线程池.
-"""
+"""同步函数进入默认线程池, 供事件循环 ``await``. 已在工作线程里用 ``.sync``, 不要再进一次线程池."""
 
 from __future__ import annotations
 
@@ -13,7 +10,7 @@ from typing import Any
 
 
 class in_thread[**P, R]:
-    """装饰同步函数: ``await fn(...)`` 进线程池, ``fn.sync(...)`` 原地执行."""
+    """``await fn(...)`` 进入线程池, ``fn.sync(...)`` 原地执行."""
 
     __slots__ = ("__dict__", "__wrapped__", "sync")
 

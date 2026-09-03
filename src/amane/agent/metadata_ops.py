@@ -1,5 +1,3 @@
-"""metadata-ops Capability - 渐进披露的元数据写面工具."""
-
 from __future__ import annotations
 
 from typing import Any, Literal, cast
@@ -38,7 +36,6 @@ _AGENT_PATCH_KEYS = frozenset(
 
 
 def build_metadata_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的元数据管理能力."""
     cap: Capability[AgentDeps] = Capability(
         id="metadata-ops",
         description=(

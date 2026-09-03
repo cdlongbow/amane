@@ -15,7 +15,6 @@ export function savedQueryBrowseHref(item: {
   }
 }
 
-/** 实体 Badge 翻译 key (agent 命名空间). */
 export const SAVED_QUERY_ENTITY_LABEL_KEY = {
   metadata: "entityMetadata",
   actor: "entityActor",
@@ -29,7 +28,6 @@ export const SAVED_QUERY_OPEN_LABEL_KEY = {
   data: "openData",
 } as const satisfies Record<SavedQueryEntity, string>;
 
-/** 实体 Badge 颜色. */
 export const SAVED_QUERY_BADGE_COLOR = {
   metadata: "blue",
   actor: "pink",

@@ -1,4 +1,4 @@
-"""演员浏览 API - 与片库平级; 身份治理 (rename/merge/delete/rules) 仍走 /facets/actor."""
+"""身份治理 (rename/merge/delete/rules) 仍由 /facets/actor 处理."""
 
 from typing import Annotated, cast
 
@@ -72,7 +72,6 @@ def _from_actor(
 
 @router.get("")
 async def list_actors(repo: RepoDep, params: Annotated[ActorBrowseParams, Query()]) -> ActorListResponse:
-    """分页列出演员 (人物摘要 + 关联影片数)."""
     id_subquery_sql = None
     if params.saved_query_id is not None:
         id_subquery_sql = await resolve_saved_query_id_subquery(repo, params.saved_query_id, SavedQueryEntity.ACTOR)
@@ -82,7 +81,6 @@ async def list_actors(repo: RepoDep, params: Annotated[ActorBrowseParams, Query(
 
 @router.get("/{actor_id}")
 async def get_actor(actor_id: int, repo: RepoDep) -> ActorResponse:
-    """演员详情 (含别名与 raw)."""
     item = await repo.get_facet(FacetKind.ACTOR, actor_id)
     actor = await repo.get_actor(actor_id)
     if item is None or actor is None:
@@ -121,7 +119,6 @@ async def update_actor(actor_id: int, req: ActorUpdateRequest, repo: RepoDep) ->
 
 @router.post("/{actor_id}/scrape", status_code=202)
 async def scrape_actor(actor_id: int, repo: RepoDep, req: ActorScrapeRequest | None = None) -> TaskResponse:
-    """提交演员人物元数据刮削任务."""
     actor = await repo.get_actor(actor_id)
     if actor is None:
         raise HTTPException(status_code=404, detail="Actor not found")

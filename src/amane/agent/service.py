@@ -1,5 +1,3 @@
-"""Agent 会话编排 - 挂在 AppRuntime 上的门面."""
-
 from __future__ import annotations
 
 import asyncio
@@ -70,8 +68,6 @@ class _HistoryEntry:
 
 @dataclass
 class _TurnStreamState:
-    """后台回合可取消时共享的部分输出."""
-
     user_text: str | None
     history: list[ModelMessage]
     reply_parts: list[str] = field(default_factory=list)
@@ -81,8 +77,6 @@ class _TurnStreamState:
 
 @dataclass
 class AgentService:
-    """会话级 Agent 门面: sandbox + cache + agent 工厂 + pending 批准."""
-
     db_path: Path
     data_dir: Path
     repo: Repository
@@ -140,14 +134,14 @@ class AgentService:
         return parse_session_thinking(self.store_for(session_id).read_meta().get("thinking"))
 
     def set_session_thinking(self, session_id: int, thinking: AgentThinkingMode | None) -> None:
-        """写入会话思考覆盖; thinking=None 表示继承全局默认."""
+        """thinking=None 表示继承全局默认."""
         store = self.store_for(session_id)
         meta = store.read_meta()
         meta["thinking"] = thinking if thinking is not None else None
         store.write_meta(meta)
 
     async def delete_session(self, session_id: int) -> bool:
-        """删除会话; 若回合进行中, 先取消其后台任务"""
+        """回合进行中则先取消其后台任务."""
         task = self._turn_tasks.pop(session_id, None)
         if task is not None and not task.done():
             task.cancel()
@@ -215,10 +209,7 @@ class AgentService:
         show_user_message: bool = True,
         deferred_tool_results: DeferredToolResults | None = None,
     ) -> int:
-        """启动后台回合; 返回启动前的 last_seq (订阅用 after=).
-
-        deferred_tool_results: 批准/拒绝后续跑; 此时 user_text 可为 None.
-        """
+        """返回启动前的 last_seq (订阅用 after=). 批准/拒绝续执行时 user_text 可为 None."""
         if self.agent is None:
             raise RuntimeError("助理 Agent 未配置")
         session = await self.repo.get_agent_session(session_id)
@@ -249,8 +240,8 @@ class AgentService:
         return after
 
     async def start_approve(self, session_id: int, approval_ids: list[str], *, slow_timeout_ms: int = 60_000) -> int:
-        """批准一批 tool_call_id, 以 DeferredToolResults 续跑 (模型无感知批准)."""
-        _ = slow_timeout_ms  # 批准后续跑走工具内 approved 路径; 保留参数兼容 API
+        """以 DeferredToolResults 续执行; 模型无感知批准."""
+        _ = slow_timeout_ms  # 续执行经工具内 approved 路径; 保留参数兼容 API
         if self.is_turn_running(session_id):
             raise RuntimeError("会话已有进行中的回合")
         ids = list(dict.fromkeys(approval_ids))
@@ -286,7 +277,7 @@ class AgentService:
         )
 
     async def start_reject(self, session_id: int, approval_id: str) -> int:
-        """拒绝一项待批并以 ToolDenied 续跑."""
+        """以 ToolDenied 续执行."""
         if self.is_turn_running(session_id):
             raise RuntimeError("会话已有进行中的回合")
         pending = self._pending.pop(approval_id, None)
@@ -317,7 +308,7 @@ class AgentService:
         )
 
     async def cancel_turn(self, session_id: int) -> bool:
-        """显式终止进行中的后台回合; 断连不会走到这里."""
+        """显式终止后台回合; 断连不会进入此路径."""
         session = await self.repo.get_agent_session(session_id)
         if session is None:
             raise KeyError(f"session {session_id} 不存在")
@@ -329,7 +320,7 @@ class AgentService:
             with contextlib.suppress(asyncio.CancelledError):
                 await task
         elif self.store_for(session_id).turn_running:
-            # 无 task (进程异常态): 补写终态并清旗
+            # 无 task (进程异常态): 补写终态并清除 turn_running
             await self._write_cancelled(session_id, reply="")
             self.store_for(session_id).set_turn_running(False)
         self._clear_session_pending(session_id)
@@ -397,6 +388,7 @@ class AgentService:
             return
 
         store = self.store_for(session_id)
+        # 落盘用户消息 (批准续执行时可隐藏)
         if state.user_text is not None and state.show_user_message:
             await store.append_row({"type": "user_message", "text": state.user_text})
         elif state.user_text is not None and not state.show_user_message:
@@ -407,6 +399,7 @@ class AgentService:
 
         emitted_deferred = False
         try:
+            # 流式事件: 待批 / 映射增量 / 终态
             async with self.agent.run_stream_events(
                 state.user_text,
                 deps=deps,
@@ -454,8 +447,8 @@ class AgentService:
     async def _emit_deferred_approvals(
         self, session_id: int, deps: AgentDeps, requests: DeferredToolRequests
     ) -> AsyncIterator[AgentStreamEvent]:
-        """把 DeferredToolRequests 登记为 pending 并推送 needs_approval SSE."""
         last: NeedsApprovalPayload | None = None
+        # 登记 pending 并推送 needs_approval
         for call in requests.approvals:
             tid = call.tool_call_id
             meta = requests.metadata.get(tid) or {}
@@ -513,7 +506,7 @@ class AgentService:
 
 
 def _messages_for_cancelled(history: list[ModelMessage], user_text: str, reply: str) -> list[ModelMessage]:
-    """取消后把本轮用户消息与已生成片段写入权威历史, 避免下一轮丢上下文."""
+    """取消后把本轮用户消息与已生成片段写入权威历史, 避免下一轮丢失上下文."""
     messages = list(history)
     messages.append(ModelRequest(parts=[UserPromptPart(content=user_text)]))
     messages.append(ModelResponse(parts=[TextPart(content=reply or "（已终止）")]))

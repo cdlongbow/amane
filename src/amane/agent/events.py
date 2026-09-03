@@ -11,11 +11,7 @@ from ..db.models import AgentSessionStatus, SavedQueryEntity
 
 
 class TurnTokenUsage(BaseModel):
-    """一轮对话的计费向用量.
-
-    `input` 是**非缓存**输入 (总 input 减去 cache_read/cache_write), 便于估费率.
-    pydantic-ai 的 `input_tokens` 是包含缓存的总量, 这里刻意拆开.
-    """
+    """`input` 是非缓存输入 (总量减去 cache_read/cache_write). pydantic-ai 的 `input_tokens` 含缓存, 此处拆开."""
 
     input: int = 0
     cache_read: int = 0
@@ -83,7 +79,6 @@ AgentStreamEvent = (
 
 
 def turn_usage_from_run(usage: RunUsage) -> TurnTokenUsage:
-    """从 pydantic-ai RunUsage 抽出计费向用量."""
     cache_read = usage.cache_read_tokens
     cache_write = usage.cache_write_tokens
     return TurnTokenUsage(
@@ -96,7 +91,7 @@ def turn_usage_from_run(usage: RunUsage) -> TurnTokenUsage:
 
 
 def truncate_json(value: Any, *, max_chars: int = 4000) -> Any:
-    """把工具结果压到可展示大小; 超长变摘要字符串."""
+    """超长则改为摘要字符串."""
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):

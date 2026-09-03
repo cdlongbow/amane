@@ -64,17 +64,8 @@ class MetadataRepoMixin(RepositoryMixinBase):
         id_subquery_sql: str | None = None,
         updated_before: datetime | None = None,
     ) -> tuple[list[Metadata], int]:
-        """返回 (items, total).
-
-        关联类 facet (actor/director/tag/user_tag): 同 kind 多 id 为 **AND** (须同时具备).
-        标量类 facet (studio/publisher/series): 同 kind 多 id 为 **OR** (命中任一; 未知 id 忽略,
-        全部未知则空). 跨 kind 始终 AND.
-        has_files: True/False 按是否存在关联 MediaFile 筛选; None 不过滤.
-        has_subtitle / mosaic / uncensored / definition / content_type: 按关联文件相位筛选;
-        布尔项 True=至少一份具备, False=没有任何一份具备; 枚举项为 EXISTS 等值.
-        ids: 若给定则限制为这些主键 (显式 id 集).
-        id_subquery_sql: 已校验的 ``SELECT id FROM (...)`` 子查询, 与其它筛选项 AND.
-        updated_before: 仅返回 updated_at 早于该时刻的条目 (配合 UPDATED_AT ASC 做滚动窗口).
+        """关联类 facet 同 kind 多 id 为 AND; 标量类同 kind 多 id 为 OR (未知 id 忽略, 全部未知则空).
+        跨 kind 始终 AND. 相位筛选项: 布尔 True=至少一份具备, False=没有任何一份具备.
         """
         async with self._session() as session:
             base = select(Metadata)
@@ -159,14 +150,14 @@ class MetadataRepoMixin(RepositoryMixinBase):
             return await session.get(Metadata, metadata_id)
 
     async def get_metadata_by_number(self, number: str) -> Metadata | None:
-        """按番号查找; 大小写不敏感, 返回行保留库内原始大小写."""
+        """大小写不敏感; 返回行保留库内原始大小写."""
         async with self._session() as session:
             stmt = select(Metadata).where(func.lower(Metadata.number) == number.lower())
             result = await session.exec(stmt)
             return result.first()
 
     async def upsert_metadata(self, number: str, **kwargs: Unpack[MetadataFields]) -> Metadata:
-        """按番号 upsert; 查重忽略大小写, 已存在时不改写 number 的原始大小写."""
+        """查重忽略大小写; 已存在时不改写 number 的原始大小写."""
         async with self._session() as session:
             stmt = select(Metadata).where(func.lower(Metadata.number) == number.lower())
             result = await session.exec(stmt)
@@ -194,12 +185,12 @@ class MetadataRepoMixin(RepositoryMixinBase):
             return meta
 
     async def update_metadata(self, metadata_id: int, **updates: Unpack[MetadataFields]) -> Metadata | None:
-        """按字段更新元数据; 不存在返回 None."""
+        """不存在返回 None."""
         async with self._session() as session:
             metadata = await session.get(Metadata, metadata_id)
             if metadata is None:
                 return None
-            # 显式赋值: 字段名与类型由 MetadataFields(TypedDict) 与 Metadata 静态保证一致.
+            # 显式赋值, 禁止 setattr; 字段集由 MetadataFields 与 Metadata 静态对齐.
             if "title" in updates:
                 metadata.title = updates["title"]
             if "actors" in updates:
@@ -249,13 +240,7 @@ class MetadataRepoMixin(RepositoryMixinBase):
             return metadata
 
     async def delete_metadata(self, metadata_id: int) -> bool:
-        """删除元数据并应用层级联清空关联 MediaFile 引用.
-
-        MediaFile.metadata_id 可空, 删 Metadata 时必须 nullify 并回 PENDING,
-        否则留下悬空 FK; 文件记录本身保留, 可再次刮削.
-        分类关联 / 评论 / 用户 tag 挂载由 ``cascade_delete_metadata`` 显式清理
-        (不依赖 SQLite FK pragma); Actor/Director 等目录实体本身保留.
-        """
+        """级联见 ``cascade_delete_metadata``. 不存在返回 False."""
         async with self._session() as session:
             metadata = await session.get(Metadata, metadata_id)
             if metadata is None:
@@ -265,10 +250,7 @@ class MetadataRepoMixin(RepositoryMixinBase):
             return True
 
     async def batch_delete_metadata(self, ids: list[int]) -> tuple[int, int]:
-        """批量删除元数据, 级联行为与 :meth:`delete_metadata` 一致 (单个 session/事务).
-
-        返回 (deleted, missing) -- 不存在的 id 计入 missing, 不影响其余 id 的删除.
-        """
+        """级联与 :meth:`delete_metadata` 一致, 单个事务. 不存在的 id 计入 missing."""
         async with self._session() as session:
             deleted = 0
             missing = 0

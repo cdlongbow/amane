@@ -114,7 +114,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
             return await session.get(Library, library_id)
 
     async def get_library_names(self, library_ids: Sequence[int]) -> dict[int, str]:
-        """批量取 Library 名 (任务列表标题投影用); 不存在的 id 不出现在结果中."""
+        """不存在的 id 不出现在结果中."""
         ids = list(dict.fromkeys(int(i) for i in library_ids if i))
         if not ids:
             return {}
@@ -123,7 +123,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
             return {int(i): str(n) for i, n in rows if i is not None}
 
     async def get_library_for_path(self, file_path: str) -> Library | None:
-        """通过最长前缀匹配找到文件路径所属的 Library (仅迁移/兜底用)."""
+        """最长前缀匹配. 仅迁移或无法解析归属时使用, 不是入库归属真值."""
         best: Library | None = None
         for lib in await self.list_libraries():
             if file_path.startswith(lib.path) and (best is None or len(lib.path) > len(best.path)):
@@ -131,11 +131,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
         return best
 
     async def delete_library(self, library_id: int) -> int:
-        """删除媒体库并级联删除其下所有 MediaFile 记录.
-
-        MediaFile.library_id 是非空 FK, 删库必须同时清理归属文件, 否则留下悬空引用
-        (见 delete_metadata 的同类应用层级联). 返回被级联删除的 MediaFile 数量.
-        """
+        """须同时删除归属 MediaFile, 否则留下悬空非空 FK. 返回被级联删除的文件数."""
         async with self._session() as session:
             lib = await session.get(Library, library_id)
             if lib is None:
@@ -145,8 +141,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
             media_files = list(result.all())
             for mf in media_files:
                 await session.delete(mf)
-            # 先 flush 子表删除, 确保在删除父 Library 前 FK 引用已清除
-            # (MediaFile/Library 未声明 ORM relationship, UoW 不会自动排序删除顺序)
+            # 未声明 ORM relationship, UoW 不会排序删除顺序; 须先 flush 子表.
             await session.flush()
             await session.delete(lib)
             await session.commit()
@@ -157,7 +152,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
             lib = await session.get(Library, library_id)
             if lib is None:
                 return None
-            # 显式赋值: 字段名与类型由 LibraryUpdates(TypedDict) 与 Library 静态保证一致.
+            # 显式赋值, 禁止 setattr; 字段集由 LibraryUpdates 与 Library 静态对齐.
             if "name" in updates:
                 lib.name = updates["name"]
             if "path" in updates:

@@ -1,5 +1,3 @@
-"""ORGANIZE 同目录字幕发现与分集配对."""
-
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,13 +19,10 @@ logger = structlog.get_logger()
 
 @in_thread
 def discover_subtitles(video_path: Path, extensions: Sequence[str], video_cd: int | None) -> list[Path]:
-    """发现视频同目录下的字幕文件.
+    """只检查直接父目录, 不递归; 扩展名大小写不敏感. 空扩展名列表不发现. 多个字幕全部返回, 不挑主字幕.
 
-    - 只看直接父目录, 不递归; 扩展名大小写不敏感.
-    - 空扩展名列表 → 不发现.
-    - 多个字幕全部返回, 不挑主字幕.
-    - 只解析字幕文件名上的分集 (`detect_cd`, 不看目录): 有标记的跟当前视频同号;
-      解析不出的: 当前视频无分集 (同分集) 或分集为 1 时一并带走.
+    只解析字幕文件名上的分集 (`detect_cd`, 不依据目录): 有标记的跟当前视频同号;
+    解析不出的: 当前视频无分集或分集为 1 时一并纳入.
     """
     exts = {e.lower() for e in extensions}
     if not exts:
@@ -61,7 +56,7 @@ def place_subtitles(
     link_dir: Path | None = None,
     link_name: str | None = None,
 ) -> None:
-    """把已发现的字幕按模板落到 video_dest 侧, 失败只记日志."""
+    """失败只记日志, 不抛异常."""
     for sub in sources:
         dest = resolve_subtitle_path(
             library,

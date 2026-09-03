@@ -14,7 +14,6 @@ class DahliaCrawler(Crawler):
         return CrawlerProfile(name=SiteName.DAHLIA, base_url="https://dahlia-av.jp")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """直接构造详情页 URL."""
         number = query.number
         slug = number.lower().replace("-", "")
         url = f"{self.base_url}/works/{slug}/"
@@ -24,7 +23,6 @@ class DahliaCrawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 DAHLIA 详情页."""
         text = await self.client.get_html(url)
         if not text:
             return None

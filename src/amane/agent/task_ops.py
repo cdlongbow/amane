@@ -1,4 +1,4 @@
-"""task-ops Capability - 统一入队 / 取消 / 重试 (不代跑)."""
+"""不代为执行; 只入队 / 取消 / 重试."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ _TASK_SUBMISSION_ADAPTER: TypeAdapter[TaskSubmission] = TypeAdapter(TaskSubmissi
 
 
 def build_task_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的任务控制面."""
     cap: Capability[AgentDeps] = Capability(
         id="task-ops",
         description=(

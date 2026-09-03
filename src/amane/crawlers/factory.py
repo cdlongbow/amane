@@ -43,20 +43,10 @@ class _PluginProviderAdapter(FilmSourceProvider):
 
 
 class CrawlerFactory:
-    """
-    Crawler 实例工厂.
+    """延迟创建并缓存爬虫. 全部共用一个 HttpClient.
 
-    - 所有爬虫共享单个 HttpClient (连接池 + 限速器)
-    - 首次请求时延迟创建实例, 之后缓存复用
-    - SiteConfig 在构造期注入, 缓存的实例在热重载时随工厂一起重建
-    - R18DevCrawler 额外注入只读 R18Database (会话级, 不随热重载重建)
-    - 演员爬虫独立缓存; gFriends 额外注入 data_dir / repo URL
-
-    用法:
-        factory = CrawlerFactory(http_client, site_configs=hot.scraping.site_config)
-        crawler = await factory.get("javdb")
-        crawlers = await factory.get_crawlers(["javdb", "dmm"])
-        actor = await factory.get_actor("minnano")
+    SiteConfig 在构造期注入; 热重载时工厂与缓存实例一并重建.
+    R18Database 为会话级, 不随热重载重建.
     """
 
     def __init__(
@@ -82,11 +72,6 @@ class CrawlerFactory:
         self._actor_instances: dict[str, ActorCrawler] = {}
 
     async def get(self, name: str) -> Crawler | FilmSourceProvider | None:
-        """
-        根据名称获取 Crawler 实例 (延迟创建, 缓存复用).
-
-        如果没有以该名称注册的爬虫, 返回 None.
-        """
         if name in self._instances:
             return self._instances[name]
 
@@ -98,7 +83,7 @@ class CrawlerFactory:
             return None
 
         site_config = self._site_configs.get(name)
-        # R18DevCrawler 需要额外注入只读 DB (HTTP 之外的特殊依赖).
+        # R18DevCrawler 额外注入只读 DB.
         if cls is R18DevCrawler:
             instance: Crawler = R18DevCrawler(client=self._http, config=site_config, db=self._r18_db)
         else:
@@ -107,7 +92,7 @@ class CrawlerFactory:
         return instance
 
     async def _get_plugin(self, name: str) -> FilmSourceProvider | None:
-        """延迟构建并缓存源插件适配器; 插件禁用时返回 None, data_dir 缺失时抛 RuntimeError."""
+        # 插件禁用返回 None; data_dir 缺失抛 RuntimeError.
         if name in self._plugin_instances:
             return self._plugin_instances[name]
         if self._plugin_manager is None:
@@ -135,14 +120,6 @@ class CrawlerFactory:
         return adapter
 
     async def get_crawlers(self, names: Iterable[str]) -> dict[str, CrawlerLike]:
-        """
-        根据名称列表获取多个 Crawler 实例.
-
-        跳过没有注册爬虫类的名称.
-
-        Returns:
-            字典, 映射名称到 Crawler 实例 (仅包含成功创建的).
-        """
         result: dict[str, CrawlerLike] = {}
         for name in names:
             try:
@@ -155,7 +132,6 @@ class CrawlerFactory:
         return result
 
     async def get_actor(self, name: str) -> ActorCrawler | None:
-        """按站点名获取 ActorCrawler (延迟创建, 缓存复用)."""
         if name in self._actor_instances:
             return self._actor_instances[name]
 
@@ -178,7 +154,6 @@ class CrawlerFactory:
         return instance
 
     async def get_actor_crawlers(self, names: Iterable[str]) -> dict[str, ActorFetcher]:
-        """按名称列表获取 ActorCrawler; 跳过未注册项."""
         result: dict[str, ActorFetcher] = {}
         for name in names:
             crawler = await self.get_actor(name)
@@ -188,5 +163,4 @@ class CrawlerFactory:
 
     @property
     def active_crawlers(self) -> dict[str, Crawler]:
-        """当前已实例化的影片爬虫."""
         return dict(self._instances)

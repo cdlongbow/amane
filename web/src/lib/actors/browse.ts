@@ -1,8 +1,6 @@
 /**
- * 演员浏览筛选 - URL search / API query / 面板控件共用字段契约.
- *
- * 与后端 ``ActorBrowseParams`` / ``ListActorsData["query"]`` 对齐 (snake_case);
- * 仅 UI 导航态保留 ``q`` / ``view`` / ``page`` (见路由 schema).
+ * 与后端 ActorBrowseParams 对齐 (snake_case).
+ * 仅 UI 导航态保留 q / view / page.
  */
 
 import type { ParseKeys } from "i18next";
@@ -21,7 +19,6 @@ export const ACTOR_GENDERS = [
 /** `/actors` 未带 gender 时的默认筛选; 从 URL 剥掉. 显式清空写入 `[]` 表示不限. */
 export const DEFAULT_ACTOR_GENDER_FILTER = ["female"] as const satisfies readonly ActorGender[];
 
-/** URL 中与 API 同名的筛选键 (不含分页/排序/q). */
 export const ACTOR_FILTER_KEYS = [
   "has_person",
   "has_image",
@@ -47,7 +44,7 @@ export type ActorTriBool = "true" | "false";
 
 /** 面板与芯片共用的筛选值.
  * gender 缺省为 ``DEFAULT_ACTOR_GENDER_FILTER``; `[]` 表示不限.
- * ``age_*`` 仅草稿 UI: 应用时换算为 ``birthday_*``, 不进 URL/API.
+ * ``age_*`` 仅草稿 UI: 应用时换算为 ``birthday_*``, 不写入 URL/API.
  */
 export type ActorFilterValues = {
   gender: ActorGender[];
@@ -164,7 +161,6 @@ const optionalIntSchema = z.preprocess(
 );
 const optionalStrSchema = z.preprocess(coerceOptionalStr, z.string().optional());
 
-/** 与 API 筛选字段同构的 URL search 片段. */
 export const actorFilterSearchSchema = z.object({
   has_person: z.enum(["true", "false"]).optional(),
   has_image: z.enum(["true", "false"]).optional(),
@@ -228,7 +224,6 @@ export function actorFilterValuesFromSearch(search: ActorsBrowseSearch): ActorFi
   };
 }
 
-/** URL search → API list query (含 q→search, 三态 bool). */
 export function actorListQueryFromSearch(search: ActorsBrowseSearch): ActorListQuery {
   const gender = resolvedActorGenders(search);
   return {
@@ -281,7 +276,6 @@ export function mergeActorFilterPatch(
   return next;
 }
 
-/** 用完整筛选值替换 URL 中的筛选键 (面板"应用"). */
 export function replaceActorFilters(
   prev: ActorsBrowseSearch,
   filters: ActorFilterValues,
@@ -346,7 +340,7 @@ export function birthdayBoundsFromAge(
   };
 }
 
-/** 应用前规范化: 去空白; 若填了年龄则覆盖生日并丢掉 age_*. */
+/** 应用前规范化: 去空白; 若填了年龄则覆盖生日并删除 age_*. */
 function trimFilterText(value: string | undefined): string | undefined {
   if (value == null) return undefined;
   const text = value.trim();
@@ -411,7 +405,6 @@ export function actorFiltersEqual(a: ActorFilterValues, b: ActorFilterValues): b
   );
 }
 
-/** 用于 effect 依赖: 内容不变则指纹不变. */
 export function actorFilterFingerprint(filters: ActorFilterValues): string {
   return JSON.stringify(normalizeActorFilterValues(filters));
 }

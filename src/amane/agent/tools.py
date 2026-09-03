@@ -1,5 +1,3 @@
-"""pydantic-ai 工具: sql_explore / sql_deliver / inspect_result."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -19,7 +17,7 @@ from .trace import SessionTrace, TraceEvent
 
 
 class NeedsApprovalPayload(BaseModel):
-    """SSE / UI 待批载荷; approval_id 实际为 tool_call_id."""
+    """approval_id 实际为 tool_call_id."""
 
     approval_id: str
     sql: str
@@ -37,7 +35,7 @@ class ExploreResult(BaseModel):
     elapsed_ms: float
     truncated: bool = False
     saved_query_id: int | None = None
-    """create_view 时物化的会话视图 id; 可用 inspect_result 翻页."""
+    """create_view 时物化的会话视图 id."""
     id_count: int | None = None
 
 
@@ -62,7 +60,7 @@ class InspectResult(BaseModel):
 
 @dataclass
 class PendingApproval:
-    """进程内待批快照; approval_id == tool_call_id."""
+    """approval_id == tool_call_id."""
 
     approval_id: str
     session_id: int
@@ -86,9 +84,8 @@ class AgentDeps:
     last_saved_query_ids: list[int] = field(default_factory=list)
     awaiting_approval: NeedsApprovalPayload | None = None
     persist_tool_trace: bool = True
-    """流式回合由 SSE 落盘工具事件时为 False, 避免重复."""
+    """流式回合由 SSE 落盘工具事件时为 False, 避免重复写入."""
     bridge: AgentRuntimeBridge = field(default_factory=AgentRuntimeBridge)
-    """库路径 / watcher / 取消运行任务等写面桥接."""
 
 
 def require_approval(
@@ -101,10 +98,7 @@ def require_approval(
     create_view: bool = False,
     extra: dict[str, Any] | None = None,
 ) -> None:
-    """未批准时 raise ApprovalRequired; 已批准则直接返回让工具体继续执行.
-
-    metadata 供 UI 确认文案; approval 键为 tool_call_id.
-    """
+    """未批准时 raise ApprovalRequired. metadata 供 UI 确认文案; approval 键为 tool_call_id."""
     if ctx.tool_call_approved:
         return
     tool_call_id = ctx.tool_call_id or ""
@@ -172,7 +166,6 @@ async def materialize_saved_query(
 
 
 def build_explore_toolset() -> FunctionToolset[AgentDeps]:
-    """只读探查/交付/检视工具集 (始终暴露)."""
     toolset: FunctionToolset[AgentDeps] = FunctionToolset()
 
     @toolset.tool

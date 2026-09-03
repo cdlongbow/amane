@@ -37,7 +37,7 @@ export function tryNormalizeFeedGroup(value: string): string | null {
   }
 }
 
-/** 把公共前缀拼到已有分组前. 两边都会走规范化; 任一侧非法则抛. */
+/** 把公共前缀拼到已有分组前. 两边都会经规范化; 任一侧非法则抛. */
 export function joinFeedGroup(prefix: string, group: string): string {
   const left = normalizeFeedGroup(prefix);
   const right = normalizeFeedGroup(group);

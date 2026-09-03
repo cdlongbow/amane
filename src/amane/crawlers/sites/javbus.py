@@ -21,10 +21,9 @@ class JavBusCrawler(Crawler):
         )
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """搜索番号, 返回详情页 URL."""
         number = query.number
 
-        # 先尝试直接访问
+        # 先尝试直接访问详情页.
         direct_url = f"{self.base_url}/{number}"
         try:
             text = await self.client.get_html(direct_url, cookies=self.cookies, headers=self.headers)
@@ -36,7 +35,7 @@ class JavBusCrawler(Crawler):
             if title:
                 return direct_url
 
-        # 回退到搜索
+        # 未命中则回退搜索.
         search_url = f"{self.base_url}/search/{number}&type=&parent=ce"
         text = await self.client.get_html(search_url, cookies=self.cookies, headers=self.headers)
         html = Selector(text=text)
@@ -45,7 +44,6 @@ class JavBusCrawler(Crawler):
         return urls[0] if urls else None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 JavBus 详情页."""
         text = await self.client.get_html(url, cookies=self.cookies, headers=self.headers)
         html = Selector(text=text)
 
@@ -83,7 +81,6 @@ class JavBusCrawler(Crawler):
         series = extract_text(html, '//a[contains(@href, "/series/")]/text()')
         tags = extract_all_texts(html, '//span[@class="genre"]/label/a[contains(@href, "/genre/")]/text()')
         extrafanart = extract_all_texts(html, "//div[@id='sample-waterfall']/a/@href")
-        # 确保 extrafanart URL 是绝对路径
         extrafanart = [urljoin(url, u) for u in extrafanart]
 
         return MediaMetadata(

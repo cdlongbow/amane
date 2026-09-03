@@ -672,7 +672,7 @@ class TestAggregate:
 
     @pytest.mark.asyncio
     async def test_unavailable_source_skipped_not_failed(self):
-        """禁用/缺失来源不进 failed_sites, 后续源仍可聚合."""
+        """禁用/缺失来源不写入 failed_sites, 后续源仍可聚合."""
         plugin = "sample.javdbapi"
         result = await aggregate(
             SearchQuery("X"),

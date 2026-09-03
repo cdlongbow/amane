@@ -33,8 +33,6 @@ def is_newer(latest: str, current: str) -> bool:
 
 
 class ReleaseSnapshot:
-    """一次检查的结果, 供 ReleaseChecker 内部与路由组装响应."""
-
     __slots__ = ("html_url", "latest")
 
     def __init__(self, latest: str | None, html_url: str | None) -> None:
@@ -43,7 +41,7 @@ class ReleaseSnapshot:
 
 
 class ReleaseChecker:
-    """带 ETag 的 latest 查询. 挂在 AppRuntime, 不进 rebuild."""
+    """带 ETag 的 latest 查询. 由 AppRuntime 持有, 不参与 rebuild."""
 
     def __init__(self) -> None:
         self._etag: str | None = None

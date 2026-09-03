@@ -40,8 +40,6 @@ class ActorListResponse(BaseModel):
 
 
 class ActorScrapeRequest(BaseModel):
-    """POST /actors/{id}/scrape 请求体 - 与影片刮削同型 use_cache."""
-
     use_cache: set[CacheKind] = Field(
         default_factory=lambda: {CacheKind.metadata, CacheKind.trans},
         description="启用的缓存种类 (metadata: 复用 Actor.raw; trans: 预留译文). 空集 = 全部强制刷新",
@@ -52,7 +50,7 @@ if TYPE_CHECKING:
     type ActorUpdateRequest = Actor
 
 # 外部可写面: 排除主键/展示名/时间戳与仅刮削写入的 raw/field_sources.
-# aliases 不是 DB 列 (行化后走 ActorAlias), 经 extra_fields 显式纳入可写面.
+# aliases 不是 DB 列 (行化后经由 ActorAlias), 经 extra_fields 显式纳入可写面.
 ActorUpdateRequest = create_partial_model(
     Actor,
     ignore_fields=("id", "name", "created_at", "updated_at", "raw", "field_sources"),

@@ -12,7 +12,6 @@ interface PosterGridProps {
   actorBirthday?: string | null;
 }
 
-/** 响应式海报网格 - titles / catalog 详情页共用. */
 export function PosterGrid({
   items,
   loading = false,

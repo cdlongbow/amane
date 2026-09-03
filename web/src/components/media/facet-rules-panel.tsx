@@ -14,7 +14,7 @@ export interface FacetRulesPanelProps {
 
 /**
  * 爬取侧分类的用户规则 (别名 / 黑名单) 入口 + 弹窗.
- * 按钮挂在列表壳顶栏 (不随表体滚动), 弹窗内展示规则表并支持单条撤销.
+ * 按钮位于列表壳顶栏 (不随表体滚动), 弹窗内展示规则表并支持单条撤销.
  * user_tag 无规则, 由调用方自行不渲染.
  */
 export function FacetRulesPanel({ kind, onDeleteRule }: FacetRulesPanelProps) {

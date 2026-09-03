@@ -57,7 +57,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
     async def resolve_metadata_facet_ids(
         self, meta: Metadata
     ) -> tuple[dict[str, int], dict[str, int], dict[str, int], int | None, int | None, int | None]:
-        """将 metadata 上的名称解析为分类实体 id (供详情页 Badge 跳转)."""
+        """名称 → 分类实体 id; 未投影的名称不出现."""
         async with self._session() as session:
             actor_ids: dict[str, int] = {}
             for name in normalize_names(meta.actors):
@@ -100,7 +100,6 @@ class FacetsRepoMixin(RepositoryMixinBase):
         sort_by: FacetSortField = FacetSortField.NAME,
         order: SortOrder = SortOrder.ASC,
     ) -> tuple[list[FacetItem], int]:
-        """分页列出分类目录条目及关联影片数."""
         async with self._session() as session:
             return await list_facets(
                 session, kind, search=search, offset=offset, limit=limit, sort_by=sort_by, order=order
@@ -115,7 +114,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return await session.get(Actor, actor_id)
 
     async def get_actor_names(self, actor_ids: Sequence[int]) -> dict[int, str]:
-        """批量取 Actor 名 (任务列表标题投影用); 不存在的 id 不出现在结果中."""
+        """不存在的 id 不出现在结果中."""
         ids = list(dict.fromkeys(int(i) for i in actor_ids if i))
         if not ids:
             return {}
@@ -124,7 +123,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return {int(i): str(n) for i, n in rows if i is not None}
 
     async def get_actors_by_names(self, names: Sequence[str]) -> list[Actor]:
-        """按规范名批量查 Actor 行 (链式刮削跳过判断用); 不存在的名字不出现在结果中."""
+        """按展示名批量查; 不存在的名字不出现."""
         unique = list(dict.fromkeys(n for n in names if n))
         if not unique:
             return []
@@ -133,7 +132,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return list((await session.exec(stmt)).all())
 
     async def get_actor_lookup_names(self, actor_id: int) -> list[str] | None:
-        """刮削查找名; Actor 不存在返回 None."""
+        """展示名加别名行. Actor 不存在返回 None."""
         async with self._session() as session:
             actor = await session.get(Actor, actor_id)
             if actor is None:
@@ -141,7 +140,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return await build_actor_lookup_names(session, actor)
 
     async def list_actors(self, *, offset: int = 0, limit: int = 500) -> list[Actor]:
-        """分页列出 Actor 行 (cleanup 收集 image_urls 等)."""
+        """按 id 升序分页; 无筛选."""
         async with self._session() as session:
             stmt = select(Actor).offset(offset).limit(limit).order_by(asc(col(Actor.id)))
             return list((await session.exec(stmt)).all())
@@ -149,15 +148,12 @@ class FacetsRepoMixin(RepositoryMixinBase):
     async def browse_actors(
         self, params: ActorBrowseParams, *, id_subquery_sql: str | None = None
     ) -> tuple[list[ActorBrowseItem], int]:
-        """演员浏览分页列表 (人物摘要 + 影片 count)."""
+        """列表行不含简介/别名/源字典."""
         async with self._session() as session:
             return await browse_actors(session, params, id_subquery_sql=id_subquery_sql)
 
     async def save_actor(self, actor: Actor, *, aliases: Sequence[str] | None = None) -> Actor | None:
-        """将已修改的 Actor 人物字段持久化; 不存在返回 None.
-
-        ``aliases`` 提供时整表替换该演员别名行 (刮削回写 / 测试用); 省略不动别名行.
-        """
+        """不存在返回 None. ``aliases`` 提供时整表替换别名行; 省略则不动别名."""
         if actor.id is None:
             return None
         async with self._session() as session:
@@ -174,12 +170,12 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return db
 
     async def get_actor_aliases(self, actor_id: int) -> list[str]:
-        """演员别名行 (保序); 不含展示名."""
+        """保序; 不含展示名."""
         async with self._session() as session:
             return await list_actor_aliases(session, actor_id)
 
     async def lookup_actors_by_name(self, name: str) -> list[Actor]:
-        """只读名字→演员候选 (展示名命中 + 别名行命中); 不创建实体."""
+        """只读候选, 不创建实体."""
         async with self._session() as session:
             return await lookup_actors_by_name(session, name)
 
@@ -205,10 +201,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return ok
 
     async def update_actor(self, actor_id: int, **updates: Unpack[ActorPersonFields]) -> Actor | None:
-        """按字段更新 Actor 人物元数据; 不改 name/id. 不存在返回 None.
-
-        ``aliases`` 走 ``replace_actor_aliases`` 整表替换 (保序).
-        """
+        """不修改 name/id. 不存在返回 None. ``aliases`` 经 ``replace_actor_aliases`` 整表替换."""
         async with self._session() as session:
             actor = await session.get(Actor, actor_id)
             if actor is None:
@@ -252,12 +245,8 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return actor
 
     async def rename_facet(self, kind: FacetKind, facet_id: int, new_name: str) -> FacetItem | None:
-        """重命名分类实体 (含用户 tag).
-
-        Metadata 的 JSON/标量字段是刮削真值, 分类实体表是查询投影 -- 重命名先改 JSON/标量,
-        再走 ``sync_metadata_facets`` 重投影. 爬取侧同时写入单跳 alias 规则, 使重刮仍映射到新名.
-        新名称与另一实体冲突时抛 ``ValueError`` (语义上是"改名成了合并", 由调用方决定是否引导
-        用户走 :meth:`merge_facets`). 不存在的 facet_id 返回 None.
+        """先改 Metadata 真值再重投影. 爬取侧同时写单跳 alias, 否则重刮会回到旧名.
+        新名称与另一实体冲突时抛 ``ValueError``; 不存在返回 None.
         """
         async with self._session() as session:
             if kind in LINK_FACETS:
@@ -267,10 +256,8 @@ class FacetsRepoMixin(RepositoryMixinBase):
             raise ValueError(f"unknown facet kind: {kind}")
 
     async def merge_facets(self, kind: FacetKind, target_id: int, source_ids: list[int]) -> FacetItem | None:
-        """将 source_ids 合并入 target_id: 关联迁移到 target, 删除 source 实体.
-
-        爬取侧同时写入压缩后的 alias 规则. target 不存在返回 None; source_ids 含 target_id
-        或引用不存在的实体抛 ``ValueError``.
+        """关联迁到 target, 删除 source. 爬取侧同时写压缩后的 alias.
+        target 不存在返回 None; source 含 target 或不存在则抛 ``ValueError``.
         """
         source_id_set = set(source_ids)
         if target_id in source_id_set:
@@ -284,11 +271,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             raise ValueError(f"unknown facet kind: {kind}")
 
     async def delete_facet(self, kind: FacetKind, facet_id: int) -> bool:
-        """删除分类实体.
-
-        爬取侧: 写 block 规则 (入边 alias 压成 block), 从 Metadata 真值剔除, 再删实体.
-        user_tag: 硬删挂载与实体, 不写规则. 不存在返回 False.
-        """
+        """爬取侧写 block 并从真值剔除后再删实体. user_tag 硬删挂载与实体, 不写规则. 不存在返回 False."""
         async with self._session() as session:
             if kind == FacetKind.USER_TAG:
                 tag = await session.get(UserTag, facet_id)
@@ -358,7 +341,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             tag = await session.get(UserTag, user_tag_id)
             if tag is None:
                 return False
-            # 显式清挂载, 不依赖 SQLite FK pragma
+            # 显式删除挂载, 不依赖 SQLite FK pragma
             await session.exec(sqla_delete(MetadataUserTag).where(col(MetadataUserTag.user_tag_id) == user_tag_id))
             await session.delete(tag)
             await session.commit()
@@ -376,7 +359,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return list(result.all())
 
     async def attach_user_tag(self, metadata_id: int, user_tag_id: int) -> bool:
-        """挂载用户 tag. 返回 False 若 metadata/tag 不存在; 已存在则幂等成功."""
+        """metadata/tag 不存在返回 False; 已存在则幂等成功."""
         async with self._session() as session:
             if await session.get(Metadata, metadata_id) is None:
                 return False
@@ -398,10 +381,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return True
 
     async def batch_attach_user_tag(self, ids: list[int], user_tag_id: int) -> tuple[int, int]:
-        """批量挂载用户 tag (幂等). user_tag 不存在则全部计入 missing.
-
-        返回 (affected, missing) -- missing 为不存在的 metadata id 数 (或 tag 不存在时的全部 id 数).
-        """
+        """幂等. user_tag 不存在则全部计入 missing."""
         async with self._session() as session:
             if await session.get(UserTag, user_tag_id) is None:
                 return 0, len(ids)
@@ -419,7 +399,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             return affected, missing
 
     async def batch_detach_user_tag(self, ids: list[int], user_tag_id: int) -> tuple[int, int]:
-        """批量取消挂载用户 tag. 返回 (affected, missing) -- missing 为未挂载 (或 metadata/tag 不存在) 的数量."""
+        """missing 为未挂载, 或 metadata/tag 不存在的数量."""
         async with self._session() as session:
             affected = 0
             missing = 0

@@ -1,5 +1,3 @@
-"""library-ops Capability - 媒体库 CRUD 与扫描入队."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -73,7 +71,7 @@ def _sync_watcher_remove(deps: AgentDeps, library_id: int) -> None:
 
 
 def build_library_ops_capability() -> Capability[AgentDeps]:
-    """按需加载的媒体库管理; 删除须批准."""
+    """删除须批准."""
     cap: Capability[AgentDeps] = Capability(
         id="library-ops",
         description=(

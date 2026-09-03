@@ -166,7 +166,7 @@ async def test_missing_internal_resource_falls_back_to_crop(resource_store: Reso
         config=HotSettings(),
     )
     assert result.success is True
-    assert paths.poster.exists()  # 裁剪兜底
+    assert paths.poster.exists()  # 裁剪回退
 
 
 @pytest.mark.parametrize("enabled", [False, True])

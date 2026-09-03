@@ -25,8 +25,6 @@ class FacetRenameRequest(BaseModel):
 
 
 class FacetMergeRequest(BaseModel):
-    """将 source_ids 合并入 target_id: 关联迁移到 target, source 实体被删除."""
-
     target_id: int
     source_ids: list[int] = Field(min_length=1, description="待合并的来源 facet id 列表")
 

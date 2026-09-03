@@ -1,12 +1,6 @@
-"""LLM 翻译器 - ``Translator`` 协议的实现.
+"""跨语系经缓存后调用 ``LLMBackend``; 简繁经 ``zhconv``, 不经 LLM、不写入缓存.
 
-职责分流 (见 amane/utils/language):
-- 跨语系 (日/英 → 目标) → 查缓存, 未命中才调用 ``LLMBackend`` 并回写缓存.
-- 中文内部 (简↔繁) → ``zhconv`` 字形转换, 不耗 LLM 也不进缓存 (幂等, 共用字天然 no-op).
-- 已是目标语言 → 返回 ``None``, 调用方保留原值.
-
-``build_translator`` 由 HotSettings.llm 装配后端; enabled=False 或缺 api_key 时返回 ``None``,
-管线据此跳过翻译.
+已是目标语言返回 ``None``. ``build_translator`` 在 enabled=False 或缺 api_key 时返回 ``None``.
 """
 
 import structlog
@@ -26,7 +20,6 @@ _ZHCONV_LOCALE: dict[Language, str] = {
     Language.ZH_TW: "zh-tw",
 }
 
-# 目标语言的人类可读名 (用于提示词).
 _LANG_NAME: dict[Language, str] = {
     Language.ZH_CN: "简体中文",
     Language.ZH_TW: "繁體中文",
@@ -34,7 +27,6 @@ _LANG_NAME: dict[Language, str] = {
     Language.EN: "English",
 }
 
-# 字段级翻译要求.
 _FIELD_HINT: dict[MetadataField, str] = {
     MetadataField.TITLE: "这是一部影片的标题, 翻译应简洁自然, 保留专有名词与番号.",
     MetadataField.PLOT: "这是一部影片的简介, 完整通顺地翻译全部内容.",
@@ -52,8 +44,6 @@ def _build_prompts(text: str, target: Language, field: MetadataField) -> tuple[s
 
 
 class LLMTranslator:
-    """实现 ``Translator``: 跨语系走 LLM (带缓存), 中文变体走 zhconv."""
-
     def __init__(self, backend: LLMBackend, cache: TranslationCache | None = None) -> None:
         self._backend = backend
         self._cache = cache
@@ -100,10 +90,7 @@ def build_translator(
     proxy: str | None = None,
     cache: TranslationCache | None = None,
 ) -> LLMTranslator | None:
-    """按配置装配翻译器. 未启用或缺密钥时返回 ``None`` (管线跳过翻译).
-
-    ``cache`` 为会话级译文缓存 (bootstrap 创建并经 AppRuntime 注入), 热重载时复用同一实例.
-    """
+    """未启用或缺密钥时返回 ``None``. ``cache`` 热重载时复用同一实例."""
     if not enabled or not api_key:
         return None
     backend = OpenAIBackend(

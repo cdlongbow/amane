@@ -4,13 +4,13 @@ import { isRecord } from "@/lib/utils";
 import type { SchemaFormInstance } from "../schema";
 
 /**
- * Dict 条目的表单绑定: 用户 key 是对象上的字面量, 不拼进 TanStack 点路径.
- * 叶子控件仍走 `form.Field`; 本 scope 把读写转到父级 dict 的 `[entryKey]`.
+ * Dict 条目绑定: 用户 key 是对象上的字面量, 不拼进 TanStack 点路径.
+ * 叶子控件仍使用 `form.Field`; 本 scope 把读写转到父级 dict 的 `[entryKey]`.
  *
  * `bindEntry`: 值本身是 scalar / array, Field `name` 只作 DOM id.
  * 否则 `name` 是条目内部的 schema 相对路径 (属性名, 可再嵌套).
  *
- * Tabs 会同时挂载全部条目, 叶子 `id`/`htmlFor` 必须走 `useFieldDomId`,
+ * Tabs 同时挂载全部条目, 叶子 `id`/`htmlFor` 必须经 `useFieldDomId` 加上条目前缀,
  * 不能只用 schema 相对名, 否则同名 Switch 的 label 会命中第一份控件.
  */
 const DictEntryContext = createContext<{

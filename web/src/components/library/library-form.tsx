@@ -78,7 +78,6 @@ export const LIBRARY_AUTOMATION_BADGE_COLOR = {
   scrape: "teal",
 } as const satisfies Record<LibraryAutomation, string>;
 
-/** 媒体库创建/编辑表单的本地字段状态 (与 API body 的 null/undefined 语义解耦). */
 export interface LibraryFormState {
   name: string;
   path: string;
@@ -174,7 +173,7 @@ export function parseLibraryPatterns(s: string): string[] {
     .filter(Boolean);
 }
 
-/** 黑名单正则按行分隔: 正则本身可含逗号 (如量词 {2,3}), 不能用逗号切分. */
+/** 黑名单正则按行分隔: 正则本身可含逗号 (如量词 {2,3}), 不能按逗号分隔. */
 export function parseBlacklistPatterns(s: string): string[] {
   return s
     .split(/\r?\n/)
@@ -242,7 +241,6 @@ interface LibraryFormFieldsProps {
   showCreateOnly: boolean;
 }
 
-/** 媒体库表单字段 - 创建/编辑模态框共用. 占位符/默认值以后端 path-template-schema 为准. */
 export function LibraryFormFields({ value, onChange, showCreateOnly }: LibraryFormFieldsProps) {
   const { t } = useTranslation("library");
   const { data: schema } = useQuery(getPathTemplateSchemaOptions());

@@ -1,7 +1,6 @@
-"""演员爬虫子包 - 档案/头像源与影片爬虫隔离.
+"""档案 / 头像源与影片爬虫隔离.
 
-性别覆盖读 ``profile().genders`` (site_coverage); 配置侧站点角色由注册表推导 (见 ..site_roles).
-``register`` 顺序即默认 ``profile_sites`` / ``image_sites`` 优先级.
+性别覆盖读 ``profile().genders``. ``register`` 顺序即默认 ``profile_sites`` / ``image_sites`` 优先级.
 """
 
 from .base import ActorCrawler, ActorFetcher

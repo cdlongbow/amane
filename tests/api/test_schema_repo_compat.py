@@ -351,7 +351,7 @@ class TestFieldDiscipline:
 
     @pytest.mark.parametrize(("req", "typed_dict", "db", "forbidden"), _DISCIPLINE, ids=_DISCIPLINE_IDS)
     def test_typeddict_subset_of_db_columns(self, req, typed_dict, db, forbidden):
-        """repo 入参字段必须都是真实 DB 列, 否则去反射后的显式赋值无法静态通过 (此处再兜底)."""
+        """repo 入参字段必须都是真实 DB 列, 否则去反射后的显式赋值无法静态通过 (此处再校验)."""
         td_fields = set(get_type_hints(typed_dict))
         db_fields = set(db.model_fields)
         unknown = td_fields - db_fields

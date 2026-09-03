@@ -15,7 +15,6 @@ class GigaCrawler(Crawler):
         return CrawlerProfile(name=SiteName.GIGA, base_url="https://www.giga-web.jp")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """搜索番号, 返回详情页 URL."""
         number = query.number
         search_url = f"{self.base_url}/top/search?keyword={number}"
         text = await self.client.get_html(search_url)
@@ -28,7 +27,6 @@ class GigaCrawler(Crawler):
         return urls[0] if urls else None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 GIGA 详情页."""
         text = await self.client.get_html(url)
         if not text:
             return None

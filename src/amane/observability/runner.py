@@ -1,4 +1,4 @@
-"""回放入口: 从任务记录目录/zip 跑 ScrapeHandler (offline 优先)."""
+"""从任务记录目录/zip 执行 ScrapeHandler (offline 优先)."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ async def run_record(record_path: Path, *, online: bool = False) -> int:
             )
 
         payload = ScrapePayload.model_validate(task.payload)
-        # 回放不碰用户媒体文件
+        # 回放不接触用户媒体文件
         payload = payload.model_copy(update={"media_file_id": None})
 
         use_offline = (not online) and manifest.http_captured and (root / "http").is_dir()
@@ -67,7 +67,7 @@ async def run_record(record_path: Path, *, online: bool = False) -> int:
             repo = Repository(engine)
             resource_store = ResourceStore(engine=engine, base_dir=tmp / "resources")
 
-            # 可选: 注入 raw_cache 以便测 metadata cache 路径
+            # 可选: 注入 raw_cache, 以便覆盖 metadata cache 路径
             raw_path = root / "raw_cache.json"
             if raw_path.is_file() and CacheKind.metadata in payload.use_cache:
                 raw = json.loads(raw_path.read_text(encoding="utf-8"))
@@ -103,7 +103,7 @@ async def run_record(record_path: Path, *, online: bool = False) -> int:
 
 
 class _open_record:
-    """Context manager: 接受目录或 zip, yield 含 manifest.json 的根目录."""
+    """接受目录或 zip, yield 含 manifest.json 的根目录."""
 
     def __init__(self, path: Path):
         self.path = path

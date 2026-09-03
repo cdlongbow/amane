@@ -28,7 +28,6 @@ def _facet_response(item: FacetItem) -> FacetResponse:
 
 @router.post("/user_tag", status_code=201)
 async def create_user_tag(req: FacetCreateRequest, repo: RepoDep) -> FacetResponse:
-    """创建用户标签."""
     name = req.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="名称不能为空")
@@ -50,14 +49,12 @@ async def list_facets(
     sort_by: Annotated[FacetSortField, Query(description="Sort field")] = FacetSortField.NAME,
     order: Annotated[SortOrder, Query(description="Sort order")] = SortOrder.ASC,
 ) -> FacetListResponse:
-    """分页列出分类目录条目 (演员/导演/标签/厂商/发行商/系列/用户 tag)."""
     items, total = await repo.list_facets(kind, search=search, offset=offset, limit=limit, sort_by=sort_by, order=order)
     return FacetListResponse(items=[_facet_response(i) for i in items], total=total)
 
 
 @router.get("/{kind}/rules")
 async def list_facet_rules(kind: FacetKind, repo: RepoDep) -> FacetRuleListResponse:
-    """列出爬取侧分类的用户规则 (别名 / 黑名单)."""
     if kind not in SCRAPE_FACET_KINDS:
         raise HTTPException(status_code=400, detail="该分类不支持规则")
     try:
@@ -118,7 +115,7 @@ async def merge_facets(kind: FacetKind, req: FacetMergeRequest, repo: RepoDep) -
 
 @router.patch("/{kind}/{facet_id}")
 async def rename_facet(kind: FacetKind, facet_id: int, req: FacetRenameRequest, repo: RepoDep) -> FacetResponse:
-    """重命名分类实体. 新名称与另一实体冲突时返回 409 (建议改用合并)."""
+    """新名称与另一实体冲突时返回 409 (应使用合并)."""
     name = req.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="名称不能为空")

@@ -282,7 +282,7 @@ export function PosterCropDialog({
     const aspect = clampAspect(nextAspect);
     setAspectRatio(aspect);
     if (!naturalSize) return;
-    // 未锁定时只更新比例值, 不强制改选区; 锁定时按新比例重塑
+    // 未锁定时只更新比例值, 不强制修改选区; 锁定时按新比例重塑
     if (!lockAspect) return;
     const height = box.height > 0 ? box.height : naturalSize.h;
     const top = box.height > 0 ? box.top : 0;

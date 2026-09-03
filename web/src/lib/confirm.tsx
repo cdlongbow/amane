@@ -7,7 +7,7 @@ export type ConfirmOptions = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  /** 确认钮颜色; 未设时 danger=true 用 red. */
+  /** 确认钮颜色; 未设置时 danger=true 用 red. */
   confirmColor?: string;
   /** 危险操作. 默认 true. */
   danger?: boolean;

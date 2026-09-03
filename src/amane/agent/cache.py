@@ -1,4 +1,4 @@
-"""交付结果内存缓存 - 按 saved_query_id, LRU + TTL."""
+"""按 saved_query_id 的 LRU + TTL 内存缓存."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 @dataclass(slots=True)
 class CachedResult:
-    """物化的查询结果 - 缓存对列内容无感, 只存行列数组."""
+    """缓存对列内容无感, 只存行列数组."""
 
     saved_query_id: int
     columns: list[str]
@@ -23,7 +23,7 @@ class CachedResult:
 
 
 class ResultCache:
-    """进程内结果缓存; 调整容量不丢弃现有未过期条目."""
+    """调整容量不丢弃现有未过期条目."""
 
     def __init__(self, *, ttl_s: int = 3600, max_entries: int = 64) -> None:
         self._ttl_s = ttl_s
@@ -31,13 +31,12 @@ class ResultCache:
         self._entries: OrderedDict[int, CachedResult] = OrderedDict()
 
     def configure(self, *, ttl_s: int, max_entries: int) -> None:
-        """热更新容量参数 (不丢现有未过期条目, 但立刻按新上限裁剪)."""
+        """不丢弃现有未过期条目, 立刻按新上限裁剪."""
         self._ttl_s = ttl_s
         self._max_entries = max_entries
         self._evict()
 
     def get(self, saved_query_id: int) -> CachedResult | None:
-        """按 saved_query_id 返回缓存; 未命中或已过期返回 None."""
         entry = self._entries.get(saved_query_id)
         if entry is None:
             return None

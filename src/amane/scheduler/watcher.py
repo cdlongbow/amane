@@ -1,5 +1,3 @@
-"""带防抖与媒体扩展名过滤的目录监控."""
-
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -24,11 +22,7 @@ DEBOUNCE_SECONDS = _DEFAULT_DEBOUNCE_SECONDS
 
 
 class _Handler(FileSystemEventHandler):
-    """内部 watchdog 事件处理器, 带防抖功能.
-
-    每个 handler 绑定唯一的 library_id (一个监控根 = 一个 Library), 使文件事件
-    天然携带归属信息, 无需事后按路径前缀反推.
-    """
+    """每个 handler 对应一个 library_id, 事件自带归属, 无需按路径前缀反推."""
 
     def __init__(
         self,
@@ -53,7 +47,7 @@ class _Handler(FileSystemEventHandler):
             path_str = str(event.src_path)
             path = Path(path_str)
             if self._matches(path):
-                # 从 pending 创建中移除 (尚未处理的创建事件)
+                # 尚未处理的创建事件一并移除
                 self._pending.pop(path_str, None)
                 self._pending_deletes[path_str] = time.time()
 
@@ -63,15 +57,15 @@ class _Handler(FileSystemEventHandler):
             dest_str = str(event.dest_path)
             dest = Path(dest_str)
 
-            # 源路径视为删除
+            # 源路径上的创建/删除待处理一律丢弃
             self._pending.pop(src_str, None)
             self._pending_deletes.pop(src_str, None)
 
             if self._matches(dest):
-                # 目标匹配: 记录为移动 (src -> dest)
+                # 目标匹配: 记录为移动
                 self._pending_moves[dest_str] = (src_str, time.time())
             else:
-                # 目标不匹配: 等同于删除源文件
+                # 目标不匹配: 源若为媒体则记录为删除
                 src = Path(src_str)
                 if self._matches(src):
                     self._pending_deletes[src_str] = time.time()
@@ -85,7 +79,6 @@ class _Handler(FileSystemEventHandler):
         return self._scan.classify(path) is LibraryFileKind.MEDIA
 
     def get_ready_files(self) -> list[Path]:
-        """返回已稳定超过 debounce_seconds 的新文件"""
         now = time.time()
         ready = []
         remaining = {}
@@ -98,7 +91,6 @@ class _Handler(FileSystemEventHandler):
         return ready
 
     def get_ready_deletes(self) -> list[Path]:
-        """返回已稳定超过 debounce_seconds 的删除文件"""
         now = time.time()
         ready = []
         remaining = {}
@@ -111,7 +103,6 @@ class _Handler(FileSystemEventHandler):
         return ready
 
     def get_ready_moves(self) -> list[tuple[Path, Path]]:
-        """返回已稳定的移动事件 (src, dest) 列表"""
         now = time.time()
         ready = []
         remaining = {}
@@ -125,28 +116,11 @@ class _Handler(FileSystemEventHandler):
 
 
 class FileWatcher:
-    """
-    监控目录中的媒体文件变动 (新增, 删除, 移动), 带防抖功能.
+    """媒体目录监控, 带防抖. 回调额外接收 library_id.
 
-    策略选择:
-        use_polling=False (默认): 使用原生 OS 事件
-           - Linux: inotify (不支持 NFS/CIFS 等网络挂载)
-           - macOS: FSEvents
-           - Windows: ReadDirectoryChangesW
-        use_polling=True: 轮询模式, 适用于:
-           - NAS/NFS 挂载
-           - Docker Desktop for macOS (VirtioFS inotify 不可靠)
-           - WSL2 (跨 OS 文件系统通知不完整)
-           - inotify watch 数量超限
-
-    用法:
-        watcher = FileWatcher(on_file_found=my_callback, on_file_deleted=del_cb, on_file_moved=move_cb)
-        watcher.watch("/media/videos", library_id=1, recursive=True)
-        watcher.start()
-        # 定期调用 watcher.check_debounced() 来刷新就绪文件
-        watcher.stop()
-
-    所有事件回调均额外接收来源 library_id (int), 指示事件来自哪个 Library.
+    use_polling=False 使用原生 OS 事件: Linux inotify 不支持 NFS/CIFS 等网络挂载.
+    use_polling=True 适用于 NAS/NFS、Docker Desktop for macOS (VirtioFS inotify
+    不可靠)、WSL2, 以及 inotify watch 数量超限.
     """
 
     def __init__(
@@ -169,7 +143,6 @@ class FileWatcher:
         self._observer: BaseObserver | None = None
         self._handlers: list[_Handler] = []
         self._watching: list[tuple[str, bool, list[str] | None]] = []
-        # library_id -> 已注册的 watch 句柄, 供 unwatch 取消监控
         self._watches: dict[int, ObservedWatch] = {}
 
     @property
@@ -185,19 +158,10 @@ class FileWatcher:
         skip_patterns: Sequence[str | None] | None = None,
         min_file_size: int = 0,
     ) -> None:
-        """
-        添加一个要监控的目录.
+        """登记监控目录.
 
-        Args:
-            path: 要监控的目录路径.
-            library_id: 该目录所属的 Library id; 事件回调会携带此值.
-            recursive: 是否监控子目录.
-            patterns: 可选的 glob 模式 (例如 ["*.mp4", "*.mkv"]).
-                     如果为 None, 则使用 MEDIA_EXTENSIONS.
-            skip_patterns: 跳过正则列表 (预告片/黑名单), 命中则不登记;
-                          `.amane_trash` 目录 (回收站) 内路径恒忽略.
-            min_file_size: 视频体积下限 (字节); 0 关闭. 只对 media_extensions 判定,
-                          `.strm` 指针不参与.
+        skip_patterns 命中则不登记; `.amane_trash` 内路径恒忽略.
+        min_file_size 只对 media_extensions 判定, `.strm` 指针不参与.
         """
         handler = _Handler(
             library_id,
@@ -217,33 +181,24 @@ class FileWatcher:
         self._watches[library_id] = self._observer.schedule(handler, path, recursive=recursive)
 
     def unwatch(self, library_id: int) -> None:
-        """取消监控某个 Library 对应的目录 (运行时热移除, 无需重启).
-
-        若该 library_id 未在监控中则为无操作.
-        """
+        """取消该 library_id 的监控; 未在监控中则为无操作."""
         watch = self._watches.pop(library_id, None)
         if watch is not None and self._observer is not None:
             self._observer.unschedule(watch)
         self._handlers = [h for h in self._handlers if h.library_id != library_id]
 
     def start(self) -> None:
-        """启动文件监控器"""
         if self._observer:
             self._observer.start()
 
     def stop(self) -> None:
-        """停止文件监控器并等待线程结束"""
         if self._observer:
             self._observer.stop()
             self._observer.join(timeout=5.0)
             self._observer = None
 
     def check_debounced(self) -> list[Path]:
-        """
-        检查所有 handler 中已过防抖窗口且准备好处理的事件.
-
-        返回新就绪的文件列表. 同时为每个事件调用对应回调 (携带 handler 的 library_id).
-        """
+        """刷新已过防抖窗口的事件并调用对应回调."""
         ready_files = []
         for handler in self._handlers:
             for path in handler.get_ready_files():

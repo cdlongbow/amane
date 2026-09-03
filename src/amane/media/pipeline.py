@@ -1,12 +1,6 @@
-"""刮削期资源物化管线 - 按配置下载到 Resource / 裁剪 / 就地超分, 返回各 role 最终 URL.
+"""刮削期按 ``download_resources`` 下载 / 裁剪 / 就地超分, 返回应写入 metadata 的 URL.
 
-- 外部原始图: metadata 记外部 URL; 经 store 下载到 Resource 目录供本地消费与超分.
-- 裁剪 (外部不存在): 经 store 派生, metadata 记内部相对 URL `/api/resources/{hash}`.
-- 就地超分 (sr.enabled 时急切): 覆盖资源本地文件, URL 不变, meta 打 'sr' 标记.
-- 视频 (trailer): 仅下载到 Resource, 不超分; metadata 记外部 URL.
-- ``scraping.download_resources`` 控制本步下载哪些类型; 与整理到媒体库路径无关.
-
-返回 MaterializedImages - 各 role 最终应写入 metadata 的 URL.
+与整理到媒体库路径无关. 任一步失败不抛, 仅降级.
 """
 
 from dataclasses import dataclass
@@ -35,18 +29,12 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# 内部派生资源的相对 URL 前缀 (serve 哑文件服务挂载点).
 RESOURCE_URL_PREFIX = "/api/resources"
 
 
 @dataclass
 class MaterializedImages:
-    """物化后应写入 metadata 的 URL 列表 (取代聚合产出的对应字段).
-
-    - poster_urls: 裁剪时 = [内部相对 URL]; 否则 = 外部候选列表, 下载成功者前置.
-    - thumb_urls / trailer_urls: 外部候选列表, 下载成功者前置 (仅下载到 Resource + 就地超分, URL 不变).
-     fanart 不是 metadata 字段 (整理时按 JAV 约定取 thumb), 故不在此返回.
-    """
+    # fanart 不是 metadata 字段 (整理时按 JAV 约定取 thumb), 不在此返回.
 
     poster_urls: list[str]
     thumb_urls: list[str]
@@ -54,20 +42,15 @@ class MaterializedImages:
 
 
 def _internal_url(store: ResourceStore, locator_url: str) -> str:
-    """派生资源 locator → 前端可访问的内部相对 URL."""
     return f"{RESOURCE_URL_PREFIX}/{store.url_hash(locator_url)}"
 
 
 def _success_first(urls: list[str], succeeded: set[str]) -> list[str]:
-    """按下载结果稳定分区: 成功者保序前置, 失败者保序沉底.
-
-    ``succeeded`` 为空 (类型未被下载) 时幂等返回原序.
-    """
+    # 成功者保序前置, 失败者保序置于尾部. succeeded 为空时幂等返回原序.
     return [u for u in urls if u in succeeded] + [u for u in urls if u not in succeeded]
 
 
 def sr_args_dict(cfg: SrConfig) -> dict:
-    """SrConfig → 规范化 sr 参数 (写入 Resource.meta, 也用于 locator 区分)."""
     pm = get_preset_meta(cfg.preset)
     return {"preset": cfg.preset, "tool": pm.tool, "model": pm.model, "scale": pm.scale}
 
@@ -78,7 +61,6 @@ async def _maybe_upscale(
     config: HotSettings,
     data_dir: Path,
 ) -> None:
-    """对资源就地超分 (若启用且达低质阈值且未超分). 失败/跳过均静默."""
     if not config.sr.enabled:
         return
     full = store.full_path(resource)
@@ -110,18 +92,14 @@ async def materialize_images(
     *,
     extrafanart_urls: dict[str, list[str]] | None = None,
 ) -> MaterializedImages:
-    """按 ``download_resources`` 下载到 Resource + 裁剪 + (急切) 超分, 返回应写入 metadata 的 URL.
+    """仅下载集合内的类型; 未选中的保留聚合 URL.
 
-    - 仅下载集合内的类型; 未选中的类型保留聚合 URL, 不写入 Resource.
-    - 下载的 URL 列表按本次成功 (含缓存命中) 重排: 成功者保序前置, 失败保序沉底 —
-      死 URL (来源站失效) 不再长期占据首位, 但也保留在尾部供来源恢复后重试.
-    - thumb/trailer: metadata 保留外部候选列表 (重排后); 下载 + 就地超分首个成功源.
-    - poster: 候选偏矮则从 thumb 裁剪 → 列表替换为 [内部派生 URL]; 否则保留外部列表 (重排后).
-    - extrafanart: 仅下载到 Resource, URL 仍由调用方原样写入 metadata (站点分组结构, 不重排).
-     机会主义: 任一步失败不抛, 仅降级. 不阻断刮削主流程.
+    死 URL 保序置于尾部, 供来源恢复后重试.
+    extrafanart 仅下载到 Resource, 站点分组结构不重排.
     """
     kinds = set(config.scraping.download_resources)
 
+    # 下载 thumb.
     thumb_ok: set[str] = set()
     thumb_local: Path | None = None
     thumb_src: str | None = None
@@ -136,6 +114,7 @@ async def materialize_images(
                     if res:
                         await _maybe_upscale(store, res, config, data_dir)
 
+    # 下载 poster; 候选偏矮则从 thumb 裁剪.
     poster_ok: set[str] = set()
     poster_candidate_local: Path | None = None
     result_poster_urls = list(poster_urls)
@@ -147,7 +126,7 @@ async def materialize_images(
                 if poster_candidate_local is None:
                     poster_candidate_local = local
 
-        # 裁剪需要 thumb 本地文件: 若未选 thumb 下载, 为裁剪临时 acquire 首个 thumb.
+        # 裁剪需要 thumb 本地文件; 若未选 thumb 下载, 为裁剪临时 acquire 首个 thumb.
         if thumb_local is None and thumb_urls and config.scraping.crop_poster:
             for url in thumb_urls:
                 local = await store.acquire(url, client)
@@ -185,6 +164,7 @@ async def materialize_images(
                         await _maybe_upscale(store, res, config, data_dir)
                         break
 
+    # 下载预告片.
     trailer_ok: set[str] = set()
     if DownloadableResource.trailer in kinds:
         for url in trailer_urls:
@@ -192,6 +172,7 @@ async def materialize_images(
             if local:
                 trailer_ok.add(url)
 
+    # 下载剧照: 按站点优先级, 有结果即停.
     if DownloadableResource.extrafanart in kinds and extrafanart_urls:
         priority = list(extrafanart_urls.keys())
         await store.acquire_extrafanart(extrafanart_urls, priority, client)
@@ -219,10 +200,7 @@ async def manual_crop_poster(
     config: HotSettings,
     data_dir: Path,
 ) -> str:
-    """从已有 thumb URL 按像素框裁切海报, 返回内部相对 URL.
-
-    失败抛 ``ValueError`` (消息可直接作 API detail).
-    """
+    """失败抛 ``ValueError`` (消息可直接作 API detail)."""
     local = await store.acquire(thumb_url, client)
     if local is None:
         raise ValueError("无法获取封面图")

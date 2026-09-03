@@ -1,12 +1,10 @@
-"""从 SQLModel metadata 生成给 Agent 的只读 schema 说明."""
-
 from __future__ import annotations
 
 from sqlmodel import SQLModel
 
 
 def build_schema_docs(*, include_tables: frozenset[str] | None = None) -> str:
-    """生成表/列摘要文本, 注入 system prompt."""
+    """注入 system prompt 的表/列摘要."""
     lines: list[str] = [
         "Read-only SQLite schema (do NOT write):",
         "Primary keys are always integer column `id` unless noted.",

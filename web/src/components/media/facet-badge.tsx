@@ -24,7 +24,7 @@ interface FacetBadgeProps {
   size?: "xs" | "sm" | "md" | "lg";
 }
 
-/** 可点击的分类 Badge - 默认进实体页; `mode="meta"` 时进片库筛选. */
+/** 默认为实体页; `mode="meta"` 时进入片库筛选. */
 export function FacetBadge({
   kind,
   id,

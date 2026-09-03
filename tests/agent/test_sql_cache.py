@@ -71,7 +71,7 @@ async def test_execute_rejects_write(sandbox: ReadonlySqlSandbox) -> None:
     ],
 )
 async def test_execute_rejects_attach_pragma_vacuum(sandbox: ReadonlySqlSandbox, sql: str, match: str) -> None:
-    """解析层授权拒绝 ATTACH/PRAGMA/VACUUM INTO — mode=ro 只约束 main 库, 兜不住这三者."""
+    """解析层授权拒绝 ATTACH/PRAGMA/VACUUM INTO — mode=ro 只约束 main 库, 无法拦截这三者."""
     with pytest.raises(SqlSandboxError, match=match):
         await sandbox.execute(sql, timeout_ms=1000)
 

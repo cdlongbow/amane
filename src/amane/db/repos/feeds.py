@@ -115,7 +115,7 @@ class FeedsRepoMixin(RepositoryMixinBase):
             return feed
 
     async def delete_feed(self, feed_id: int) -> bool:
-        """删除订阅源并级联删除其 FeedItem."""
+        """须同时删除 FeedItem, 否则留下悬空 FK."""
         async with self._session() as session:
             feed = await session.get(Feed, feed_id)
             if feed is None:
@@ -134,7 +134,7 @@ class FeedsRepoMixin(RepositoryMixinBase):
             return set(result.all())
 
     async def list_feed_items_by_ids(self, feed_id: int, item_ids: Sequence[int]) -> tuple[list[FeedItem], int]:
-        """按 Feed 限定加载 FeedItem, 返回 (匹配行, missing 数)."""
+        """只返回属于该 Feed 的行; 第二项为 missing 数."""
         ids = _unique_item_ids(item_ids)
         if not ids:
             return [], 0
@@ -180,7 +180,7 @@ class FeedsRepoMixin(RepositoryMixinBase):
         descriptions: dict[str, str],
         published_at: dict[str, datetime],
     ) -> None:
-        """只填空: description / published_at 已有值保持首次快照, 不随源更新."""
+        """只填空; 已有 description / published_at 保持首次快照, 不随源更新."""
         keys = set(descriptions) | set(published_at)
         if not keys:
             return
@@ -261,7 +261,7 @@ class FeedsRepoMixin(RepositoryMixinBase):
             total = int((await session.exec(total_stmt)).one())
 
             # 先取当前页 id 再 JOIN Metadata. OUTER JOIN 与 ORDER BY 写在同一句时,
-            # SQLite 会先连接再截页; COLLATE NOCASE 才能走 ix_metadata_number.
+            # SQLite 会先连接再截页; COLLATE NOCASE 才能命中 ix_metadata_number.
             id_stmt = select(col(FeedItem.id))
             if join_feed:
                 id_stmt = id_stmt.join(Feed, col(FeedItem.feed_id) == col(Feed.id))
@@ -291,11 +291,11 @@ class FeedsRepoMixin(RepositoryMixinBase):
             return [by_id[item_id] for item_id in page_ids], total
 
     async def ignore_feed_items(self, feed_id: int, item_ids: list[int]) -> tuple[int, int]:
-        """幂等忽略属于指定 Feed 的历史条目."""
+        """只处理属于该 Feed 的行; 已忽略则幂等."""
         return await self._set_feed_items_ignored(feed_id, item_ids, ignored=True)
 
     async def unignore_feed_items(self, feed_id: int, item_ids: list[int]) -> tuple[int, int]:
-        """幂等恢复属于指定 Feed 的历史条目."""
+        """只处理属于该 Feed 的行; 未忽略则幂等."""
         return await self._set_feed_items_ignored(feed_id, item_ids, ignored=False)
 
     async def _set_feed_items_ignored(self, feed_id: int, item_ids: list[int], *, ignored: bool) -> tuple[int, int]:
@@ -320,7 +320,7 @@ class FeedsRepoMixin(RepositoryMixinBase):
             return len(items), len(ids) - len(items)
 
     async def delete_feed_items(self, feed_id: int, item_ids: list[int]) -> tuple[int, int]:
-        """永久删除属于指定 Feed 的历史条目, 不影响已创建任务或元数据."""
+        """只删属于该 Feed 的行; 不影响已创建任务或元数据."""
         ids = _unique_item_ids(item_ids)
         if not ids:
             return 0, 0

@@ -1,12 +1,11 @@
-"""翻译结果缓存 - 独立 SQLite 文件.
+"""翻译结果缓存. 独立 SQLite, 不写入主 ``amane.db``, 不经 Alembic.
 
-故意不进主 amane.db, 也不走 Alembic: 这是纯缓存, 仅 ``CREATE TABLE IF NOT EXISTS``,
-删除文件即清空, 下次自动重建. 与 per-site 爬取缓存正交.
+仅 ``CREATE TABLE IF NOT EXISTS``; 删除文件即清空, 下次自动重建. 与 per-site 爬取缓存正交.
 
 缓存键 = (源文本 hash, 目标语言, 字段):
-- 不含 number: 翻译输出只取决于文本本身, 跨番号去重 (系列共用简介/相同标语只译一次).
-- 含 field: 因不同字段使用不同提示词 (见 translator._FIELD_HINT), 输出与字段相关.
-- 不含 model/temperature: 换模型想重译时直接删除缓存文件即可.
+- 不含 number: 译文只取决于文本本身, 跨番号去重.
+- 含 field: 不同字段使用不同提示词, 输出与字段相关.
+- 不含 model/temperature: 换模型重译时删除缓存文件.
 
 会话级: 单连接经 aiosqlite 内部串行化, 不随 HotSettings 热重载重建.
 """
@@ -34,15 +33,13 @@ CREATE TABLE IF NOT EXISTS translations (
 
 
 class TranslationCache:
-    """(源文本, 目标语言, 字段) → 译文 的持久化缓存."""
-
     def __init__(self, db_path: Path | str) -> None:
         self._db_path = str(db_path)
         self._conn: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
 
     async def _ensure(self) -> aiosqlite.Connection:
-        """惰性建连 - LLM 未启用时不创建文件."""
+        # LLM 未启用时不创建文件.
         if self._conn is None:
             async with self._lock:
                 if self._conn is None:

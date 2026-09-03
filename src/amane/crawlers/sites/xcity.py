@@ -14,7 +14,6 @@ class XCityCrawler(Crawler):
         return CrawlerProfile(name=SiteName.XCITY, base_url="https://xcity.jp", cookies={"adc": "1"})
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """搜索番号, 返回详情页 URL."""
         number = query.number
         search_term = number.replace("-", "")
         search_url = f"{self.base_url}/result_published/?q={search_term}"
@@ -28,7 +27,6 @@ class XCityCrawler(Crawler):
         return urls[0] if urls else None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 XCity 详情页."""
         text = await self.client.get_html(url, cookies=self.cookies)
         if not text:
             return None

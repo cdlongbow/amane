@@ -42,7 +42,7 @@ def skip_http_body() -> bool:
 
 
 def bind_http_recorder_lookup(lookup: Callable[[], HttpExchangeRecorder | None]) -> None:
-    """注入当前任务 Recorder 的查找函数 (通常为 observability.get_recorder)."""
+    """通常为 observability.get_recorder."""
     global _recorder_lookup
     _recorder_lookup = lookup
 

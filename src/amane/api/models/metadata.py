@@ -34,13 +34,11 @@ class MetadataResponse(BaseModel):
     series: str | None = None
     plot: str | None = None
     directors: list[str] = []
-    # 计算属性 (展示用单值)
     poster_url: str | None = None
     thumb_url: str | None = None
     trailer_url: str | None = None
     extrafanart: list[str] = []
     score: float | None = None
-    # 原始可写字段 (供编辑表单回填)
     poster_urls: list[str] = []
     thumb_urls: list[str] = []
     trailer_urls: list[str] = []
@@ -48,7 +46,6 @@ class MetadataResponse(BaseModel):
     scores: dict[str, float] = {}
     external_ids: dict = {}
     source_urls: dict = {}
-    # 只读展示
     field_sources: dict = {}
     raw: dict = {}
     file_count: int = 0
@@ -86,7 +83,6 @@ class MetadataDetailResponse(BaseModel):
     files: list[MediaFileResponse]
     user_tags: list[UserTagResponse] = []
     comments: list[CommentResponse] = []
-    # 名称 → 分类实体 id, 供前端 Badge 跳转筛选
     actor_ids: dict[str, int] = {}
     director_ids: dict[str, int] = {}
     tag_ids: dict[str, int] = {}
@@ -96,8 +92,6 @@ class MetadataDetailResponse(BaseModel):
 
 
 class MergeRequest(BaseModel):
-    """合并请求: 按字段指定选用哪个来源的 raw 数据."""
-
     selections: dict[str, str] = Field(description="field_name -> source_key 映射")
 
 
@@ -117,8 +111,6 @@ class CropPosterRequest(BaseModel):
 
 
 class MetadataBatchIdsRequest(BaseModel):
-    """按 id 列表批量操作的通用请求体."""
-
     ids: list[int] = Field(min_length=1, description="Metadata ID 列表")
 
 

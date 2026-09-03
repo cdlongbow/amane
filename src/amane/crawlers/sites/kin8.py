@@ -15,7 +15,6 @@ class Kin8Crawler(Crawler):
         return CrawlerProfile(name=SiteName.KIN8, base_url="https://www.kin8tengoku.com")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """从番号提取数字 ID, 构造详情页 URL."""
         number = query.number
         match = re.search(r"(\d+)", number)
         if not match:
@@ -28,7 +27,6 @@ class Kin8Crawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """解析 Kin8tengoku 详情页."""
         text = await self.client.get_html(url)
         if not text:
             return None

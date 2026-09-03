@@ -14,7 +14,7 @@ type Language = "zh-CN" | "en";
 
 const STORAGE_KEY = "amane-web";
 
-/** 片库列表可调列 (与 MetaTable 列 key 对齐). */
+/** 与 MetaTable 列 key 对齐. */
 export type MetaTableColumnKey =
   | "number"
   | "title"
@@ -24,7 +24,7 @@ export type MetaTableColumnKey =
   | "file_count"
   | "score";
 
-/** 演员列表可调列 (与 ActorTable 列 key 对齐). */
+/** 与 ActorTable 列 key 对齐. */
 export type ActorTableColumnKey =
   | "name"
   | "count"
@@ -45,7 +45,7 @@ interface UIState {
   autoScroll: boolean;
   logLevelFilter: LogLevel[];
   pageSizes: Record<PageSizeKey, PageSize>;
-  /** 片库 list 列宽覆盖; 缺省列走组件内默认值. */
+  /** 片库 list 列宽覆盖; 缺省列采用组件内默认值. */
   metaColumnWidths: ColumnWidths<MetaTableColumnKey>;
   /** 演员 list 列宽覆盖. */
   actorColumnWidths: ColumnWidths<ActorTableColumnKey>;

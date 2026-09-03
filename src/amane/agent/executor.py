@@ -1,5 +1,3 @@
-"""Saved Query 结果解析: 缓存命中或 Live 重跑."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -10,7 +8,7 @@ from .sql import ReadonlySqlSandbox, SqlResult
 
 
 def extract_entity_ids(columns: list[str], rows: list[list[Any]]) -> list[int]:
-    """从结果中抽出 `id` 列; 缺失则抛 ValueError."""
+    """缺失 `id` 列则抛 ValueError."""
     lowered = [c.lower() for c in columns]
     if "id" not in lowered:
         raise ValueError("结果必须包含名为 id 的主键列")
@@ -29,8 +27,6 @@ def extract_entity_ids(columns: list[str], rows: list[list[Any]]) -> list[int]:
 
 
 class QueryExecutor:
-    """执行 Saved Query / 填充 ResultCache."""
-
     def __init__(self, sandbox: ReadonlySqlSandbox, cache: ResultCache) -> None:
         self.sandbox = sandbox
         self.cache = cache
@@ -59,7 +55,7 @@ class QueryExecutor:
         timeout_ms: int,
         approved: bool = False,
     ) -> CachedResult:
-        """优先复用缓存; 未命中则执行 SQL 并写回缓存 (可能触发审批/重跑)."""
+        """未命中则执行 SQL 并写回缓存 (可能触发审批 / 重执行)."""
         assert query.id is not None
         hit = self.cache.get(query.id)
         if hit is not None:

@@ -1,4 +1,4 @@
-"""任务批量 cancel / delete / retry. 路由与单条 UI 共用, 按 ID 或与列表同形的筛选."""
+"""按 ID 或与列表同形的 status/type 筛选."""
 
 import contextlib
 from collections.abc import Sequence
@@ -30,7 +30,6 @@ def _intersect_statuses(requested: Sequence[TaskStatus] | None, allowed: frozens
 
 
 def cleanup_task_artifacts(task: Task, log_dir: Path) -> None:
-    """删除任务磁盘产物: 任务记录目录, 以及 ``log_file`` 指向的日志文件."""
     if task.id is not None:
         remove_task_dir(log_dir, task.id)
     if task.log_file:
@@ -41,7 +40,7 @@ def cleanup_task_artifacts(task: Task, log_dir: Path) -> None:
 
 
 async def _cancel_running(worker: AsyncWorker, repo: Repository, tasks: Sequence[Task]) -> int:
-    """取消运行中任务; 取消失败的记录为 failed (CANCEL_ERROR)."""
+    """取消失败的记录为 failed (CANCEL_ERROR)."""
     affected = 0
     for task in tasks:
         if task.id is None:
@@ -63,7 +62,7 @@ async def execute_task_batch(
     statuses: Sequence[TaskStatus] | None,
     task_types: Sequence[TaskType] | None,
 ) -> TaskBatchResponse:
-    """执行批量 action: 有 ``task_ids`` 走精确匹配, 否则按状态/类型筛选; CANCEL 区分 queued/running."""
+    """有 ``task_ids`` 则精确匹配, 否则按状态/类型筛选; CANCEL 区分 queued/running."""
     allowed = _ACTION_STATUSES[action]
     if task_ids is not None:
         unique_ids = list(dict.fromkeys(task_ids))
@@ -82,6 +81,7 @@ async def execute_task_batch(
     if not effective:
         return TaskBatchResponse()
 
+    # CANCEL 区分 queued / running
     if action == TaskBatchAction.CANCEL:
         queued_n = 0
         if TaskStatus.QUEUED in effective:

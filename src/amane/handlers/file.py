@@ -1,5 +1,3 @@
-"""ORGANIZE 的文件后处理 (下载图到库路径, 移文件, 写 NFO)."""
-
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -44,8 +42,6 @@ logger = structlog.get_logger()
 
 @dataclass
 class FileOperationsResult:
-    """file operations 执行结果."""
-
     success: bool
     dest: Path | None = None
     error: str | None = None
@@ -67,28 +63,6 @@ async def execute_file_operations(
     safe_dirs: Sequence[Path] | None = (),
     watermark_dir: Path | None = None,
 ) -> FileOperationsResult:
-    """
-    执行文件后处理: 图片下载, 文件整理, NFO 生成.
-
-    Args:
-        media_file: 要处理的 MediaFile 记录
-        metadata: 聚合后的元数据 (AggregatedMetadata 或 db.Metadata)
-        paths: 渲染后的输出路径 (由 resolve_paths 生成)
-        move_mode: 文件操作模式 (move/copy/hardlink/symlink)
-        resource_store: 资源缓存层 (图片下载经其多源容错, 由调用方强制注入)
-        download_images: 是否下载图片
-        write_nfo: 是否写入 NFO 文件
-        copy_resources: 要复制到库路径的资源类型; None 表示全部
-        web_client: HTTP 客户端 (可选, 无则跳过下载)
-        config: 热配置 (仅用于读取 scraping 细节设置)
-        library: 有则整理同目录字幕文件; None 跳过
-        file_info: 源文件解析 (分集配对); library 非空且此项为空时从 source 现算
-        safe_dirs: 字幕绝对路径模板允许落地的可信目录
-        watermark_dir: 用户角标覆盖目录 (`{data_dir}/watermarks`); None 只用包内置
-
-    Returns:
-        FileOperationsResult 包含是否成功和目标路径
-    """
     source_path = Path(media_file.path)
     if not await path_exists(source_path):
         logger.warning("source file missing", path=str(source_path))
@@ -96,7 +70,7 @@ async def execute_file_operations(
 
     info = file_info if file_info is not None else parse_file_info(source_path)
 
-    # 1. 下载图片到 paths 指定的位置 (水印打在库路径副本上, 不改 Resource 原图)
+    # 下载图片; 水印打在库路径副本上, 不能修改 Resource 原图.
     if web_client and download_images:
         logger.debug("downloading images via store", number=metadata.number)
         kinds = set(copy_resources) if copy_resources is not None else set(DownloadableResource)
@@ -111,7 +85,7 @@ async def execute_file_operations(
             watermark_dir=watermark_dir,
         )
 
-    # 2. 先发现同目录字幕 (视频挪走前), 再移动/复制视频
+    # 发现字幕: 必须在视频移动前检查同目录.
     subtitles: list[Path] = []
     if library is not None:
         subtitles = await discover_subtitles(source_path, library.subtitle_extensions, info.cd)
@@ -123,7 +97,7 @@ async def execute_file_operations(
         mode=move_mode,
     )
 
-    # 3. 视频就位后写链接 (strm / 软链接); 失败仍带 dest 以便回写 MediaFile.path
+    # 写链接; 失败仍带 dest, 以便回写 MediaFile.path.
     if org_result.success and org_result.dest and paths.link is not None:
         mode = LinkMode(library.link_mode) if library is not None else LinkMode.STRM
         strm_content: str | None = None
@@ -144,10 +118,11 @@ async def execute_file_operations(
         if not link_result.success:
             return FileOperationsResult(success=False, dest=org_result.dest, error=link_result.error)
 
-    # 4. 写入 NFO (路径由库 nfo_template 渲染, 直接写渲染结果)
+    # 写入 NFO.
     if org_result.success and org_result.dest and write_nfo:
         await write_nfo_file(metadata, paths.nfo)
 
+    # 字幕按模板落到 video_dest 侧.
     if org_result.success and org_result.dest and library is not None and subtitles:
         await place_subtitles(
             subtitles,
@@ -182,26 +157,8 @@ async def apply_file_operations(
     safe_dirs: Sequence[Path] | None = (),
     watermark_dir: Path | None = None,
 ) -> FileOperationsResult | None:
-    """ORGANIZE 的 file operations 编排.
-
-    收敛"取 MediaFile → 取 Library → 渲染路径 → 执行 file operations".
-    缺少 media_file_id / 对应记录不存在时, 返回 None 表示跳过 (不视为失败).
-    Library 由 `MediaFile.library_id` 非空 FK 派生.
-
-    Args:
-        repo: 数据仓库
-        media_file_id: 目标 MediaFile id, None 时跳过
-        metadata: 已聚合/已有的元数据
-        config: 热配置 (下载开关等)
-        resource_store: 资源缓存层 (图片下载经其多源容错, 强制注入)
-        write_nfo: 整理成功后是否写入 NFO
-        copy_resources: 要复制到库路径的资源类型; None 表示全部
-        web_client: HTTP 客户端
-        safe_dirs: 绝对路径模板允许落地的可信目录集
-        watermark_dir: 用户角标覆盖目录; None 只用包内置
-
-    Returns:
-        FileOperationsResult (含目标路径或错误); 前置条件不满足时返回 None
+    """缺少 media_file_id 或对应记录时返回 None (跳过, 不视为失败).
+    Library 由 MediaFile.library_id 派生.
     """
     if media_file_id is None:
         return None
@@ -212,6 +169,7 @@ async def apply_file_operations(
     if library is None:
         return None
 
+    # 渲染路径后执行落盘.
     ext = Path(media_file.path).suffix.lstrip(".")
     file_info = parse_file_info(media_file.path)
     paths = resolve_paths(
@@ -236,11 +194,7 @@ async def apply_file_operations(
 
 
 async def _resolve_local(url: str, store: ResourceStore, client: WebClient) -> Path | None:
-    """把 metadata 中的 URL 解析为本地文件路径.
-
-    - 内部派生 URL (`/api/resources/{hash}`): 查 store 已存文件 (裁剪/超分产物).
-    - 外部 URL: 经 store.acquire 下载 (命中缓存直出).
-    """
+    """内部 `/api/resources/{hash}` 查 store 已存文件; 外部 URL 经 store.acquire (命中缓存直出)."""
     if url.startswith(RESOURCE_URL_PREFIX):
         url_hash = url.rsplit("/", 1)[-1]
         found = await store.get_by_url_hash(url_hash)
@@ -249,7 +203,6 @@ async def _resolve_local(url: str, store: ResourceStore, client: WebClient) -> P
 
 
 async def _acquire_first_local(urls: list[str], store: ResourceStore, client: WebClient) -> Path | None:
-    """逐 URL 解析到本地文件, 首个成功即返回 (多源容错)."""
     for url in urls:
         path = await _resolve_local(url, store, client)
         if path:
@@ -270,7 +223,7 @@ def _place_library_images(
     file_info: FileInfo | None,
     watermark_dir: Path | None,
 ) -> None:
-    """把已 acquire 的本地资源复制到库路径并叠水印."""
+    # 复制封面 / 海报 / 预告片 / extrafanart 到库路径.
     if thumb_local is not None and DownloadableResource.thumb in kinds:
         paths.thumb.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(thumb_local, paths.thumb)
@@ -300,6 +253,7 @@ def _place_library_images(
         for i, p in enumerate(extrafanart):
             shutil.copy2(p, paths.extrafanart_dir / f"{i + 1}.jpg")
 
+    # 叠加水印 (thumb / poster).
     wm = config.watermark if config is not None else WatermarkConfig()
     if wm.enabled and file_info is not None:
         jpeg_quality = config.scraping.jpeg_quality if config is not None else 95
@@ -333,7 +287,7 @@ async def _download_images_via_store(
     file_info: FileInfo | None = None,
     watermark_dir: Path | None = None,
 ) -> None:
-    """把 metadata 引用的资源复制到库路径 (优先用 Resource 已有文件; 缺失则现场 acquire)."""
+    """优先用 Resource 已有文件; 缺失则现场 acquire."""
     thumb_local = None
     if DownloadableResource.thumb in kinds:
         thumb_urls = metadata.thumb_urls
@@ -375,13 +329,8 @@ def _move_to_trash(file_path: Path, trash_dir: Path) -> DiskOrganizeResult:
 
 
 class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
-    """依据已有 Metadata 将媒体文件整理至库路径; 不执行刮削, 不修改 Metadata.
-
-    1. 删除磁盘上已不存在的 MediaFile 记录。名称冲突检测仅依据磁盘文件;
-       失效 path 仍占用 UNIQUE 约束, 导致目标路径无法写入。
-    2. 一次扫库, 按规则分成跳过 / 归档 / 媒体。
-    3. 将归档类文件移动至 `.amane_trash`; 预告片属跳过, 留在原路径。
-    4. 媒体类中已关联 Metadata 的按路径模板落盘; 无 Metadata 则跳过。
+    """依据已有 Metadata 整理至库路径; 不刮削, 不修改 Metadata.
+    预告片属跳过, 留在原路径; 归档类移入 `.amane_trash`.
     """
 
     def __init__(
@@ -411,7 +360,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
             return TaskResult(success=False, error=f"Library {payload.library_id} not found")
         assert library.id is not None
 
-        # 名称冲突检测仅依据磁盘上的 dest; 已删除文件的 path 若仍保留在库中, 会占用 UNIQUE 约束.
+        # 删除失效索引: 名称冲突检测仅依据磁盘 dest; 已删除文件的 path 仍占用 UNIQUE.
         indexed = await self._repo.list_media_files(library_id=library.id, limit=None)
         prune_total = len(indexed)
         if prune_total:
@@ -436,6 +385,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
             min_file_size=library.min_file_size,
             media_extensions=media_extensions,
         )
+        # 扫描并分类: 归档移入回收站, 媒体进入整理, 预告片跳过.
         to_trash: list[Path] = []
         files: list[Path] = []
         for hit in await scan_library(scan_dir, recursive=recursive, scan=scan):
@@ -453,6 +403,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                 path_str = str(file_path)
 
                 media_file = await self._repo.get_media_file_by_path(path_str)
+                # 无 MediaFile 或未关联 Metadata 则跳过.
                 if media_file is None or media_file.metadata_id is None:
                     skipped += 1
                     await self.report_progress(i, total, file_path.name)
@@ -483,6 +434,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                     await self.report_progress(i, total, file_path.name)
                     continue
 
+                # 写库: 回写整理后的 path.
                 if fop_result.dest and media_file.id is not None:
                     await self._repo.update_media_file(media_file.id, path=str(fop_result.dest))
                 if fop_result.success:
@@ -507,10 +459,7 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
         )
 
     async def _trash_files(self, library: Library, files: Sequence[Path]) -> int:
-        """将扫库判定为归档的文件移动至库根 `.amane_trash`.
-
-        归档固定为物理移动, 不受 `move_mode` 影响. 失败仅记录日志, 不计入成功数.
-        """
+        """移至库根 `.amane_trash`. 固定物理移动, 不受 `move_mode` 影响. 失败不计入成功数."""
         if not files:
             return 0
         trash_dir = Path(library.path) / TRASH_DIRNAME
@@ -534,7 +483,6 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
 
 
 def _add_resource_ref(url: str, live_urls: set[str], live_hashes: set[str]) -> None:
-    """把 metadata 中的一个 URL 记入存活集合 (外部 locator 或内部 /api/resources/{hash})."""
     if not url:
         return
     prefix = f"{RESOURCE_URL_PREFIX}/"
@@ -545,11 +493,11 @@ def _add_resource_ref(url: str, live_urls: set[str], live_hashes: set[str]) -> N
 
 
 async def _collect_live_resource_refs(repo: Repository) -> tuple[set[str], set[str]]:
-    """扫 Metadata / Actor 媒体 URL 字段, 得到仍被引用的 Resource locator / url_hash."""
     live_urls: set[str] = set()
     live_hashes: set[str] = set()
     offset = 0
     page = 500
+    # 收集 Metadata 仍引用的 locator / url_hash.
     while True:
         batch, _total = await repo.list_metadata(offset=offset, limit=page)
         if not batch:
@@ -565,6 +513,7 @@ async def _collect_live_resource_refs(repo: Repository) -> tuple[set[str], set[s
             break
 
     offset = 0
+    # 收集 Actor 头像 URL.
     while True:
         actors = await repo.list_actors(offset=offset, limit=page)
         if not actors:
@@ -580,18 +529,12 @@ async def _collect_live_resource_refs(repo: Repository) -> tuple[set[str], set[s
 
 @in_thread
 def _missing_media_ids(rows: Sequence[tuple[int, str]]) -> list[int]:
-    """磁盘上不存在的 MediaFile id. 路径可能在 FUSE/NAS."""
+    """不跟随符号链接判断存在."""
     return [media_id for media_id, path in rows if not Path(path).exists(follow_symlinks=False)]
 
 
 class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
-    """处理 CLEANUP 任务 - 清理悬空引用.
-
-    Metadata 是一等公民, 不因缺少 MediaFile 而被删除.
-    流程:
-        1. 磁盘上不存在的 MediaFile 索引 → 删记录 (可选)
-        2. 不被任何 Metadata URL 字段引用的 Resource → 删文件+记录 (可选)
-    """
+    """不因缺少 MediaFile 而删除 Metadata."""
 
     def __init__(self, repo: Repository, resource_store: ResourceStore):
         super().__init__(payload_t=CleanupPayload, result_t=CleanupResult)
@@ -602,6 +545,7 @@ class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
         files_removed = 0
         resources_removed = 0
 
+        # 删除磁盘上不存在的 MediaFile 记录.
         if payload.remove_missing_files:
             missing_ids: list[int] = []
             offset = 0
@@ -618,6 +562,7 @@ class CleanupHandler(TaskHandler[CleanupPayload, CleanupResult]):
                 await self._repo.delete_media_file(media_id)
                 files_removed += 1
 
+        # 删除不被 Metadata / Actor URL 引用的 Resource.
         if payload.remove_unreferenced_resources:
             live_urls, live_hashes = await _collect_live_resource_refs(self._repo)
             resources_removed = await self._resource_store.purge_unreferenced(live_urls, live_hashes)

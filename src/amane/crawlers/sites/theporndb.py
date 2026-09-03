@@ -1,5 +1,3 @@
-"""ThePornDB 爬虫 - Stash GraphQL API + oshash 匹配."""
-
 from typing import TYPE_CHECKING
 
 from ...enums import SiteName
@@ -9,7 +7,6 @@ from ..models import FetchOptions, MediaMetadata, SearchQuery
 if TYPE_CHECKING:
     from ...parsing.file_info import ContentType
 
-# GraphQL 查询模板 - searchScene 返回完整的场景数据
 _SEARCH_QUERY = """
 query Search($term: String!) {
   searchScene(term: $term) {
@@ -43,7 +40,6 @@ query FindByID($id: ID!) {
   }
 }"""
 
-# content_type → GraphQL type 参数映射
 _TYPE_FILTER: dict[str, str] = {
     "censored": "JAV",
     "uncensored": "Scene",
@@ -55,14 +51,7 @@ _TYPE_FILTER: dict[str, str] = {
 
 
 class ThePornDBCrawler(Crawler):
-    """theporndb.net Stash GraphQL 爬虫.
-
-    使用通用 Stash-box 兼容 GraphQL 接口, 可访问 theporndb 或其他 Stash 实例.
-    content_type → GraphQL ?type= 参数:
-      censored / hentai → JAV
-      uncensored / western → Scene
-      null → 不加 filter (搜索所有类型)
-    """
+    """Stash-box GraphQL. ``content_type`` 映射到 ``?type=``; 缺省不加 filter."""
 
     @classmethod
     def profile(cls) -> CrawlerProfile:
@@ -76,7 +65,7 @@ class ThePornDBCrawler(Crawler):
         headers = {"Authorization": f"Bearer {token}"}
         gql_url = self._gql_url(query.content_type)
 
-        # 优先用 oshash 精确匹配
+        # 优先 oshash 精确匹配.
         if query.file_hash:
             data = await self.client.post_json(
                 gql_url,
@@ -91,7 +80,7 @@ class ThePornDBCrawler(Crawler):
                 if results:
                     return self._scene_to_metadata(results[0])
 
-        # 文本搜索
+        # 文本搜索.
         data = await self.client.post_json(
             gql_url,
             json={
@@ -108,7 +97,7 @@ class ThePornDBCrawler(Crawler):
         if not results:
             return None
 
-        # 选取 code 最匹配的 (精确匹配优先)
+        # 精确匹配 code 优先.
         number_lower = query.number.lower().replace("-", "")
         best = min(
             results,
@@ -119,10 +108,7 @@ class ThePornDBCrawler(Crawler):
         )
         return self._scene_to_metadata(best)
 
-    # --- 抽象方法实现 (保持测试框架兼容) ---
-
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
-        """搜索并返回一个假的 internal URL (由 _scrape 处理)."""
         token = self.config.api_token if self.config else None
         if not token:
             return None
@@ -130,7 +116,7 @@ class ThePornDBCrawler(Crawler):
         headers = {"Authorization": f"Bearer {token}"}
         gql_url = self._gql_url(query.content_type)
 
-        # hash 查找
+        # 优先 oshash 精确匹配.
         if query.file_hash:
             data = await self.client.post_json(
                 gql_url,
@@ -144,7 +130,7 @@ class ThePornDBCrawler(Crawler):
             if results:
                 return f"gql://scene/{results[0]['id']}"
 
-        # 文本搜索
+        # 文本搜索.
         data = await self.client.post_json(
             gql_url,
             json={
@@ -156,6 +142,7 @@ class ThePornDBCrawler(Crawler):
 
         results = (data or {}).get("data", {}).get("searchScene", [])
         if results:
+            # 精确匹配 code 优先.
             number_lower = query.number.lower().replace("-", "")
             best = min(results, key=lambda s: (0 if s.get("code", "").lower().replace("-", "") == number_lower else 1,))
             return f"gql://scene/{best['id']}"
@@ -163,7 +150,6 @@ class ThePornDBCrawler(Crawler):
         return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        """从 gql://scene/{id} URL 获取场景详情."""
         token = self.config.api_token if self.config else None
         if not token or not url.startswith("gql://scene/"):
             return None
@@ -185,10 +171,7 @@ class ThePornDBCrawler(Crawler):
             return None
         return self._scene_to_metadata(scene)
 
-    # --- 工具方法 ---
-
     def _gql_url(self, content_type: ContentType | None) -> str:
-        """根据 ContentType 构造带 type filter 的 GraphQL URL."""
         if content_type:
             gql_type = _TYPE_FILTER.get(str(content_type))
             if gql_type:
@@ -197,7 +180,6 @@ class ThePornDBCrawler(Crawler):
 
     @staticmethod
     def _scene_to_metadata(scene: dict) -> MediaMetadata:
-        """将 GraphQL Scene 响应转换为 MediaMetadata."""
         number = scene.get("code") or scene.get("title", "")
 
         studio = None

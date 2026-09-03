@@ -39,7 +39,6 @@ from .sites import (
     XCityCrawler,
 )
 
-# 注册所有影片爬虫
 registry.register(JavDBCrawler)
 registry.register(DmmCrawler)
 registry.register(JavBusCrawler)
@@ -64,7 +63,7 @@ registry.register(R18DevCrawler)
 registry.register(ThePornDBCrawler)
 registry.register(OfficialCrawler)
 
-# 演员站注册在 amane.crawlers.actor 导入时完成
+# 演员站在 amane.crawlers.actor 导入时注册.
 
 __all__ = [
     "ActorCrawler",

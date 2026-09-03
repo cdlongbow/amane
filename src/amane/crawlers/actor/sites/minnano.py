@@ -1,4 +1,4 @@
-"""minnano-av.com 演员详情解析: 名字行, 尺寸, 生日."""
+"""名字行 ``名前（かな / ローマ字）``; 注记括号不并入读音."""
 
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ from ...parsing import extract_text
 from ..base import ActorCrawler
 from ..models import ActorMetadata
 
-# 名字行: ``名前（かな / ローマ字）``; 名字段可能带注记括号 (如 ``相川美羽(tenshigao)``),
-# kana 排除括号字符以免注记组被吞入读音.
+# 名字段可能带注记括号 (如 ``相川美羽(tenshigao)``); kana 排除括号字符, 以免注记并入读音.
 _NAME_RE = re.compile(r"^(?P<name>.+?)\s*[（(]\s*(?P<kana>[^/（）()]+?)\s*/\s*(?P<roma>[^）)]+?)\s*[）)]\s*$")
 _FIGURE_RE = re.compile(
     r"T\s*(?P<t>\d+)\s*/\s*B\s*(?P<b>\d+)\s*"
@@ -32,8 +31,6 @@ _ACTRESS_HREF_RE = re.compile(r"actress\d+\.html", re.IGNORECASE)
 
 
 class MinnanoActorCrawler(ActorCrawler):
-    """www.minnano-av.com 演员详情."""
-
     @classmethod
     def profile(cls) -> CrawlerProfile:
         return CrawlerProfile(
@@ -49,14 +46,14 @@ class MinnanoActorCrawler(ActorCrawler):
         text = await self.client.get_html(search_url, cookies=self.cookies)
         html = Selector(text=text)
 
-        # 精确命中时常 302 到详情页 (curl/HttpClient 跟随重定向后 HTML 已是详情).
+        # 精确命中时常 302 到详情页; 跟随重定向后 HTML 已是详情.
         if html.css("div.act-profile").get():
             detail = extract_text(html, '//link[@rel="canonical"]/@href') or extract_text(
                 html, '//meta[@property="og:url"]/@content'
             )
             if detail:
                 return detail
-            # 回退: 从头像路径抠 id
+            # 未命中则从头像路径回退.
             img = extract_text(html, '//div[contains(@class,"thumb")]//img[contains(@src,"p_actress")]/@src')
             if img:
                 m = re.search(r"/(\d+)\.jpg", img)
@@ -67,7 +64,7 @@ class MinnanoActorCrawler(ActorCrawler):
         return self._pick_search_hit(html, name)
 
     def _pick_search_hit(self, html: Selector, name: str) -> str | None:
-        """从搜索列表取首个合理命中: 精确名 > 首条演员行."""
+        # 精确名优先; 否则取首条演员行.
         rows = html.xpath('//table[contains(@class,"tbllist") and contains(@class,"actress")]//tr[td]')
         exact: str | None = None
         first: str | None = None
@@ -91,7 +88,6 @@ class MinnanoActorCrawler(ActorCrawler):
 
 
 def parse_minnano_detail(html_text: str, *, page_url: str, base_url: str) -> ActorMetadata | None:
-    """解析详情页 HTML → ActorMetadata (供爬虫与单测复用)."""
     html = Selector(text=html_text)
     profiles = html.xpath('//div[contains(@class,"act-profile")]')
     if not profiles:
@@ -103,7 +99,7 @@ def parse_minnano_detail(html_text: str, *, page_url: str, base_url: str) -> Act
         return None
     name, aliases = _parse_name_line(raw_name)
 
-    # 別名 行 (可重复): 每行一个旧名 + 读音, 与名字行同构解析 (含西序罗马音与注记后缀).
+    # 別名行可重复; 每行一个旧名 + 读音, 与名字行同构解析.
     for row in profile.xpath('.//tr[td/span[normalize-space()="別名"]]'):
         raw_alias = extract_text(row, "string(./td/p)") or ""
         alias_name, alias_readings = _parse_name_line(raw_alias.strip())
@@ -157,7 +153,7 @@ def _parse_name_line(raw: str) -> tuple[str, list[str]]:
 
 
 def _strip_annotations(name: str) -> str:
-    """剥离名字段尾部的注记括号 (如 ``相川美羽(tenshigao)``), 注记不进别名."""
+    # 尾部注记括号不写入 aliases.
     while True:
         stripped, _ = split_actor_aliases(name)
         if stripped == name:
@@ -179,10 +175,8 @@ def _profile_fields(profile: Selector) -> dict[str, str]:
         key = extract_text(row, "./td/span/text()")
         if not key:
             continue
-        # 取 span 之后的文案 (含链接文字)
         val = extract_text(row, "string(./td/p)") or extract_text(row, "string(./td)")
         if val:
-            # 去掉开头重复的 key 文本
             val = val.strip()
             if val.startswith(key):
                 val = val[len(key) :].strip()
@@ -200,7 +194,6 @@ def _parse_birthday(raw: str) -> str | None:
 
 def _parse_figure(raw: str) -> tuple[int | None, int | None, int | None, int | None, str | None]:
     text = unicodedata.normalize("NFKC", raw)
-    # 去掉 HTML 残留后再匹配纯文本
     text = re.sub(r"<[^>]+>", "", text)
     m = _FIGURE_RE.search(text)
     cup_m = _CUP_RE.search(text)

@@ -1,8 +1,4 @@
-"""OpenAI 兼容 LLM 后端.
-
-封装 ``AsyncOpenAI`` chat completions. 凭据经构造函数注入 - 无全局状态,
-契合项目 DI / 热重载 (实例随 HotSettings.llm 变更重建, 见 amane/app/runtime.py).
-"""
+"""OpenAI 兼容 chat completions. 凭据经构造函数注入; 实例随 HotSettings.llm 重建."""
 
 import asyncio
 import re
@@ -20,8 +16,6 @@ _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class OpenAIBackend:
-    """OpenAI 兼容后端. 实现 ``LLMBackend`` 协议."""
-
     def __init__(
         self,
         *,
@@ -46,7 +40,7 @@ class OpenAIBackend:
         )
 
     async def ask(self, *, system_prompt: str, user_prompt: str) -> str | None:
-        """一次问答请求. 重试耗尽或无内容时返回 ``None``, 不抛异常; 结果剥离推理模型的 thinking 链."""
+        """重试耗尽或无内容时返回 ``None``, 不抛异常. 结果剥离推理模型的 thinking 链."""
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

@@ -1,13 +1,4 @@
-"""
-异步任务 worker -- 消费任务队列的后台循环.
-
-作为 asyncio 任务在 FastAPI 事件循环内运行.
-轮询 DB 中的排队任务, 执行 handler, 并更新状态.
-
-可观测性:
-    每个任务执行在独立的 contextvars 上下文中.
-    Recorder 统一安装 task.log FileHandler 与结构化产物.
-"""
+"""每个任务在独立 contextvars 中执行; Recorder 安装 task.log FileHandler 与结构化产物."""
 
 import asyncio
 import time
@@ -32,24 +23,10 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# stop() 时等待活跃任务优雅退出的最长时间 (默认值, 可通过配置覆盖)
 _DEFAULT_SHUTDOWN_TIMEOUT = 0
 
 
 class AsyncWorker:
-    """
-    后台任务消费者.
-
-    持续轮询任务队列并分发给已注册的 handler.
-    通过 asyncio.Semaphore 控制并发.
-
-    用法:
-        worker = AsyncWorker(repo, handlers, concurrency=3)
-        asyncio.create_task(worker.start())
-        ...
-        await worker.stop()
-    """
-
     def __init__(
         self,
         repo: Repository,
@@ -69,19 +46,16 @@ class AsyncWorker:
         self._shutdown_timeout = shutdown_timeout
         self._semaphore = asyncio.Semaphore(concurrency)
         self._running = False
-        # 主循环 task: stop() 须取消并等待它退出, 否则「在飞 claim」会在 stop() 返回后
-        # 继续认领 stop 之后新入队的任务 (API 测试 stop_worker 竞态即源于此).
+        # stop() 必须取消并等待主循环退出, 否则尚未完成的 claim 会在 stop() 返回后
+        # 继续认领之后新入队的任务.
         self._main_task: asyncio.Task[None] | None = None
         self._active_tasks: set[asyncio.Task] = set()
-        # task_id -> asyncio.Task 映射, 用于按 ID 取消正在执行的任务
-        self._running_tasks: dict[int, asyncio.Task] = {}
-        # 完成信号 channel: 每个任务完成时 put task_id, 供外部精确同步
-        self._done_queue: asyncio.Queue[int] = asyncio.Queue()
+        self._running_tasks: dict[int, asyncio.Task] = {}  # 按 task_id 取消正在执行的任务
+        self._done_queue: asyncio.Queue[int] = asyncio.Queue()  # 完成时 put task_id, 供外部精确同步
         self._event_bus = event_bus
         self._log_dir = log_dir
         self._get_hot = get_hot
-        # 未 finalize 的 Recorder (shutdown 兜底 close)
-        self._active_recorders: dict[int, Recorder] = {}
+        self._active_recorders: dict[int, Recorder] = {}  # 未 finalize 的 Recorder, shutdown 时关闭
         self._paused = False
 
     @property
@@ -90,7 +64,7 @@ class AsyncWorker:
 
     @property
     def is_paused(self) -> bool:
-        """暂停时循环仍在, 只是不再 claim 新任务; 已认领的继续跑."""
+        """暂停时循环仍在, 不再 claim 新任务; 已认领的继续执行."""
         return self._paused
 
     def set_paused(self, paused: bool) -> None:
@@ -100,20 +74,17 @@ class AsyncWorker:
         logger.info("worker paused" if paused else "worker resumed")
 
     def start(self) -> None:
-        """启动 worker 后台循环. 内部创建 Task, 立即返回."""
         self._main_task = asyncio.create_task(self._run_loop())
 
     async def stop(self) -> None:
-        """停止 worker, 等待所有任务完成后返回."""
         self._running = False
-        # 先终止主循环: 在飞 claim 若不取消, 可能恰在 stop() 返回后完成并认领
-        # 之后新入队的任务, 导致「stop 后任务仍被 worker 拾取」.
+        # 先取消主循环, 避免 stop() 返回后仍认领新任务.
         if self._main_task is not None and not self._main_task.done():
             self._main_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._main_task
             self._main_task = None
-        # 关闭时: 等待活跃任务完成, 超时则强制取消
+        # 等待活跃任务; 超时则强制取消.
         await self._shutdown_active_tasks()
         failed = await self._repo.fail_all_running_tasks()
         for rec in list(self._active_recorders.values()):
@@ -122,24 +93,22 @@ class AsyncWorker:
         logger.info("worker stopped", marked_failed=failed)
 
     async def _run_loop(self) -> None:
-        """worker 主循环. 持续轮询任务队列直到 stop() 被调用."""
         self._running = True
         logger.info("worker started", concurrency=self._concurrency, poll_interval=self._poll_interval)
 
         while self._running:
-            # 尝试认领任务 (仅在未暂停且有空闲容量时)
+            # 未暂停且有空闲容量时认领
             if not self._paused and self._semaphore._value > 0:
                 task = await self._repo.claim_next_task()
                 if task is not None:
                     t = asyncio.create_task(self._execute(task))
                     self._active_tasks.add(t)
                     t.add_done_callback(self._active_tasks.discard)
-                    continue  # 立即检查更多任务
+                    continue  # 立即检查更多任务, 不等待 poll_interval
 
             await asyncio.sleep(self._poll_interval)
 
     async def cancel_task(self, task_id: int) -> bool:
-        """取消正在执行的任务. 返回 True 表示已发送取消信号."""
         asyncio_task = self._running_tasks.get(task_id)
         if asyncio_task is None:
             return False
@@ -148,7 +117,6 @@ class AsyncWorker:
         return True
 
     async def _shutdown_active_tasks(self) -> None:
-        """等待活跃任务完成, 超时后 cancel."""
         if not self._active_tasks:
             return
         try:
@@ -166,12 +134,10 @@ class AsyncWorker:
             await asyncio.gather(*self._active_tasks, return_exceptions=True)
 
     async def _execute(self, task: Task) -> None:
-        """使用 Semaphore 控制并发来执行单个任务"""
         assert task.id is not None
         task_id = task.id
         task_type_str = str(task.type)
 
-        # ─── 绑定上下文: structlog contextvars ───
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(task_id=task_id, task_type=task_type_str)
 
@@ -190,12 +156,11 @@ class AsyncWorker:
                 self._done_queue.put_nowait(task_id)
                 return
 
-            # 注册到 running_tasks 以便外部按 ID 取消
+            # 登记到 _running_tasks, 供按 ID 取消
             current = asyncio.current_task()
             assert current is not None
             self._running_tasks[task_id] = current
 
-            # Inject progress callback
             async def _report_progress(current_val: int, total: int, message: str = "") -> None:
                 if self._event_bus:
                     await self._event_bus.emit(
@@ -217,7 +182,6 @@ class AsyncWorker:
                     logger.exception("task recorder begin failed", task_id=task_id)
                     rec = None
 
-            # Emit task.started
             if self._event_bus:
                 await self._event_bus.emit(EventType.TASK_STARTED, {"task_id": task_id, "type": task_type_str})
 
