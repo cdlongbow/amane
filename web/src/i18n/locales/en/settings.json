@@ -1,9 +1,5 @@
 {
   "title": "Settings",
-  "sections": {
-    "configuration": "Configuration",
-    "watchPaths": "Watch Paths"
-  },
   "tabs": {
     "scraping": "Movie Scraping",
     "actor_scraping": "Actor Scraping",

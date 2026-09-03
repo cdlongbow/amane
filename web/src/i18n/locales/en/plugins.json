@@ -5,8 +5,6 @@
   "save": "Save plugin configuration",
   "sourceId": "Source ID",
   "version": "Version",
-  "capabilities": "Capabilities",
-  "config": "Configuration",
   "path": "Source path",
   "enabled": "Enable plugin",
   "install": "Install plugin",

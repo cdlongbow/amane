@@ -7,8 +7,6 @@
     "name": "名称",
     "namePlaceholder": "例如：每晚全量扫描",
     "cron": "运行时间",
-    "taskType": "任务类型",
-    "payload": "任务配置",
     "enabled": "启用"
   },
   "cron": {
@@ -51,10 +49,7 @@
     }
   },
   "labels": {
-    "lastRun": "上次执行",
     "nextRun": "下次执行",
-    "cron": "Cron",
-    "type": "类型",
     "never": "从未执行"
   },
   "actions": {

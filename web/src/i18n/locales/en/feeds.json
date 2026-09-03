@@ -6,7 +6,6 @@
   "searchSources": "Filter by name, URL, or group",
   "newFeed": "Add feed",
   "editFeed": "Edit feed",
-  "history": "Fetch history",
   "historyEmpty": "No fetch history yet",
   "historySearchPlaceholder": "Search title, number, content, or link",
   "historyStates": {
@@ -93,9 +92,6 @@
     "hentai": "Hentai"
   },
   "columns": {
-    "title": "Title",
-    "number": "Number",
-    "fetchedAt": "Seen at",
     "name": "Name",
     "url": "URL",
     "group": "Group",
@@ -121,10 +117,6 @@
     "intervalSeconds_one": "{{count}} second",
     "intervalSeconds_other": "{{count}} seconds",
     "lastFetch": "Last fetch",
-    "nextFetch": "Next fetch",
-    "enqueued": "Enqueued {{count}}",
-    "enqueued_one": "Enqueued {{count}}",
-    "enqueued_other": "Enqueued {{count}}",
     "never": "Never",
     "noNumber": "No number parsed",
     "inLibrary": "In library",
@@ -141,7 +133,6 @@
     "disableSelected": "Disable",
     "enableAutoEnqueueSelected": "Auto enqueue",
     "disableAutoEnqueueSelected": "Discover only",
-    "history": "History",
     "rescrape": "Rescrape",
     "ignore": "Ignore",
     "unignore": "Restore"

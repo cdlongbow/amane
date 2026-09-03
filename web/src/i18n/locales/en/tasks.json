@@ -1,18 +1,7 @@
 {
   "title": "Tasks",
-  "columns": {
-    "type": "Type",
-    "status": "Status",
-    "priority": "Priority",
-    "created": "Created",
-    "error": "Error",
-    "actions": "Actions"
-  },
   "actions": {
-    "newScan": "New Scan",
-    "scanning": "Scanning...",
     "cancelTask": "Cancel Task",
-    "log": "Log",
     "record": "Task record",
     "submit": "Submit Task"
   },
@@ -60,19 +49,16 @@
     "root": "Root task",
     "linkKey": "Subtask",
     "payload": "Payload",
-    "error": "Error",
     "result": "Result",
     "liveLogs": "Live Logs",
     "progress": "Progress"
   },
   "report": {
-    "title": "Summary",
     "headline": "Failure",
     "metadata": "Metadata",
     "viewMetadata": "Open #{{id}}",
     "actor": "Actor",
     "viewActor": "Open #{{id}}",
-    "sites": "Sites",
     "loading": "Loading summary…",
     "unavailable": "No summary available.",
     "successEmpty": "Task completed.",
@@ -80,11 +66,6 @@
       "failed": "Failed",
       "ok": "Succeeded",
       "cache_hit": "Cached"
-    },
-    "outcome": {
-      "ok": "OK",
-      "failed": "Failed",
-      "cache_hit": "Cache"
     },
     "detail": {
       "unknown": "Unknown reason"

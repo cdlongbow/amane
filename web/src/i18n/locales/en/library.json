@@ -1,25 +1,12 @@
 {
   "title": "Library",
-  "mediaFilesTitle": "Media Files",
   "searchPlaceholder": "Search by path or number...",
   "deleteLibrary": {
     "confirmTitle": "Delete Library",
-    "confirmDesc": "This permanently deletes the library \"{{name}}\" and all {{count}} media file records in it (the actual files on disk are not affected). This action cannot be undone.",
     "confirmDescEmpty": "This permanently deletes the library \"{{name}}\". This action cannot be undone.",
-    "confirmDesc_one": "library:deleteLibrary.confirmDesc",
-    "confirmDesc_other": "library:deleteLibrary.confirmDesc",
     "tooltip": "Delete this library"
   },
   "scan": {
-    "button": "Scan",
-    "dialogTitle": "Scan: {{name}}",
-    "dialogDesc": "Configure scan options",
-    "submit": "Start Scan",
-    "scanLabel": "Scan Mode",
-    "scrapeLabel": "Scrape",
-    "useCacheLabel": "Use DB Cache",
-    "organizeLabel": "Organize Files",
-    "emptyWarning": "Please select at least one scan option.",
     "menuLabel": "Choose scan action",
     "modes": {
       "add": {
@@ -74,15 +61,8 @@
     "confirmDeleteDesc_other": "Are you sure you want to delete {{count}} selected media files? This action cannot be undone."
   },
   "detail": {
-    "title": "Media Detail",
-    "size": "Size",
-    "metadata": "Metadata",
-    "metadataId": "Linked to metadata #{{id}}",
-    "markSkip": "Mark as Skip",
-    "unskip": "Unskip",
     "confirmDeleteTitle": "Delete Media File",
-    "confirmDeleteDesc": "Are you sure you want to delete this media file? This action cannot be undone.",
-    "deleteHint": "Only removes the library record, not the file on disk"
+    "confirmDeleteDesc": "Are you sure you want to delete this media file? This action cannot be undone."
   },
   "filters": {
     "title": "Filter by status",
@@ -92,14 +72,7 @@
     "failed": "Failed",
     "skip": "Skip"
   },
-  "pagination": {
-    "page": "Page {{current}} of {{total}} ({{count}} total)",
-    "page_one": "library:pagination.page",
-    "page_other": "library:pagination.page"
-  },
   "empty": "No media files found",
-  "noSelection": "Select a Library",
-  "noSelectionHint": "Choose a library from the sidebar to view and manage its media files, or add a new one.",
   "configureLibrary": "Configure library",
   "backToList": "Back to list",
   "notFound": "Library not found",

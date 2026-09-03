@@ -1,23 +1,12 @@
 {
   "title": "媒体库",
-  "mediaFilesTitle": "媒体文件",
   "searchPlaceholder": "搜索路径或番号...",
   "deleteLibrary": {
     "confirmTitle": "删除媒体库",
-    "confirmDesc": "此操作将永久删除媒体库「{{name}}」及其包含的 {{count}} 条媒体文件记录（不影响磁盘上的实际文件），且无法撤销。",
     "confirmDescEmpty": "此操作将永久删除媒体库「{{name}}」，且无法撤销。",
     "tooltip": "删除此媒体库"
   },
   "scan": {
-    "button": "扫描",
-    "dialogTitle": "扫描: {{name}}",
-    "dialogDesc": "配置扫描选项",
-    "submit": "开始扫描",
-    "scanLabel": "扫描文件",
-    "scrapeLabel": "刮削",
-    "useCacheLabel": "使用缓存",
-    "organizeLabel": "扫描后整理",
-    "emptyWarning": "请至少选择一项扫描选项。",
     "menuLabel": "选择扫描操作",
     "modes": {
       "add": {
@@ -70,15 +59,8 @@
     "confirmDeleteDesc": "确定要删除 {{count}} 个已选媒体文件吗？此操作不可撤销。"
   },
   "detail": {
-    "title": "媒体详情",
-    "size": "大小",
-    "metadata": "元数据",
-    "metadataId": "关联元数据 #{{id}}",
-    "markSkip": "标记为跳过",
-    "unskip": "取消跳过",
     "confirmDeleteTitle": "删除媒体文件",
-    "confirmDeleteDesc": "确定要删除此媒体文件吗？此操作不可撤销。",
-    "deleteHint": "只删除库中的记录，不删除磁盘上的文件"
+    "confirmDeleteDesc": "确定要删除此媒体文件吗？此操作不可撤销。"
   },
   "filters": {
     "title": "按状态筛选",
@@ -88,12 +70,7 @@
     "failed": "失败",
     "skip": "跳过"
   },
-  "pagination": {
-    "page": "第 {{current}} 页，共 {{total}} 页（{{count}} 条记录）"
-  },
   "empty": "未找到媒体文件",
-  "noSelection": "选择媒体库",
-  "noSelectionHint": "从侧边栏选择一个媒体库以查看和管理其媒体文件，或添加新的媒体库。",
   "configureLibrary": "配置媒体库",
   "backToList": "返回列表",
   "notFound": "未找到媒体库",

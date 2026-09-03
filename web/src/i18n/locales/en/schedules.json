@@ -7,8 +7,6 @@
     "name": "Name",
     "namePlaceholder": "e.g. Nightly Full Scan",
     "cron": "Schedule",
-    "taskType": "Task Type",
-    "payload": "Task Configuration",
     "enabled": "Enabled"
   },
   "cron": {
@@ -51,10 +49,7 @@
     }
   },
   "labels": {
-    "lastRun": "Last",
     "nextRun": "Next",
-    "cron": "Cron",
-    "type": "Type",
     "never": "Never"
   },
   "actions": {

@@ -1,9 +1,5 @@
 {
   "title": "设置",
-  "sections": {
-    "configuration": "配置",
-    "watchPaths": "监控路径"
-  },
   "tabs": {
     "scraping": "影片刮削",
     "actor_scraping": "演员刮削",

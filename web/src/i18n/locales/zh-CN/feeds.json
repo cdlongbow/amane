@@ -6,7 +6,6 @@
   "searchSources": "筛选名称、URL 或分组",
   "newFeed": "添加订阅源",
   "editFeed": "编辑订阅源",
-  "history": "拉取历史",
   "historyEmpty": "暂无拉取记录",
   "historySearchPlaceholder": "搜索标题、番号、正文或链接",
   "historyStates": {
@@ -93,9 +92,6 @@
     "hentai": "动漫"
   },
   "columns": {
-    "title": "标题",
-    "number": "番号",
-    "fetchedAt": "发现时间",
     "name": "名称",
     "url": "URL",
     "group": "分组",
@@ -121,10 +117,6 @@
     "intervalSeconds_one": "{{count}} 秒",
     "intervalSeconds_other": "{{count}} 秒",
     "lastFetch": "上次拉取",
-    "nextFetch": "下次拉取",
-    "enqueued": "入队 {{count}} 条",
-    "enqueued_one": "入队 {{count}} 条",
-    "enqueued_other": "入队 {{count}} 条",
     "never": "从未",
     "noNumber": "未解析到番号",
     "inLibrary": "已在库",
@@ -141,7 +133,6 @@
     "disableSelected": "停用",
     "enableAutoEnqueueSelected": "自动入队",
     "disableAutoEnqueueSelected": "不自动入队",
-    "history": "历史",
     "rescrape": "重新刮削",
     "ignore": "忽略",
     "unignore": "恢复"

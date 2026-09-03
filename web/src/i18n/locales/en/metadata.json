@@ -1,5 +1,4 @@
 {
-  "title": "Metadata",
   "search": {
     "placeholder": "Search number, title…",
     "advanced": "Advanced search",
@@ -51,8 +50,6 @@
     "fileCount": "Files"
   },
   "actions": {
-    "view": "View Details",
-    "rescape": "Re-scrape",
     "scrape": "Re-scrape",
     "batchScrape": "Batch Re-scrape",
     "batchDelete": "Batch Delete",
@@ -64,9 +61,7 @@
     "title": "Edit Metadata"
   },
   "detail": {
-    "title": "Metadata Detail",
     "fields": {
-      "number": "Number",
       "title": "Title",
       "studio": "Studio",
       "publisher": "Publisher",
@@ -82,21 +77,15 @@
       "poster": "Poster",
       "thumb": "Cover",
       "extrafanart": "Fanart",
-      "fieldSources": "Field Sources",
-      "sources": "Data Sources",
-      "sourceUrls": "External Links",
-      "externalIds": "External IDs"
+      "sourceUrls": "External Links"
     },
     "connections": "Related Files",
     "noFiles": "No related files",
-    "files_one": "{{count}} file",
-    "files_other": "{{count}} files",
     "userTags": "User tags",
     "noUserTags": "No user tags yet",
     "selectUserTag": "Select user tag…",
     "newUserTagPlaceholder": "Create user tag…",
     "detachUserTag": "Remove from this title",
-    "deleteUserTag": "Delete tag",
     "comments": "Comments",
     "noComments": "No comments yet",
     "commentPlaceholder": "Write a comment…",
@@ -139,7 +128,6 @@
     "scrapeQueued": "Actor scrape task queued",
     "person": {
       "aliases": "Aliases",
-      "ruleAliases": "Rule aliases",
       "gender": "Gender",
       "genderFemale": "Female",
       "genderMale": "Male",
@@ -215,7 +203,6 @@
     "cupShort": "Cup {{cup}}",
     "filmography": "Filmography ({{count}})",
     "noPhoto": "No photo",
-    "noPersonInfo": "No person info yet",
     "goToLibrary": "Go to library",
     "editTitle": "Edit actor",
     "genderHint": "When unknown, only generic sources are queried to avoid false matches. Some sources can fill this field automatically",
@@ -234,10 +221,8 @@
     "filmography_one": "Filmography ({{count}})",
     "filmography_other": "Filmography ({{count}})"
   },
-  "backToList": "Back to list",
   "notFound": "Metadata not found",
   "invalidId": "Invalid metadata ID",
-  "viewFullDetail": "View full detail",
   "confirmDelete": "Delete metadata #{{id}}? This cannot be undone.",
   "empty": "No metadata records",
   "editor": {
@@ -297,9 +282,6 @@
   "manage": {
     "name": "Name",
     "count": "Count",
-    "mergeHint": "{{count}} selected — select sources, then click merge on the target",
-    "mergeHint_one": "{{count}} selected — select sources, then click merge on the target",
-    "mergeHint_other": "{{count}} selected — select sources, then click merge on the target",
     "mergeGuide": "Select sources, then click merge on the target",
     "mergeNeedSources": "Select source items first, then click merge on the target",
     "merge": "Merge into this",

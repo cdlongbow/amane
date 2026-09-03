@@ -1,5 +1,4 @@
 {
-  "title": "元数据",
   "search": {
     "placeholder": "搜索番号、标题…",
     "advanced": "高级搜索",
@@ -51,8 +50,6 @@
     "fileCount": "关联文件"
   },
   "actions": {
-    "view": "查看详情",
-    "rescape": "重新刮削",
     "scrape": "重新刮削",
     "batchScrape": "批量重新刮削",
     "batchDelete": "批量删除",
@@ -63,9 +60,7 @@
     "title": "编辑元数据"
   },
   "detail": {
-    "title": "元数据详情",
     "fields": {
-      "number": "番号",
       "title": "标题",
       "studio": "厂商",
       "publisher": "发行商",
@@ -81,20 +76,15 @@
       "poster": "海报",
       "thumb": "封面",
       "extrafanart": "剧照",
-      "fieldSources": "字段来源",
-      "sources": "数据来源",
-      "sourceUrls": "外部链接",
-      "externalIds": "外部 ID"
+      "sourceUrls": "外部链接"
     },
     "connections": "关联文件",
     "noFiles": "无关联文件",
-    "files": "{{count}} 个文件",
     "userTags": "用户标签",
     "noUserTags": "暂无用户标签",
     "selectUserTag": "选择用户标签…",
     "newUserTagPlaceholder": "新建用户标签…",
     "detachUserTag": "从此影片移除",
-    "deleteUserTag": "删除标签",
     "comments": "评论",
     "noComments": "暂无评论",
     "commentPlaceholder": "写下评论…",
@@ -136,7 +126,6 @@
     "scrapeQueued": "已提交演员刮削任务",
     "person": {
       "aliases": "别名",
-      "ruleAliases": "规则别名",
       "gender": "性别",
       "genderFemale": "女",
       "genderMale": "男",
@@ -202,7 +191,6 @@
     "cupShort": "{{cup}}罩杯",
     "filmography": "出演作品（{{count}}）",
     "noPhoto": "暂无头像",
-    "noPersonInfo": "暂无人物信息",
     "goToLibrary": "转到片库",
     "editTitle": "编辑演员",
     "genderHint": "未知时仅查询通用来源, 避免误匹配. 部分来源可自动获取此字段",
@@ -219,10 +207,8 @@
     "rawSources": "刮削来源快照",
     "rawSourcesHint": ""
   },
-  "backToList": "返回列表",
   "notFound": "未找到元数据",
   "invalidId": "无效的元数据 ID",
-  "viewFullDetail": "查看完整详情",
   "confirmDelete": "确定删除元数据 #{{id}}？此操作不可撤销。",
   "empty": "暂无元数据记录",
   "editor": {
@@ -282,7 +268,6 @@
   "manage": {
     "name": "名称",
     "count": "数量",
-    "mergeHint": "已选 {{count}} 项；勾选来源后点击目标行的合并图标",
     "mergeGuide": "勾选来源后点击目标行的合并图标",
     "mergeNeedSources": "请先勾选要合并的来源项，再点目标项的合并",
     "merge": "合并到此项",
