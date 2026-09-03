@@ -1,27 +1,22 @@
 # LLM 能力
 
-> 入口: `src/amane/llm/`. 本文解释 LLM 能力的端口设计、为何选/不选 dspy, 以及翻译如何嵌入刮削管线.
+> 入口: `src/amane/llm/`. 本文记录 LLM 端口、dspy 边界, 以及翻译在刮削管线中的位置.
 > 配置分层见 [config.md](config.md), 刮削管线见 [task-system.md](task-system.md).
 
-## 端口抽象, 而非绑定框架
+## 端口抽象
 
 `src/amane/llm/` 暴露两层协议, 管线只依赖协议, 不耦合具体 SDK:
 
 - `LLMBackend` — 原始 chat 能力 (`ask`), 无业务语义. 翻译以外的未来用途 (分类/抽取) 复用同一后端.
 - `Translator` — 翻译业务能力 (`translate`). `ScrapeHandler` 仅依赖此协议.
 
-当前后端是 OpenAI 兼容实现 (`OpenAIBackend`, 复用已有 `openai` 依赖). 这样选择的核心动机:
-**初期只做翻译, 一次 chat completion 足矣, 不需要框架**. 把后端藏在协议背后, 未来若出现
-prompt 优化 / 多步 LLM 程序 / 结构化抽取需求, 可新增 dspy 等后端而管线零改动.
+当前后端是 OpenAI 兼容实现 (`OpenAIBackend`, 复用已有 `openai` 依赖). 翻译只需一次 chat completion, 管线只依赖协议; 新增后端时管线不必修改.
 
-### 为什么初期不直接上 dspy
+### dspy 边界
 
-dspy 的价值在 prompt 优化 (MIPRO)、签名化结构抽取、带 metric 的编译式评估 —— 这些翻译都用不到.
-而它与本项目两点冲突: (1) 核心依赖 `dspy.configure` **全局状态**, 与项目的 DI / 热重载 (`AppRuntime.rebuild`)
-范式相悖, 需用 `dspy.context` 逐调用绕开; (2) 拖入 litellm/pandas/numpy 等重依赖, 对 Docker 优先的部署偏重.
-保留为协议后端选项, 待真正需要其框架能力时再接入.
+翻译不使用 dspy. dspy 依赖 `dspy.configure` **全局状态**, 与 DI / `AppRuntime.rebuild` 冲突, 须用 `dspy.context` 逐调用绕开; 并引入 litellm / pandas / numpy, 对 Docker 部署偏重. 其价值在 prompt 优化 (MIPRO)、签名化结构抽取与带 metric 的编译式评估, 翻译用不到. 需要上述能力时再作为协议后端接入.
 
-## 翻译如何嵌入刮削
+## 翻译嵌入点
 
 落点在 `ScrapeHandler.handle`: `aggregate()` 之后、`upsert_metadata()` 之前 (`src/amane/handlers/scrape.py`).
 翻译是对 `AggregatedMetadata` 文本字段的**就地变换**, 与 image materialize 并列为聚合后的后处理步骤.
@@ -33,9 +28,9 @@ dspy 的价值在 prompt 优化 (MIPRO)、签名化结构抽取、带 metric 的
 - **独立限速**: LLM 端点用自己的 `AsyncLimiter` (`llm.rate_limit`), 与站点 host 限速器隔离.
 - **覆盖字段**: 由 `llm.translate_fields` 控制, 当前仅文本标量 title/plot. 扩展到 tags/series 等需在 `_translate_metadata` 显式列出 (项目禁反射, 不用 getattr 动态分发).
 
-## 译文缓存 (为什么需要、为什么独立)
+## 译文缓存
 
-翻译挂在 `aggregate()` 下游, 输入是从 `raw` 重建的**源语言** metadata; 译文从不回写 `raw`.
+翻译接在 `aggregate()` 下游, 输入是从 `raw` 重建的**源语言** metadata; 译文从不回写 `raw`.
 若无缓存, **全缓存命中 + 配置不变的重刮仍会逐次重新翻译** —— 既烧 token, 又因 `temperature>0`
 让译文在多次重刮间漂移. 这与项目"逐站复用、只补未成功站"的增量哲学相悖.
 
@@ -44,7 +39,7 @@ dspy 的价值在 prompt 优化 (MIPRO)、签名化结构抽取、带 metric 的
 - **键 = `(源文本 sha256, 目标语言, 字段)`**. 不含 number —— 翻译输出只取决于文本, 跨番号天然去重
   (系列共用简介/相同标语只译一次). 含 field —— 因不同字段用不同提示词 (`translator._FIELD_HINT`),
   输出与字段相关. 不含 model/temperature.
-- **独立 SQLite 文件** (`data_dir/translations.db`), **不进主 `amane.db`、不走 Alembic**: 纯缓存, 仅
+- **独立 SQLite 文件** (`data_dir/translations.db`), **不纳入主 `amane.db`、不经由 Alembic**: 纯缓存, 仅
   `CREATE TABLE IF NOT EXISTS`, 可安全直接删除, 下次自动重建. 故意绕开 [database.md](database.md) 的迁移体系.
 - **会话级注入**: `start_app` 创建 → `AppRuntime.translation_cache` → 穿过 `build_handlers`/`build_translator`.
   与 `ResourceStore` 同属"不随热重载重建"的对象; `rebuild()` 复用同一实例 (改 LLM 配置不丢缓存).
@@ -60,7 +55,7 @@ dspy 的价值在 prompt 优化 (MIPRO)、签名化结构抽取、带 metric 的
 判定逻辑在 `src/amane/utils/language.py`, 服务于"是否需要翻译"的决策, 非通用语言识别:
 
 - **句子级前提**: 标题/简介必含假名 → "含假名" (`has_kana`) 即判日文. 纯汉字日文只出现在词级 (标签/人名), 不在翻译范围.
-- **简繁不走 LLM**: 简繁是字形差异而非语言差异. 中文文本一律交 `zhconv.convert` (幂等); 共用字 (简繁同形) 转换后等于原文 → 返回 `None`, 调用方保留原值. 因此**无需检测**文本是简还是繁 —— 无脑转一次即可.
+- **简繁不经由 LLM**: 简繁是字形差异而非语言差异. 中文文本一律交 `zhconv.convert` (幂等); 共用字 (简繁同形) 转换后等于原文 → 返回 `None`, 调用方保留原值. **无需检测**文本是简还是繁, 转换一次即可.
 - 仅日↔中、英↔中等**跨语系**才调 LLM (`needs_llm_translation`).
 
 > 踩坑: `is_ascii_only` 的字符类必须含方/花括号 `[]{}` —— `[HD]`/`[4K]` 在番号标题中极常见, 漏了会把英文标题误判为非英文而触发无谓翻译.

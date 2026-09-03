@@ -13,26 +13,26 @@
 | `crawlers/` | 番号 → `MediaMetadata`; 演员名 → `ActorMetadata` | 无状态; HTTP 与配置构造期注入; 影片/演员分 registry |
 | `plugin/` | 第三方来源作者 SDK（再导出契约类型） | 插件只导入这里; 主机不导入 |
 | `plugins/` | 来源插件主机（发现 / 落盘 / Factory） | 作者不导入; 契约见 [plugins.md](plugins.md) |
-| `aggregate/` | 多源优先级 → `AggregatedMetadata` / `AggregatedActor` | 影片走抓取图波次; 演员为档案填空 + 头像优先; 不写 DB |
+| `aggregate/` | 多源优先级 → `AggregatedMetadata` / `AggregatedActor` | 影片按抓取图波次执行; 演员为档案填空 + 头像优先; 不写 DB |
 | `handlers/` | DB Task → 副作用 (写 metadata / 移动文件 / 排队) | 编排层, 不实现解析/爬取/IO 细节 |
 | `media/` `organize/` | 元数据 + 路径模板 → 磁盘文件 | 调用方传配置, 自身不读 `HotSettings` 全局 |
 | `llm/` | LLM 后端 + 翻译协议 + 译文缓存 | 管线只依赖协议, 不耦合具体 SDK |
 | `agent/` | 助理 Agent (产品面 Amane) + Saved Query + 会话 trace | 读=任意只读 SQL; 写=封装工具 + pydantic-ai 渐进披露 (Capability); 与 `llm/` 配置分离 |
 | `sr/` | 超分二进制封装 | 就地覆盖本地资源文件 |
 | `db/` | SQLModel 表 + 异步 Repository (按聚合 mixin 拆分) | 单一数据源; 启动期自动 `alembic upgrade head` |
-| `library/` | 库文件规则与分类 (`LibraryScan.classify`) | 扩展名 / 预告片与黑名单正则 / `.amane_trash` / 体积阈值; handlers 与 scheduler 共用, 不进任何一侧 |
+| `library/` | 库文件规则与分类 (`LibraryScan.classify`) | 扩展名 / 预告片与黑名单正则 / `.amane_trash` / 体积阈值; handlers 与 scheduler 共用, 不纳入任何一侧 |
 | `scheduler/` | 队列消费 / cron / 文件监控 / RSS 发现 | 与 api 解耦, 通过 EventBus 上报 |
-| `observability/` | 进程级日志管线 + 单任务 Recorder | 叙事走 structlog; 任务产物落 `{log_dir}/tasks/task-{id}/` |
+| `observability/` | 进程级日志管线 + 单任务 Recorder | 叙事经由 structlog; 任务产物落 `{log_dir}/tasks/task-{id}/` |
 | `app/` | 进程组合根 (`AppRuntime` / `build_*` / `start_app`) | HTTP 与 CLI/回放共用; 不依赖 FastAPI; 拥有启停顺序 |
-| `api/` | FastAPI 适配 (路由 / WS / `create_app`) | 不持有业务状态与生命周期编排; lifespan 只把 `AppSession` 挂到 `app.state.runtime`. 路由约定见 [api.md](api.md) |
+| `api/` | FastAPI 适配 (路由 / WS / `create_app`) | 不持有业务状态与生命周期编排; lifespan 将 `AppSession` 写入 `app.state.runtime`. 路由约定见 [api.md](api.md) |
 | `net/` | curl_cffi WebClient + 限速器 | 速率限制按 host, 优先级见 `RateLimiters.from_config`; HTTP 录制经 `net.recording` 可选绑定 |
-| `enums.py` | 跨包枚举 (站点名 / 字段名 / 语言) | 顶层避免循环依赖 — 不要把它拆进任何子包 |
+| `enums.py` | 跨包枚举 (站点名 / 字段名 / 语言) | 必须留在顶层; 拆进子包会形成循环依赖 |
 
-**导入约定:** 包内模块使用相对导入, 最多三点 (`...`); 再深一层则改用 `from amane...`. Alembic 迁移由解释器按文件路径加载, 不属于包命名空间, 仍用绝对导入. 包外 (测试、第三方插件、独立脚本) 从顶层包导入已导出的稳定符号 (如 `from amane.config import HotSettings`); 顶层 `__init__.py` 未导出的实现细节可从子模块导入. 新增公开 API 时应补到顶层导出. 第三方来源插件只从 `amane.plugin` 导入; 主机用 `amane.plugins.*`.
+**导入约定:** 包内模块使用相对导入, 最多三点 (`...`); 再深一层则改用 `from amane...`. 迁移脚本必须使用绝对导入 — Alembic 按文件路径加载, 无法识别相对导入. 包外 (测试、第三方插件、独立脚本) 从顶层包导入已导出的稳定符号; 未导出的实现细节可从子模块导入. 新增公开 API 时应补到顶层导出. 插件与主机的导入边界见 [plugins.md](plugins.md).
 
 ## 启动编排
 
-入口: `amane.server` 构造可编程 uvicorn (`timeout_graceful_shutdown=5`), lifespan 挂 `start_app`. Docker CMD / `just start` 走 `python -m amane.server`; 桌面 PyInstaller 冻住 `scripts/pyinstaller_entry.py`. `just dev` 仍用 `uvicorn --reload`, 不设监督.
+入口: `amane.server` 构造可编程 uvicorn (`timeout_graceful_shutdown=5`), lifespan 调用 `start_app`. Docker CMD / `just start` 执行 `python -m amane.server`. PyInstaller 使用文件作为运行入口 (`scripts/pyinstaller_entry.py`), 必须使用绝对导入. `just dev` 使用 `uvicorn --reload`, 不启用监督.
 
 顺序非常关键, 颠倒会拿到未初始化或无配置的对象:
 
@@ -47,12 +47,12 @@ EventBus → 日志 → 来源插件发现 → 主 DB engine + Repository → r1
 
 - **EventBus 必须最先**, 因为日志 pipeline 会把 structlog 事件转发到 WebSocket. 颠倒会丢启动期日志.
 - **RateLimiters 在 WebClient 之前**: 限速器是 host → leaky bucket 的查表, WebClient 持有引用, 重建限速器 = 重建 WebClient.
-- **来源插件在网络栈之前发现**: descriptor 提供来源 URL、多语言能力和默认速率；配置中的外部来源 ID 要先经过当前插件目录校验，再构造 `CrawlerFactory`. 安装 / 卸载 / 重新扫描会在进程内替换该目录并走同一套 `rebuild()`（排空旧 Worker），不重启进程；见 [plugins.md](plugins.md).
+- **来源插件在网络栈之前发现**: descriptor 提供来源 URL、多语言能力和默认速率；配置中的外部来源 ID 要先经过当前插件目录校验，再构造 `CrawlerFactory`. 安装 / 卸载 / 重新扫描会在进程内替换该目录并执行同一套 `rebuild()`（排空旧 Worker），不重启进程；见 [plugins.md](plugins.md).
 - **CrawlerFactory 缓存爬虫实例**. 配置在构造函数注入并立即合并 (`_resolve_config`). 重建工厂只在 `HttpClient` 换了之后才有必要.
 - **Handlers 在 Worker 之前**, Worker 启动后会立即开始 claim 任务 — handler map 必须就位.
 - **CronScheduler / FeedService / WatcherService 在 Worker 之后**: 三者都会派生/触发任务, worker 须已就绪. Feed 间隔在源上, 见 [feeds.md](feeds.md).
 
-停机时 lifespan `aclose` **先** `EventBus.close_all()` 再停 worker: 常驻 WS 否则会拖死 uvicorn graceful. 重启不是进程内 exec — 服务以退出码 3 退出 (避开 argparse 的 2), 由进程外拉起 (桌面监督循环, Docker `unless-stopped`). Docker 不区分退出码: 容器内 `exit 3` 仍会拉起; `docker stop` 走 SIGTERM → `exit 0`. 仅 `AMANE_SUPERVISED=1` 时重启端点可用, 见 [desktop.md](desktop.md) / [config.md](config.md).
+停机时 lifespan `aclose` **先** `EventBus.close_all()` 再停 worker: 常驻 WS 否则会拖死 uvicorn graceful. 重启不是进程内 exec — 服务以退出码 3 退出 (避开 argparse 的 2), 由进程外再次启动 (桌面监督循环, Docker `unless-stopped`). Docker 不区分退出码: 容器内 `exit 3` 仍会再次启动; `docker stop` 发送 SIGTERM → `exit 0`. 仅 `AMANE_SUPERVISED=1` 时重启端点可用, 见 [desktop.md](desktop.md) / [config.md](config.md).
 
 ## 跨切面
 
