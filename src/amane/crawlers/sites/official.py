@@ -306,8 +306,7 @@ class OfficialCrawler(Crawler):
             '/following-sibling::div[@class="td"]'
             '//a[contains(@href,"/actress/detail/")]/text()',
         )
-        seen: set[str] = set()
-        actors = [a for a in actors if not (a in seen or seen.add(a))]
+        actors = list(dict.fromkeys(actors))
 
         release = extract_text(
             html, '//div[@class="th"][contains(text(),"発売日")]/following-sibling::div[@class="td"]//a/text()'
