@@ -1,3 +1,11 @@
+from .cloud_path import (
+    cloud_covers,
+    cloud_paths_overlap,
+    normalize_cloud_path,
+    optional_cloud_path,
+    resolve_ingest_cloud_path,
+    to_local_path,
+)
 from .rules import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_TRAILER_PATTERN,
@@ -26,7 +34,13 @@ __all__ = [
     "MinFileSize",
     "SubtitleExtensions",
     "TrailerPattern",
+    "cloud_covers",
+    "cloud_paths_overlap",
+    "normalize_cloud_path",
     "normalize_subtitle_extensions",
+    "optional_cloud_path",
+    "resolve_ingest_cloud_path",
+    "to_local_path",
     "validate_blacklist_pattern",
     "validate_min_file_size",
     "validate_trailer_pattern",

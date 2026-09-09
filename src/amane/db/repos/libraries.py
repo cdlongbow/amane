@@ -2,12 +2,15 @@ from collections.abc import Sequence
 from typing import Unpack
 
 from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from ...enums import DownloadableResource, LibraryAutomation, LinkMode, MoveMode
+from ...enums import DownloadableResource, LibraryAutomation, LibraryIngest, LinkMode, MoveMode
 from ...library import (
     DEFAULT_SUBTITLE_EXTENSIONS,
     DEFAULT_TRAILER_PATTERN,
+    cloud_paths_overlap,
     normalize_subtitle_extensions,
+    resolve_ingest_cloud_path,
     validate_blacklist_pattern,
     validate_min_file_size,
     validate_trailer_pattern,
@@ -28,12 +31,29 @@ def _strm_content_or_none(value: str | None) -> str | None:
     return None if normalized is None else validate_strm_content_template(normalized)
 
 
+async def _reject_overlapping_cloud_path(
+    session: AsyncSession,
+    cloud_path: str,
+    *,
+    exclude_id: int | None = None,
+) -> None:
+    stmt = select(Library).where(Library.ingest == LibraryIngest.CLOUDDRIVE)
+    if exclude_id is not None:
+        stmt = stmt.where(col(Library.id) != exclude_id)
+    others = (await session.exec(stmt)).all()
+    for other in others:
+        if other.cloud_path is not None and cloud_paths_overlap(cloud_path, other.cloud_path):
+            raise ValueError("cloud_path 与已有 CloudDrive 媒体库重叠")
+
+
 class LibrariesRepoMixin(RepositoryMixinBase):
     async def create_library(
         self,
         name: str,
         path: str,
         automation: LibraryAutomation = LibraryAutomation.SCRAPE,
+        ingest: LibraryIngest = LibraryIngest.NATIVE,
+        cloud_path: str | None = None,
         recursive: bool = True,
         patterns: list[str] | None = None,
         move_mode: MoveMode = MoveMode.MOVE,
@@ -56,6 +76,7 @@ class LibrariesRepoMixin(RepositoryMixinBase):
         min_file_size: int = 0,
     ) -> Library:
         min_file_size = validate_min_file_size(min_file_size)
+        cloud_path = resolve_ingest_cloud_path(ingest, cloud_path)
         video_template = validate_path_template(video_template)
         link_template = _path_template_or_none(normalize_link_template(link_template))
         strm_content_template = _strm_content_or_none(strm_content_template)
@@ -67,10 +88,14 @@ class LibrariesRepoMixin(RepositoryMixinBase):
         trailer_template = _path_template_or_none(trailer_template)
         subtitle_template = _path_template_or_none(subtitle_template)
         async with self._session() as session:
+            if cloud_path is not None:
+                await _reject_overlapping_cloud_path(session, cloud_path)
             lib = Library(
                 name=name,
                 path=path,
                 automation=automation,
+                ingest=ingest,
+                cloud_path=cloud_path,
                 recursive=recursive,
                 patterns=patterns if patterns is not None else [],
                 move_mode=move_mode,
@@ -159,6 +184,13 @@ class LibrariesRepoMixin(RepositoryMixinBase):
                 lib.path = updates["path"]
             if "automation" in updates:
                 lib.automation = updates["automation"]
+            if "ingest" in updates:
+                lib.ingest = updates["ingest"]
+            if "cloud_path" in updates:
+                lib.cloud_path = updates["cloud_path"]
+            lib.cloud_path = resolve_ingest_cloud_path(lib.ingest, lib.cloud_path)
+            if lib.cloud_path is not None:
+                await _reject_overlapping_cloud_path(session, lib.cloud_path, exclude_id=library_id)
             if "recursive" in updates:
                 lib.recursive = updates["recursive"]
             if "patterns" in updates:
