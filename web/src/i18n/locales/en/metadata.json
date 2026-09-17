@@ -122,6 +122,10 @@
     "playbackSourceLabel": "Playback source",
     "playbackStreamLabel": "Stream",
     "playbackVolume": "Volume",
+    "playbackBrightness": "Brightness",
+    "playbackRate": "Playback rate",
+    "playbackToggle": "Play or pause",
+    "playbackClose": "Close",
     "playbackMuted": "Muted",
     "commentSeek": "Seek to {{time}}",
     "cropPoster": {

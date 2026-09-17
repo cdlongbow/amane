@@ -18,6 +18,7 @@ import {
   IconBrandGithub,
   IconCategory,
   IconClock,
+  IconDeviceMobile,
   IconFileText,
   IconFolders,
   IconLanguage,
@@ -45,6 +46,7 @@ import { APP_SHELL_HEADER_HEIGHT } from "@/components/layout/app-shell-metrics";
 import { HintedActionIcon } from "@/components/common/hinted-action-icon";
 import { VersionMenu } from "@/components/layout/version-menu";
 import { APP_NAME, GITHUB_URL } from "@/lib/app";
+import { shellEnvironment } from "@/lib/shell";
 import { useConnectionStore } from "@/stores/connection";
 import { useUIStore } from "@/stores/ui";
 
@@ -181,6 +183,28 @@ function LanguageMenu() {
   );
 }
 
+/**
+ * 客户端设置入口: 服务器与登录态属于客户端, 不并入服务端配置. 只在壳内渲染 (判据见 lib/shell.ts).
+ */
+function ClientSettingsLink({ available }: { available: boolean }) {
+  const { t } = useTranslation("common");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  if (!available) return null;
+
+  return (
+    <HintedActionIcon
+      variant="subtle"
+      color={isNavActive(pathname, "/client") ? "brand" : "gray"}
+      size="lg"
+      onClick={() => void navigate({ to: "/client" })}
+      label={t("nav.client")}
+    >
+      <IconDeviceMobile size={18} />
+    </HintedActionIcon>
+  );
+}
+
 function ConnectionIndicator() {
   const status = useConnectionStore((s) => s.status);
   const { t } = useTranslation("common");
@@ -292,6 +316,7 @@ export function AppShellLayout(): ReactNode {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure(false);
   const desktopCollapsed = useUIStore((s) => s.navbarCollapsed);
   const toggleDesktop = useUIStore((s) => s.toggleNavbar);
+  const shell = shellEnvironment();
 
   return (
     <AppShell
@@ -326,6 +351,7 @@ export function AppShellLayout(): ReactNode {
             <ConnectionIndicator />
             <ThemeToggle />
             <LanguageMenu />
+            <ClientSettingsLink available={shell != null} />
             {/* 窄屏顶栏放不下外链, 该入口收进侧栏底部. */}
             <GithubLink visibleFrom="sm" />
           </Group>
@@ -333,7 +359,12 @@ export function AppShellLayout(): ReactNode {
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+        <ScrollArea
+          style={{ flex: 1 }}
+          offsetScrollbars
+          // 侧栏滚到尽头时不许把滚动传给底下的页面 (触屏上尤其明显).
+          viewportProps={{ style: { overscrollBehavior: "contain" } }}
+        >
           {NAV_GROUPS.map((group) => (
             <div key={group.key} style={{ marginBottom: 16 }}>
               <Text

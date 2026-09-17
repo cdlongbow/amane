@@ -4,7 +4,7 @@
 
 ## 品牌标
 
-单一源 `assets/logo.svg`; 修改后执行 `just icons` 并提交衍生文件: WebUI favicon (`web/public/favicon.svg`)、macOS `assets/app.icns`、Windows `assets/app.ico` (托盘从 exe 抽同一份)、macOS 菜单栏模板字形 (只取 alpha 由系统着色 — 彩色徽标在菜单栏会糊成色块). `just icons` 需要 `rsvg-convert` 与 macOS `iconutil`; 衍生文件入库, 打包机不必装 librsvg.
+单一源 `assets/logo.svg`; 修改后执行 `just icons` 并提交衍生文件: WebUI favicon (`web/public/favicon.svg`)、macOS `assets/app.icns`、Windows `assets/app.ico` (托盘从 exe 抽同一份)、macOS 菜单栏模板字形 (只取 alpha 由系统着色 — 彩色徽标在菜单栏会糊成色块)、Android 自适应图标 (`androidapp/app/src/main/res/`: 渐变背景层 `drawable/ic_launcher_background.xml` + 白色字形 `mipmap-*/ic_launcher_foreground.png`). Android 拆两层是因为启动器会按圆形 / 圆角遮罩裁切, 只有中间 72dp 保证可见: 徽标底色留在背景层, 字形缩到安全区内, 中间的播放三角用遮罩镂空透出背景. `just icons` 需要 `rsvg-convert` 与 macOS `iconutil`; 衍生文件入库, 打包机不必装 librsvg.
 
 ## 进程模型
 
@@ -67,4 +67,4 @@ macOS: `scripts/build_macos_app.sh` (`just macos-app`), 需要 Swift 工具链 �
 
 两边 PyInstaller 都要 `--add-data` 打进 `amane/db/migrations` 与 `amane/media/watermarks` (Docker wheel 靠 hatch `force-include`), 并按平台收集整个标准库 (`scripts/stdlib_modules.py` 列出顶层模块, 只排除依赖包外产物的 `tkinter` / `turtle` / `idlelib` / `turtledemo` / `ensurepip`, 构建脚本为每个名字加 `--collect-submodules`). **插件是运行时从数据目录动态加载的**, PyInstaller 的静态导入图看不见它们引用什么; 不整包收集就会出现「插件在 `just dev` 与 Docker 里能用, 装进桌面版报 `ModuleNotFoundError`」.
 
-开发回路: `just dev` 起服务 + `just bar-run` (macOS) / `just windows-bar` (Windows) 只开托盘.
+开发回路: `just dev` 起服务 + `just bar-run` (macOS) / `just windows-bar` (Windows) 只开托盘. Android 端不监督本机服务, 见 [android.md](android.md).

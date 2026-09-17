@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { apiFetch } from "@/lib/api-token";
+import { shellEnvironment, shellSwitchServer } from "@/lib/shell";
 
 /**
  * API token 登录门. 首次访问 (无 cookie) 时整页替换 App; 提交后用
@@ -51,8 +52,7 @@ export function LoginGate({ onAuthed }: LoginGateProps) {
   }
 
   return (
-    // dvh 而非 vh: 移动浏览器地址栏收起前 100vh 高于可视区, 卡片重心下移.
-    <Center h="100dvh" px="md">
+    <Center h="var(--amane-vh)" px="md">
       <Paper withBorder p="xl" radius="md" w={380} maw="100%" shadow="sm">
         <form
           onSubmit={(e) => {
@@ -72,7 +72,20 @@ export function LoginGate({ onAuthed }: LoginGateProps) {
               autoFocus
             />
             {error && <Alert color="red">{error}</Alert>}
-            <Group justify="flex-end">
+            <Group justify="space-between">
+              {/* 壳内 token 由服务器页校验: 入口跳转过一次后仍未认证时, 这里给出回到那里的路径. */}
+              {shellEnvironment() ? (
+                <Button
+                  type="button"
+                  variant="subtle"
+                  size="xs"
+                  onClick={() => shellSwitchServer()}
+                >
+                  {t("auth.serverSettings")}
+                </Button>
+              ) : (
+                <span />
+              )}
               <Button type="submit" loading={submitting}>
                 {t("actions.submit")}
               </Button>
