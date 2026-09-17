@@ -80,6 +80,8 @@ Fix #34
 - 首选 squash
 - 非常简单的 PR 可以用 rebase
 - 永远不要用 merge commit 把 PR 合进 main
+- squash 的标题必须带 `(#N)`. `--subject` 会**覆盖** GitHub 默认的「PR 标题 + `(#N)`」, 传了就得自己把 `(#N)` 拼上; 不传 `--subject` 才走默认值
+- `main` 上有 `protect main` ruleset (`deletion` / `non_fast_forward` / `required_linear_history`): 合并提交一旦推上去就改不回来 (强推会被拒), 提交信息必须在推之前核对
 
 合入后, 删除该 PR 的 worktree 与本地分支, 同步 main; 若是从本仓库分支创建的, 还要删除远程分支.
 
