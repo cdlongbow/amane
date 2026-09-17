@@ -4,17 +4,17 @@
 // The .app's CFBundleExecutable (macapp/Sources/Amane) launches this as a
 // sibling of the Python server with `--base-url` and `--watch-parent <app pid>`.
 
+import AmaneShared
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 // MARK: - Localization
 // 菜单字符串按系统语言 (macOS 惯例), 不跟随前端浏览器语言.
 // 无 .lproj 资源: 裸可执行文件, 直接字典映射 zh / 其他一律 en.
 
-private let isChinese = (Locale.preferredLanguages.first ?? "").hasPrefix("zh")
-
 private func tr(_ zh: String, _ en: String) -> String {
-    isChinese ? zh : en
+    localized(zh, en)
 }
 
 // MARK: - Arguments
@@ -137,6 +137,12 @@ final class MenuController: NSObject, NSApplicationDelegate {
         menu.addItem(data)
         dataDirItem = data
 
+        let settings = NSMenuItem(
+            title: tr("打开设置文件", "Open Settings File"), action: #selector(openSettingsFile),
+            keyEquivalent: "")
+        settings.target = self
+        menu.addItem(settings)
+
         let copy = NSMenuItem(
             title: tr("复制 API Token", "Copy API Token"), action: #selector(copyToken),
             keyEquivalent: "")
@@ -246,6 +252,20 @@ final class MenuController: NSObject, NSApplicationDelegate {
     @objc private func openDataDirectory() {
         guard !dataDir.isEmpty else { return }
         NSWorkspace.shared.open(URL(fileURLWithPath: dataDir))
+    }
+
+    @objc private func openSettingsFile() {
+        // 应用进程在首次启动时写好模板; 此处兜底覆盖「先点菜单」的时序.
+        DesktopSettings.createIfMissing()
+        let file = DesktopSettings.url
+        if NSWorkspace.shared.open(file) { return }
+        // .env 在 macOS 没有注册的 UTI, 未安装可打开任意文件的编辑器时它没有默认应用,
+        // open 返回 false. 回退到默认文本编辑器, 最后 TextEdit.
+        let editor =
+            NSWorkspace.shared.urlForApplication(toOpen: UTType.plainText)
+            ?? URL(fileURLWithPath: "/System/Applications/TextEdit.app")
+        NSWorkspace.shared.open(
+            [file], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
     }
 
     @objc private func checkUpdate() {
