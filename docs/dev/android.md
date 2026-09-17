@@ -69,7 +69,7 @@ Android 端是**远程客户端**: 服务端 (FastAPI + SQLite + 运行期加载
 
 **APP 版本独立于服务端与桌面端**: 唯一来源是 `androidapp/version.txt`, 构建脚本与 Gradle 都读取它, `versionName` 与 `versionCode` 由 semver 推导; `versionCode` 必须随版本单调递增 — Android 拒绝降级覆盖安装. 签名配置读取 `androidapp/keystore.properties` (不入库), 缺席时回退到 debug 包; CI 经仓库 secret 提供同一份密钥.
 
-发版**完全独立**: 只有 `app-` 前缀的 tag 触发 APK 构建与 Release, 本体的 `v*` 不产出 APK — 本体发版通常不含 APP 变更, 每次都附一份 APK 会让下载的人以为 APP 也更新了. 这些 tag 解析不出版本, 本体的更新检查会跳过它们 (检查读取发布列表而不是 `/releases/latest`, 见 `src/amane/release.py`). 分发方式是 GitHub Release 上的 APK 侧载; 应用商店对本项目的媒体内容域不可行, 因此不引入 Play 相关的签名托管与更新机制.
+发版**完全独立**: 只有 `app-` 前缀的 tag 触发 APK 构建与 Release, 本体的 `v*` 不产出 APK — 本体发版通常不含 APP 变更, 每次都附一份 APK 会让下载的人以为 APP 也更新了. 这些 tag 解析不出版本, 本体的更新检查会跳过它们 (检查读取发布列表而不是 `/releases/latest`, 见 `src/amane/release.py`); APP 发布也不占用 Releases 页的 Latest 徽标. 分发方式是 GitHub Release 上的 APK 侧载; 应用商店对本项目的媒体内容域不可行, 因此不引入 Play 相关的签名托管与更新机制.
 
 PR 门禁由 `.github/workflows/ci.yaml` 的 `android` job 执行 `just android-check`; 它前面有一个轻量 job 先判断改动有没有碰到 APP, 没碰到就整块跳过 — 该 job 要装 JDK 与 Android SDK 再跑 Gradle, 而 APP 的改动很少. 这里用 job 级条件而不是工作流级 `paths`: 后者会让整个工作流不触发, 被设为必需的门禁检查会一直停在 pending.
 
