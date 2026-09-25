@@ -1014,12 +1014,13 @@
           "metadata"
         ],
         "summary": "Batch Metadata User Tags",
+        "description": "把一组用户标签应用到一组影片; 未知标签 id 返回 404, 不存在的影片 id 计入 missing.",
         "operationId": "batch_metadata_user_tags",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MetadataBatchUserTagsRequest"
+                "$ref": "#/components/schemas/MetadataUserTagsRequest"
               }
             }
           },
@@ -1031,7 +1032,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MetadataBatchUserTagsResponse"
+                  "$ref": "#/components/schemas/UserTagLinksResponse"
                 }
               }
             }
@@ -1154,92 +1155,6 @@
             "schema": {
               "type": "integer",
               "title": "Metadata Id"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/metadata/{metadata_id}/user-tags/{user_tag_id}": {
-      "put": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Attach User Tag",
-        "operationId": "attach_user_tag",
-        "parameters": [
-          {
-            "name": "metadata_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Metadata Id"
-            }
-          },
-          {
-            "name": "user_tag_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "User Tag Id"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Detach User Tag",
-        "operationId": "detach_user_tag",
-        "parameters": [
-          {
-            "name": "metadata_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Metadata Id"
-            }
-          },
-          {
-            "name": "user_tag_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "User Tag Id"
             }
           }
         ],
@@ -2511,6 +2426,27 @@
             "description": "限制为这些演员主键"
           },
           {
+            "name": "user_tag_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按用户标签筛选; 多值为 AND",
+              "title": "User Tag Ids"
+            },
+            "description": "按用户标签筛选; 多值为 AND"
+          },
+          {
             "name": "saved_query_id",
             "in": "query",
             "required": false,
@@ -2536,6 +2472,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ActorListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actors/batch/user-tags": {
+      "post": {
+        "tags": [
+          "actors"
+        ],
+        "summary": "Batch Actor User Tags",
+        "description": "把一组用户标签应用到一组演员; 未知标签 id 返回 404, 不存在的演员 id 计入 missing.",
+        "operationId": "batch_actor_user_tags",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActorUserTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserTagLinksResponse"
                 }
               }
             }
@@ -2710,25 +2688,26 @@
         "tags": [
           "facets"
         ],
-        "summary": "Create User Tag",
-        "operationId": "create_user_tag",
+        "summary": "Create User Tags",
+        "description": "按名称取回或新建用户标签; 已存在的名称直接复用, 响应与入参同序.",
+        "operationId": "create_user_tags",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FacetCreateRequest"
+                "$ref": "#/components/schemas/UserTagsCreateRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FacetResponse"
+                  "$ref": "#/components/schemas/UserTagsCreateResponse"
                 }
               }
             }
@@ -5704,6 +5683,14 @@
             "title": "Aliases",
             "description": "别名行 (保序; 不含展示名)"
           },
+          "user_tags": {
+            "items": {
+              "$ref": "#/components/schemas/UserTagResponse"
+            },
+            "type": "array",
+            "title": "User Tags",
+            "description": "用户标签 (仅详情)"
+          },
           "gender": {
             "$ref": "#/components/schemas/ActorGender",
             "default": "unknown"
@@ -5862,7 +5849,7 @@
           "name"
         ],
         "title": "ActorResponse",
-        "description": "详情填全量; 列表 (`GET /actors`) 只填卡片/表格字段, 简介/别名/源字典/raw 为空."
+        "description": "详情填全量; 列表 (`GET /actors`) 只填卡片/表格字段, 简介/别名/标签/源字典/raw 为空."
       },
       "ActorScrapeRequest": {
         "properties": {
@@ -6145,6 +6132,44 @@
         },
         "type": "object",
         "title": "ActorUpdateRequest"
+      },
+      "ActorUserTagsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Ids",
+            "description": "演员 ID 列表"
+          },
+          "user_tag_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "User Tag Ids",
+            "description": "用户标签 ID 列表"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "attach",
+              "detach"
+            ],
+            "title": "Action",
+            "description": "attach 为并入, detach 为移除; 两者均幂等"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "user_tag_ids",
+          "action"
+        ],
+        "title": "ActorUserTagsRequest"
       },
       "AgentApproveRequest": {
         "properties": {
@@ -6736,22 +6761,6 @@
         ],
         "title": "DownloadableResource",
         "description": "影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径."
-      },
-      "FacetCreateRequest": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "FacetCreateRequest",
-        "description": "仅 kind=user_tag 可创建."
       },
       "FacetKind": {
         "type": "string",
@@ -9323,58 +9332,6 @@
         ],
         "title": "MetadataBatchScrapeResponse"
       },
-      "MetadataBatchUserTagsRequest": {
-        "properties": {
-          "ids": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Ids",
-            "description": "Metadata ID 列表"
-          },
-          "user_tag_id": {
-            "type": "integer",
-            "title": "User Tag Id"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "attach",
-              "detach"
-            ],
-            "title": "Action"
-          }
-        },
-        "type": "object",
-        "required": [
-          "ids",
-          "user_tag_id",
-          "action"
-        ],
-        "title": "MetadataBatchUserTagsRequest"
-      },
-      "MetadataBatchUserTagsResponse": {
-        "properties": {
-          "affected": {
-            "type": "integer",
-            "title": "Affected",
-            "description": "成功挂载/取消挂载的数量"
-          },
-          "missing": {
-            "type": "integer",
-            "title": "Missing",
-            "description": "不存在的 metadata id (或用户 tag 不存在时的全部 id) 数量"
-          }
-        },
-        "type": "object",
-        "required": [
-          "affected",
-          "missing"
-        ],
-        "title": "MetadataBatchUserTagsResponse"
-      },
       "MetadataDetailResponse": {
         "properties": {
           "metadata": {
@@ -10026,6 +9983,44 @@
           "file_count"
         ],
         "title": "MetadataSortField"
+      },
+      "MetadataUserTagsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Ids",
+            "description": "Metadata ID 列表"
+          },
+          "user_tag_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "User Tag Ids",
+            "description": "用户标签 ID 列表"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "attach",
+              "detach"
+            ],
+            "title": "Action",
+            "description": "attach 为并入, detach 为移除; 两者均幂等"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "user_tag_ids",
+          "action"
+        ],
+        "title": "MetadataUserTagsRequest"
       },
       "Mosaic": {
         "type": "string",
@@ -12414,6 +12409,33 @@
         ],
         "title": "UpscaleSubmission"
       },
+      "UserTagLinksResponse": {
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "title": "Changed",
+            "description": "至少一处挂载关系发生变更的条目数"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged",
+            "description": "已处于目标态、未修改的条目数"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing",
+            "description": "不存在的条目 id 数"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed",
+          "unchanged",
+          "missing"
+        ],
+        "title": "UserTagLinksResponse",
+        "description": "用户标签挂载/卸载的结果计数; 三个字段均以条目 id 为单位, 之和等于去重后的条目数."
+      },
       "UserTagResponse": {
         "properties": {
           "id": {
@@ -12455,6 +12477,48 @@
           "name"
         ],
         "title": "UserTagResponse"
+      },
+      "UserTagsCreateRequest": {
+        "properties": {
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Names",
+            "description": "用户标签名称列表"
+          }
+        },
+        "type": "object",
+        "required": [
+          "names"
+        ],
+        "title": "UserTagsCreateRequest",
+        "description": "批量取回或新建用户标签; 名称去重, 已存在的名称直接复用."
+      },
+      "UserTagsCreateResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserTagResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "与入参同序的标签"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created",
+            "description": "本次新建的数量; 其余为已存在的名称"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "created"
+        ],
+        "title": "UserTagsCreateResponse"
       },
       "ValidationError": {
         "properties": {

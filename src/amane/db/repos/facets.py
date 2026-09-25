@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Unpack
 
 from sqlalchemy import asc
-from sqlalchemy import delete as sqla_delete
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,6 +15,7 @@ from ..models import (
     SCRAPE_FACET_KINDS,
     Actor,
     ActorSortField,
+    ActorUserTag,
     Comment,
     Director,
     FacetKind,
@@ -35,6 +36,8 @@ from ..repo_types import (
     ActorPersonFields,
     CommentUpdates,
     FacetItem,
+    UserTagLinkAction,
+    UserTagLinkResult,
     UserTagUpdates,
     _utcnow,
 )
@@ -44,6 +47,8 @@ from .facet_helpers import (
     LINK_FACETS,
     SCALAR_FACETS,
     add_one_actor_alias,
+    apply_user_tags_to_actors,
+    apply_user_tags_to_metadata,
     delete_link_facet,
     delete_scalar_facet,
     get_facet,
@@ -51,6 +56,7 @@ from .facet_helpers import (
     merge_link_facets,
     merge_scalar_facets,
     normalize_names,
+    purge_user_tag_links,
     remove_one_actor_alias,
     rename_link_facet,
     rename_scalar_facet,
@@ -66,6 +72,25 @@ async def _rows_by_names[T: Actor | Director | Tag | Studio | Publisher | Series
     if not unique:
         return []
     return list((await session.exec(select(model).where(col(model.name).in_(unique)))).all())
+
+
+async def _ensure_user_tags_once(session: AsyncSession, names: Sequence[str]) -> tuple[list[UserTag], int]:
+    """一次尝试: 按名称取回已存在的行, 其余插入; 撞唯一索引由调用方回滚重试."""
+    existing = {
+        row.name: row for row in (await session.exec(select(UserTag).where(col(UserTag.name).in_(names)))).all()
+    }
+    created = 0
+    for name in names:
+        if name in existing:
+            continue
+        tag = UserTag(name=name)
+        session.add(tag)
+        existing[name] = tag
+        created += 1
+    await session.flush()
+    tags = [existing[name] for name in names]
+    await session.commit()
+    return tags, created
 
 
 class FacetsRepoMixin(RepositoryMixinBase):
@@ -310,7 +335,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
                 tag = await session.get(UserTag, facet_id)
                 if tag is None:
                     return False
-                await session.exec(sqla_delete(MetadataUserTag).where(col(MetadataUserTag.user_tag_id) == facet_id))
+                await purge_user_tag_links(session, facet_id)
                 await session.delete(tag)
                 await session.commit()
                 return True
@@ -348,13 +373,19 @@ class FacetsRepoMixin(RepositoryMixinBase):
         async with self._session() as session:
             return await session.get(UserTag, user_tag_id)
 
-    async def create_user_tag(self, name: str) -> UserTag:
+    async def ensure_user_tags(self, names: Sequence[str]) -> tuple[list[UserTag], int]:
+        """按名称取回或新建用户标签; 返回与入参同序的行与新建数量."""
+        unique = list(dict.fromkeys(names))
+        if not unique:
+            return [], 0
         async with self._session() as session:
-            tag = UserTag(name=name)
-            session.add(tag)
-            await session.commit()
-            await session.refresh(tag)
-            return tag
+            try:
+                return await _ensure_user_tags_once(session, unique)
+            except IntegrityError:
+                # 并发同名创建: 双方的 SELECT 都在对方提交前未命中, 后者撞唯一索引.
+                # 回滚重查即可取回对方刚提交的行, 不必把冲突暴露成 500.
+                await session.rollback()
+                return await _ensure_user_tags_once(session, unique)
 
     async def update_user_tag(self, user_tag_id: int, **updates: Unpack[UserTagUpdates]) -> UserTag | None:
         async with self._session() as session:
@@ -375,7 +406,7 @@ class FacetsRepoMixin(RepositoryMixinBase):
             if tag is None:
                 return False
             # 显式删除挂载, 不依赖 SQLite FK pragma
-            await session.exec(sqla_delete(MetadataUserTag).where(col(MetadataUserTag.user_tag_id) == user_tag_id))
+            await purge_user_tag_links(session, user_tag_id)
             await session.delete(tag)
             await session.commit()
             return True
@@ -391,60 +422,38 @@ class FacetsRepoMixin(RepositoryMixinBase):
             result = await session.exec(stmt)
             return list(result.all())
 
-    async def attach_user_tag(self, metadata_id: int, user_tag_id: int) -> bool:
-        """metadata/tag 不存在返回 False; 已存在则幂等成功."""
+    async def list_actor_user_tags(self, actor_id: int) -> list[UserTag]:
         async with self._session() as session:
-            if await session.get(Metadata, metadata_id) is None:
-                return False
-            if await session.get(UserTag, user_tag_id) is None:
-                return False
-            existing = await session.get(MetadataUserTag, (metadata_id, user_tag_id))
-            if existing is None:
-                session.add(MetadataUserTag(metadata_id=metadata_id, user_tag_id=user_tag_id))
-                await session.commit()
-            return True
+            stmt = (
+                select(UserTag)
+                .join(ActorUserTag, col(ActorUserTag.user_tag_id) == col(UserTag.id))
+                .where(col(ActorUserTag.actor_id) == actor_id)
+                .order_by(col(UserTag.name).asc())
+            )
+            result = await session.exec(stmt)
+            return list(result.all())
 
-    async def detach_user_tag(self, metadata_id: int, user_tag_id: int) -> bool:
+    async def apply_metadata_user_tags(
+        self,
+        ids: Sequence[int],
+        user_tag_ids: Sequence[int],
+        *,
+        action: UserTagLinkAction,
+    ) -> UserTagLinkResult:
+        """把一组用户标签应用到一组影片."""
         async with self._session() as session:
-            link = await session.get(MetadataUserTag, (metadata_id, user_tag_id))
-            if link is None:
-                return False
-            await session.delete(link)
-            await session.commit()
-            return True
+            return await apply_user_tags_to_metadata(session, ids, user_tag_ids, action)
 
-    async def batch_attach_user_tag(self, ids: list[int], user_tag_id: int) -> tuple[int, int]:
-        """幂等. user_tag 不存在则全部计入 missing."""
+    async def apply_actor_user_tags(
+        self,
+        ids: Sequence[int],
+        user_tag_ids: Sequence[int],
+        *,
+        action: UserTagLinkAction,
+    ) -> UserTagLinkResult:
+        """把一组用户标签应用到一组演员."""
         async with self._session() as session:
-            if await session.get(UserTag, user_tag_id) is None:
-                return 0, len(ids)
-            affected = 0
-            missing = 0
-            for metadata_id in ids:
-                if await session.get(Metadata, metadata_id) is None:
-                    missing += 1
-                    continue
-                existing = await session.get(MetadataUserTag, (metadata_id, user_tag_id))
-                if existing is None:
-                    session.add(MetadataUserTag(metadata_id=metadata_id, user_tag_id=user_tag_id))
-                affected += 1
-            await session.commit()
-            return affected, missing
-
-    async def batch_detach_user_tag(self, ids: list[int], user_tag_id: int) -> tuple[int, int]:
-        """missing 为未挂载, 或 metadata/tag 不存在的数量."""
-        async with self._session() as session:
-            affected = 0
-            missing = 0
-            for metadata_id in ids:
-                link = await session.get(MetadataUserTag, (metadata_id, user_tag_id))
-                if link is None:
-                    missing += 1
-                    continue
-                await session.delete(link)
-                affected += 1
-            await session.commit()
-            return affected, missing
+            return await apply_user_tags_to_actors(session, ids, user_tag_ids, action)
 
     async def list_comments(self, metadata_id: int) -> list[Comment]:
         async with self._session() as session:

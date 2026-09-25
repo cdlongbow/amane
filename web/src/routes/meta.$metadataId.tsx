@@ -37,10 +37,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
-  attachUserTagMutation,
-  createUserTagMutation,
+  batchMetadataUserTagsMutation,
+  createUserTagsMutation,
   deleteMetadataMutation,
-  detachUserTagMutation,
   getMetadataOptions,
   getMetadataQueryKey,
   listFacetsOptions,
@@ -234,27 +233,30 @@ function TitleDetailPage() {
       }),
   });
 
-  const createTagMutation = useMutation(createUserTagMutation());
-  const attachTagMutation = useMutation(attachUserTagMutation());
-  const detachTagMutation = useMutation(detachUserTagMutation());
+  const ensureTagsMutation = useMutation(createUserTagsMutation());
+  const applyTagsMutation = useMutation(batchMetadataUserTagsMutation());
 
-  async function handleAddTags(names: string[]) {
-    const unique = [...new Set(names.map((name) => name.trim()).filter((name) => name.length > 0))];
-    if (unique.length === 0) return;
+  async function handleAddTags(selection: { tagIds: number[]; createNames: string[] }) {
+    const names = [
+      ...new Set(
+        selection.createNames.map((name) => name.trim()).filter((name) => name.length > 0),
+      ),
+    ];
+    if (selection.tagIds.length === 0 && names.length === 0) return;
     try {
+      // 新建与挂载各一次请求: 名称 → id 由批量创建端点取回, 已存在的名称直接复用
+      let createdIds: number[] = [];
       let created = 0;
-      for (const name of unique) {
-        let tagId = userTagOptions?.items.find((tag) => tag.name === name)?.id;
-        if (tagId == null) {
-          const createdTag = await createTagMutation.mutateAsync({ body: { name } });
-          tagId = createdTag.id;
-          created += 1;
-        }
-        await attachTagMutation.mutateAsync({ path: { metadata_id: id, user_tag_id: tagId } });
-      }
-      if (created > 0) {
+      if (names.length > 0) {
+        const ensured = await ensureTagsMutation.mutateAsync({ body: { names } });
+        createdIds = ensured.items.map((tag) => tag.id);
+        created = ensured.created;
+        // 标签此刻已落库; created 为 0 也可能是别人刚建的同名行落在候选之外, 故一律重取
         void queryClient.invalidateQueries({ queryKey: listFacetsQueryKey(USER_TAG_FACET_LIST) });
       }
+      await applyTagsMutation.mutateAsync({
+        body: { ids: [id], user_tag_ids: [...selection.tagIds, ...createdIds], action: "attach" },
+      });
       notifications.show({
         message: created > 0 ? t("common:toast.userTagCreated") : t("common:toast.userTagAttached"),
         color: "blue",
@@ -268,12 +270,12 @@ function TitleDetailPage() {
     }
   }
 
-  async function handleDetachTags(ids: number[]) {
-    if (ids.length === 0) return;
+  async function handleDetachTags(tagIds: number[]) {
+    if (tagIds.length === 0) return;
     try {
-      for (const tagId of ids) {
-        await detachTagMutation.mutateAsync({ path: { metadata_id: id, user_tag_id: tagId } });
-      }
+      await applyTagsMutation.mutateAsync({
+        body: { ids: [id], user_tag_ids: tagIds, action: "detach" },
+      });
       notifications.show({ message: t("common:toast.userTagDetached"), color: "blue" });
       invalidateDetail();
     } catch (err) {
@@ -575,13 +577,9 @@ function TitleDetailPage() {
                 candidates={(userTagOptions?.items ?? []).filter(
                   (tag) => !(data.user_tags ?? []).some((attached) => attached.id === tag.id),
                 )}
-                onChoose={(names) => void handleAddTags(names)}
+                onChoose={(selection) => void handleAddTags(selection)}
                 onDetach={(ids) => void handleDetachTags(ids)}
-                disabled={
-                  createTagMutation.isPending ||
-                  attachTagMutation.isPending ||
-                  detachTagMutation.isPending
-                }
+                disabled={ensureTagsMutation.isPending || applyTagsMutation.isPending}
               />
             </Group>
           </FieldBlock>

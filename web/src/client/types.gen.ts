@@ -28,7 +28,7 @@ export type ActorListResponse = {
 /**
  * ActorResponse
  *
- * 详情填全量; 列表 (`GET /actors`) 只填卡片/表格字段, 简介/别名/源字典/raw 为空.
+ * 详情填全量; 列表 (`GET /actors`) 只填卡片/表格字段, 简介/别名/标签/源字典/raw 为空.
  */
 export type ActorResponse = {
     /**
@@ -49,6 +49,12 @@ export type ActorResponse = {
      * 别名行 (保序; 不含展示名)
      */
     aliases?: Array<string>;
+    /**
+     * User Tags
+     *
+     * 用户标签 (仅详情)
+     */
+    user_tags?: Array<UserTagResponse>;
     gender?: ActorGender;
     /**
      * Birthday
@@ -258,6 +264,30 @@ export type ActorUpdateRequest = {
      * 别名行 (保序), 整表替换
      */
     aliases?: Array<string> | null;
+};
+
+/**
+ * ActorUserTagsRequest
+ */
+export type ActorUserTagsRequest = {
+    /**
+     * Ids
+     *
+     * 演员 ID 列表
+     */
+    ids: Array<number>;
+    /**
+     * User Tag Ids
+     *
+     * 用户标签 ID 列表
+     */
+    user_tag_ids: Array<number>;
+    /**
+     * Action
+     *
+     * attach 为并入, detach 为移除; 两者均幂等
+     */
+    action: 'attach' | 'detach';
 };
 
 /**
@@ -644,18 +674,6 @@ export type DesktopResponse = {
  * 影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.
  */
 export type DownloadableResource = 'thumb' | 'poster' | 'extrafanart' | 'trailer';
-
-/**
- * FacetCreateRequest
- *
- * 仅 kind=user_tag 可创建.
- */
-export type FacetCreateRequest = {
-    /**
-     * Name
-     */
-    name: string;
-};
 
 /**
  * FacetKind
@@ -1777,44 +1795,6 @@ export type MetadataBatchScrapeResponse = {
 };
 
 /**
- * MetadataBatchUserTagsRequest
- */
-export type MetadataBatchUserTagsRequest = {
-    /**
-     * Ids
-     *
-     * Metadata ID 列表
-     */
-    ids: Array<number>;
-    /**
-     * User Tag Id
-     */
-    user_tag_id: number;
-    /**
-     * Action
-     */
-    action: 'attach' | 'detach';
-};
-
-/**
- * MetadataBatchUserTagsResponse
- */
-export type MetadataBatchUserTagsResponse = {
-    /**
-     * Affected
-     *
-     * 成功挂载/取消挂载的数量
-     */
-    affected: number;
-    /**
-     * Missing
-     *
-     * 不存在的 metadata id (或用户 tag 不存在时的全部 id) 数量
-     */
-    missing: number;
-};
-
-/**
  * MetadataDetailResponse
  */
 export type MetadataDetailResponse = {
@@ -2109,6 +2089,30 @@ export type MetadataResponse = {
  * MetadataSortField
  */
 export type MetadataSortField = 'number' | 'title' | 'studio' | 'release' | 'created_at' | 'updated_at' | 'file_count';
+
+/**
+ * MetadataUserTagsRequest
+ */
+export type MetadataUserTagsRequest = {
+    /**
+     * Ids
+     *
+     * Metadata ID 列表
+     */
+    ids: Array<number>;
+    /**
+     * User Tag Ids
+     *
+     * 用户标签 ID 列表
+     */
+    user_tag_ids: Array<number>;
+    /**
+     * Action
+     *
+     * attach 为并入, detach 为移除; 两者均幂等
+     */
+    action: 'attach' | 'detach';
+};
 
 /**
  * Mosaic
@@ -3433,6 +3437,32 @@ export type UpscaleSubmission = {
 };
 
 /**
+ * UserTagLinksResponse
+ *
+ * 用户标签挂载/卸载的结果计数; 三个字段均以条目 id 为单位, 之和等于去重后的条目数.
+ */
+export type UserTagLinksResponse = {
+    /**
+     * Changed
+     *
+     * 至少一处挂载关系发生变更的条目数
+     */
+    changed: number;
+    /**
+     * Unchanged
+     *
+     * 已处于目标态、未修改的条目数
+     */
+    unchanged: number;
+    /**
+     * Missing
+     *
+     * 不存在的条目 id 数
+     */
+    missing: number;
+};
+
+/**
  * UserTagResponse
  */
 export type UserTagResponse = {
@@ -3452,6 +3482,38 @@ export type UserTagResponse = {
      * Updated At
      */
     updated_at?: string | null;
+};
+
+/**
+ * UserTagsCreateRequest
+ *
+ * 批量取回或新建用户标签; 名称去重, 已存在的名称直接复用.
+ */
+export type UserTagsCreateRequest = {
+    /**
+     * Names
+     *
+     * 用户标签名称列表
+     */
+    names: Array<string>;
+};
+
+/**
+ * UserTagsCreateResponse
+ */
+export type UserTagsCreateResponse = {
+    /**
+     * Items
+     *
+     * 与入参同序的标签
+     */
+    items: Array<UserTagResponse>;
+    /**
+     * Created
+     *
+     * 本次新建的数量; 其余为已存在的名称
+     */
+    created: number;
 };
 
 /**
@@ -4059,7 +4121,7 @@ export type BatchScrapeMetadataResponses = {
 export type BatchScrapeMetadataResponse = BatchScrapeMetadataResponses[keyof BatchScrapeMetadataResponses];
 
 export type BatchMetadataUserTagsData = {
-    body: MetadataBatchUserTagsRequest;
+    body: MetadataUserTagsRequest;
     path?: never;
     query?: never;
     url: '/api/metadata/batch/user-tags';
@@ -4078,7 +4140,7 @@ export type BatchMetadataUserTagsResponses = {
     /**
      * Successful Response
      */
-    200: MetadataBatchUserTagsResponse;
+    200: UserTagLinksResponse;
 };
 
 export type BatchMetadataUserTagsResponse = BatchMetadataUserTagsResponses[keyof BatchMetadataUserTagsResponses];
@@ -4172,74 +4234,6 @@ export type UpdateMetadataResponses = {
 };
 
 export type UpdateMetadataResponse = UpdateMetadataResponses[keyof UpdateMetadataResponses];
-
-export type DetachUserTagData = {
-    body?: never;
-    path: {
-        /**
-         * Metadata Id
-         */
-        metadata_id: number;
-        /**
-         * User Tag Id
-         */
-        user_tag_id: number;
-    };
-    query?: never;
-    url: '/api/metadata/{metadata_id}/user-tags/{user_tag_id}';
-};
-
-export type DetachUserTagErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DetachUserTagError = DetachUserTagErrors[keyof DetachUserTagErrors];
-
-export type DetachUserTagResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type DetachUserTagResponse = DetachUserTagResponses[keyof DetachUserTagResponses];
-
-export type AttachUserTagData = {
-    body?: never;
-    path: {
-        /**
-         * Metadata Id
-         */
-        metadata_id: number;
-        /**
-         * User Tag Id
-         */
-        user_tag_id: number;
-    };
-    query?: never;
-    url: '/api/metadata/{metadata_id}/user-tags/{user_tag_id}';
-};
-
-export type AttachUserTagErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AttachUserTagError = AttachUserTagErrors[keyof AttachUserTagErrors];
-
-export type AttachUserTagResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type AttachUserTagResponse = AttachUserTagResponses[keyof AttachUserTagResponses];
 
 export type CropPosterFromThumbData = {
     body: CropPosterRequest;
@@ -4907,6 +4901,12 @@ export type ListActorsData = {
          */
         ids?: Array<number> | null;
         /**
+         * User Tag Ids
+         *
+         * 按用户标签筛选; 多值为 AND
+         */
+        user_tag_ids?: Array<number> | null;
+        /**
          * Saved Query Id
          *
          * Saved query preset id; AND with other filters via SQL subquery
@@ -4933,6 +4933,31 @@ export type ListActorsResponses = {
 };
 
 export type ListActorsResponse = ListActorsResponses[keyof ListActorsResponses];
+
+export type BatchActorUserTagsData = {
+    body: ActorUserTagsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/actors/batch/user-tags';
+};
+
+export type BatchActorUserTagsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type BatchActorUserTagsError = BatchActorUserTagsErrors[keyof BatchActorUserTagsErrors];
+
+export type BatchActorUserTagsResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserTagLinksResponse;
+};
+
+export type BatchActorUserTagsResponse = BatchActorUserTagsResponses[keyof BatchActorUserTagsResponses];
 
 export type GetActorData = {
     body?: never;
@@ -5027,30 +5052,30 @@ export type ScrapeActorResponses = {
 
 export type ScrapeActorResponse = ScrapeActorResponses[keyof ScrapeActorResponses];
 
-export type CreateUserTagData = {
-    body: FacetCreateRequest;
+export type CreateUserTagsData = {
+    body: UserTagsCreateRequest;
     path?: never;
     query?: never;
     url: '/api/facets/user_tag';
 };
 
-export type CreateUserTagErrors = {
+export type CreateUserTagsErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type CreateUserTagError = CreateUserTagErrors[keyof CreateUserTagErrors];
+export type CreateUserTagsError = CreateUserTagsErrors[keyof CreateUserTagsErrors];
 
-export type CreateUserTagResponses = {
+export type CreateUserTagsResponses = {
     /**
      * Successful Response
      */
-    201: FacetResponse;
+    200: UserTagsCreateResponse;
 };
 
-export type CreateUserTagResponse = CreateUserTagResponses[keyof CreateUserTagResponses];
+export type CreateUserTagsResponse = CreateUserTagsResponses[keyof CreateUserTagsResponses];
 
 export type ListFacetsData = {
     body?: never;
