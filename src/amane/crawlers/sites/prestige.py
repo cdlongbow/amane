@@ -4,18 +4,35 @@
 站点限定日本 IP: 非日本 IP 下 curl_cffi 得 CloudFront 403, 系统 curl 得地域限制文案.
 """
 
-from typing import Any
+from typing import Any, override
 
 from ...enums import SiteName
+from ...net.connectivity import ConnectivityOutcome, probe_get
 from ..base import Crawler, CrawlerProfile
 from ..http import RequestError
 from ..models import FetchOptions, MediaMetadata, SearchQuery, film_actors
+
+# 探测样本番号, 必须是在售商品: 站点对不存在的 SKU 返回 404, 探测结论会落成失败.
+_PROBE_SKU = "ABW-350"
 
 
 class PrestigeCrawler(Crawler):
     @classmethod
     def profile(cls) -> CrawlerProfile:
         return CrawlerProfile(name=SiteName.PRESTIGE, base_url="https://www.prestige-av.com")
+
+    @override
+    async def check_connectivity(self) -> ConnectivityOutcome:
+        """真实入口是 SKU JSON API; 首页带年龄墙, 探测首页会把可用的来源报成不可达."""
+        return await probe_get(
+            self.client.web_client,
+            self._sku_url(_PROBE_SKU),
+            cookies=self.cookies,
+            headers=self.headers,
+        )
+
+    def _sku_url(self, sku_id: str) -> str:
+        return f"{self.base_url}/api/sku/item/{sku_id}"
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
         number = query.number.upper()
@@ -32,7 +49,7 @@ class PrestigeCrawler(Crawler):
         last_error: RequestError | None = None
         any_ok = False
         for sku_id in candidates:
-            sku_url = f"{self.base_url}/api/sku/item/{sku_id}"
+            sku_url = self._sku_url(sku_id)
             try:
                 data = await self.client.get_json(sku_url)
             except RequestError as exc:

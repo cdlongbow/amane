@@ -614,6 +614,74 @@ export type CommentUpdateRequest = {
 };
 
 /**
+ * ConnectivityCheckRequest
+ *
+ * 缺省或空 ``source_ids`` = 探测当前配置真正会请求的全部来源.
+ */
+export type ConnectivityCheckRequest = {
+    /**
+     * Source Ids
+     */
+    source_ids?: Array<string> | null;
+};
+
+/**
+ * ConnectivityItemResponse
+ *
+ * 一个来源的探测结果.
+ *
+ * ``reason`` (失败) 与 ``skip_reason`` (未探测) 都是枚举, 本地化由前端完成; ``detail`` 是语言中立的
+ * 补充说明 (例如异常类名), 界面原样渲染. ``elapsed_ms`` 只在真正探测过时有值.
+ */
+export type ConnectivityItemResponse = {
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    kind: SourceKind;
+    status: ConnectivityStatus;
+    /**
+     * Url
+     */
+    url?: string | null;
+    /**
+     * Http Status
+     */
+    http_status?: number | null;
+    reason?: FailureReason | null;
+    skip_reason?: SkipReason | null;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+    /**
+     * Elapsed Ms
+     */
+    elapsed_ms?: number | null;
+};
+
+/**
+ * ConnectivityReportResponse
+ */
+export type ConnectivityReportResponse = {
+    /**
+     * Items
+     */
+    items?: Array<ConnectivityItemResponse>;
+};
+
+/**
+ * ConnectivityStatus
+ *
+ * 一次探测的结论. ``SKIPPED`` 是该来源本次不探测, 不是失败.
+ */
+export type ConnectivityStatus = 'ok' | 'failed' | 'skipped';
+
+/**
  * ContentType
  */
 export type ContentType = 'censored' | 'uncensored' | 'chinese' | 'western' | 'fc2' | 'amateur' | 'hentai';
@@ -794,7 +862,7 @@ export type FacetSortField = 'name' | 'count';
  *
  * summary.json / task report 的 reason 字段.
  */
-export type FailureReason = 'http_error' | 'not_found' | 'rate_limited' | 'server_error' | 'timeout' | 'network' | 'cloudflare_challenge' | 'cloudflare_blocked' | 'ip_banned' | 'geo_restricted' | 'age_verification' | 'empty_response' | 'no_usable_metadata' | 'parse_error' | 'crawler_unavailable' | 'unexpected';
+export type FailureReason = 'http_error' | 'api_error' | 'not_found' | 'rate_limited' | 'server_error' | 'timeout' | 'network' | 'cloudflare_challenge' | 'cloudflare_blocked' | 'ip_banned' | 'geo_restricted' | 'age_verification' | 'empty_response' | 'no_usable_metadata' | 'parse_error' | 'crawler_unavailable' | 'unexpected';
 
 /**
  * FeedCreateRequest
@@ -3003,6 +3071,16 @@ export type SiteOutcomeRecord = {
 };
 
 /**
+ * SkipReason
+ *
+ * ``SKIPPED`` 的原因.
+ *
+ * 与 ``FailureReason`` 分开: 这一档不是失败, 文案也不进任务报告. 界面按它本地化, 因此每种原因
+ * 都要能独立读懂, 不依赖 ``detail``.
+ */
+export type SkipReason = 'unknown_source' | 'no_http_upstream' | 'missing_credential' | 'undeclared' | 'no_url';
+
+/**
  * SortOrder
  */
 export type SortOrder = 'asc' | 'desc';
@@ -3062,6 +3140,13 @@ export type SourceDescriptor = {
      */
     rate_limit?: number | null;
 };
+
+/**
+ * SourceKind
+ *
+ * 来源类别, 供展示分组用. 插件来源的 ID 由插件命名空间决定, 不能从名字反推.
+ */
+export type SourceKind = 'film' | 'actor' | 'plugin';
 
 /**
  * SrConfig
@@ -4294,6 +4379,34 @@ export type MergeMetadataResponses = {
 };
 
 export type MergeMetadataResponse = MergeMetadataResponses[keyof MergeMetadataResponses];
+
+export type CheckConnectivityData = {
+    /**
+     * Req
+     */
+    body?: ConnectivityCheckRequest | null;
+    path?: never;
+    query?: never;
+    url: '/api/network/check';
+};
+
+export type CheckConnectivityErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CheckConnectivityError = CheckConnectivityErrors[keyof CheckConnectivityErrors];
+
+export type CheckConnectivityResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConnectivityReportResponse;
+};
+
+export type CheckConnectivityResponse = CheckConnectivityResponses[keyof CheckConnectivityResponses];
 
 export type ListPlaybackSourcesData = {
     body?: never;

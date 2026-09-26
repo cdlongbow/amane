@@ -1079,6 +1079,148 @@ export const CommentUpdateRequestSchema = {
     title: 'CommentUpdateRequest'
 } as const;
 
+export const ConnectivityCheckRequestSchema = {
+    properties: {
+        source_ids: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Source Ids'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'ConnectivityCheckRequest',
+    description: '缺省或空 ``source_ids`` = 探测当前配置真正会请求的全部来源.'
+} as const;
+
+export const ConnectivityItemResponseSchema = {
+    properties: {
+        source_id: {
+            type: 'string',
+            title: 'Source Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        kind: {
+            $ref: '#/components/schemas/SourceKind'
+        },
+        status: {
+            $ref: '#/components/schemas/ConnectivityStatus'
+        },
+        url: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Url'
+        },
+        http_status: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Http Status'
+        },
+        reason: {
+            anyOf: [
+                {
+                    $ref: '#/components/schemas/FailureReason'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        skip_reason: {
+            anyOf: [
+                {
+                    $ref: '#/components/schemas/SkipReason'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        detail: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Detail'
+        },
+        elapsed_ms: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Elapsed Ms'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'source_id',
+        'name',
+        'kind',
+        'status'
+    ],
+    title: 'ConnectivityItemResponse',
+    description: '一个来源的探测结果.\n\n``reason`` (失败) 与 ``skip_reason`` (未探测) 都是枚举, 本地化由前端完成; ``detail`` 是语言中立的\n补充说明 (例如异常类名), 界面原样渲染. ``elapsed_ms`` 只在真正探测过时有值.'
+} as const;
+
+export const ConnectivityReportResponseSchema = {
+    properties: {
+        items: {
+            items: {
+                $ref: '#/components/schemas/ConnectivityItemResponse'
+            },
+            type: 'array',
+            title: 'Items'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'ConnectivityReportResponse'
+} as const;
+
+export const ConnectivityStatusSchema = {
+    type: 'string',
+    enum: [
+        'ok',
+        'failed',
+        'skipped'
+    ],
+    title: 'ConnectivityStatus',
+    description: '一次探测的结论. ``SKIPPED`` 是该来源本次不探测, 不是失败.'
+} as const;
+
 export const ContentTypeSchema = {
     type: 'string',
     enum: [
@@ -1361,6 +1503,7 @@ export const FailureReasonSchema = {
     type: 'string',
     enum: [
         'http_error',
+        'api_error',
         'not_found',
         'rate_limited',
         'server_error',
@@ -6112,6 +6255,19 @@ export const SiteOutcomeRecordSchema = {
     description: '由 Recorder.record_site_outcome 唯一写入.'
 } as const;
 
+export const SkipReasonSchema = {
+    type: 'string',
+    enum: [
+        'unknown_source',
+        'no_http_upstream',
+        'missing_credential',
+        'undeclared',
+        'no_url'
+    ],
+    title: 'SkipReason',
+    description: '``SKIPPED`` 的原因.\n\n与 ``FailureReason`` 分开: 这一档不是失败, 文案也不进任务报告. 界面按它本地化, 因此每种原因\n都要能独立读懂, 不依赖 ``detail``.'
+} as const;
+
 export const SortOrderSchema = {
     type: 'string',
     enum: [
@@ -6216,6 +6372,17 @@ export const SourceDescriptorSchema = {
     ],
     title: 'SourceDescriptor',
     description: 'Stable, serializable description of a metadata source.'
+} as const;
+
+export const SourceKindSchema = {
+    type: 'string',
+    enum: [
+        'film',
+        'actor',
+        'plugin'
+    ],
+    title: 'SourceKind',
+    description: '来源类别, 供展示分组用. 插件来源的 ID 由插件命名空间决定, 不能从名字反推.'
 } as const;
 
 export const SrConfigSchema = {

@@ -8,6 +8,7 @@ import time
 from typing import TYPE_CHECKING, override
 
 from ...enums import SiteName
+from ...net.connectivity import ConnectivityOutcome, SkipReason
 from ..base import Crawler, CrawlerProfile
 from ..models import FetchOptions, MediaMetadata, SearchQuery
 from ..r18dev import R18Repository, content_id_candidates, to_metadata
@@ -27,6 +28,11 @@ class R18DevCrawler(Crawler):
     def __init__(self, client: HttpClient, config: SiteConfig | None = None, db: R18Database | None = None):
         super().__init__(client, config=config)
         self._db = db
+
+    @override
+    async def check_connectivity(self) -> ConnectivityOutcome:
+        """本源无 HTTP 上游: 数据来自用户自备的离线 PG 镜像, 没有可探测的站点入口."""
+        return ConnectivityOutcome.skipped(SkipReason.NO_HTTP_UPSTREAM)
 
     @override
     async def fetch(self, query: SearchQuery, options: FetchOptions | None = None) -> MediaMetadata | None:

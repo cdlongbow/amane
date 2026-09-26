@@ -187,16 +187,23 @@ class WebClient:
         timeout: float | None = None,
         allow_redirects: bool = True,
         ok_statuses: frozenset[int] | None = None,
+        max_attempts: int | None = None,
     ) -> Response:
-        """``ok_statuses`` 额外视为成功 (例如 RSS 304), 不重试、不当失败. 重试用尽后抛 ``RequestError``."""
+        """``ok_statuses`` 额外视为成功 (例如 RSS 304), 不重试、不当失败. 重试用尽后抛 ``RequestError``.
+
+        ``max_attempts`` 向下覆盖构造期的 ``max_retries``, 供一次性的探测使用. ``max_retries`` 实为总
+        **尝试次数** (``3`` → 最多发 3 次请求), 名字为兼容既有配置保留; 两者都至少发一次请求, 配置 0
+        表示不重试而不是一次都不发.
+        """
         host = httpx.URL(url).host
         headers = _with_same_origin_referer(host, headers, self._same_origin_referer_hosts)
         await self._limiters.get(host).acquire()
 
+        attempts = max(1, self._max_retries if max_attempts is None else min(max_attempts, self._max_retries))
         t0 = time.monotonic()
         failure: RequestFailure | None = None
         last_resp: Response | None = None
-        for attempt in range(self._max_retries):
+        for attempt in range(attempts):
             should_retry = False
             try:
                 resp: Response = await self._session.request(
@@ -244,14 +251,14 @@ class WebClient:
             if not should_retry:
                 break
 
-            if attempt < self._max_retries - 1:
+            if attempt < attempts - 1:
                 wait = attempt * 3 + 2 + random.uniform(-1, 1)
                 logger.warning(
                     "request retry",
                     method=method,
                     url=url,
                     attempt=attempt + 1,
-                    max_retries=self._max_retries,
+                    max_retries=attempts,
                     error=failure.message,
                     retry_in=wait,
                 )
@@ -263,11 +270,11 @@ class WebClient:
             method=method,
             url=url,
             error=failure.message if failure else None,
-            attempts=self._max_retries,
+            attempts=attempts,
             duration_s=round(time.monotonic() - t0, 2),
         )
         self._record_exchange(
-            method, url, resp=last_resp, error=failure.message if failure else None, t0=t0, attempts=self._max_retries
+            method, url, resp=last_resp, error=failure.message if failure else None, t0=t0, attempts=attempts
         )
         raise RequestError(url, failure)
 
